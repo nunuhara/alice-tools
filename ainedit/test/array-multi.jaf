@@ -1,0 +1,6 @@
+int main()
+{
+	array@int@2 a[1][2];
+	a[0][1] = 1;
+	return !(a[0][1] == 1);
+}

@@ -1,0 +1,9 @@
+int div(int a, int b)
+{
+	return a / b;
+}
+
+int main()
+{
+	return !(div(12, 3) == 4);
+}

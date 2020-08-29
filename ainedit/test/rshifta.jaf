@@ -1,0 +1,9 @@
+int rshifta(int a, int b)
+{
+	return a >>= b;
+}
+
+int main()
+{
+	return !(rshifta(8, 3) == 1);
+}

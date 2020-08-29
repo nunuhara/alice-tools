@@ -1,0 +1,37 @@
+project('alice-tools', 'c',
+        default_options : ['c_std=c11'])
+add_project_arguments('-D_DEFAULT_SOURCE', language : 'c')
+
+zlib = dependency('zlib')
+libm = meson.get_compiler('c').find_library('m', required: false)
+
+flex = find_program('flex')
+bison = find_program('bison')
+
+libsys4_proj = subproject('libsys4')
+libsys4_dep = libsys4_proj.get_variable('libsys4_dep')
+
+if build_machine.system() == 'windows'
+    iconv = dependency('iconv')
+    tool_deps = [libm, zlib, iconv, libsys4_dep]
+else
+    tool_deps = [libm, zlib, libsys4_dep]
+endif
+
+incdir = include_directories('include')
+
+flexgen = generator(flex,
+                    output : '@BASENAME@.yy.c',
+                    arguments : ['-o', '@OUTPUT@', '@INPUT@'])
+
+bisongen = generator(bison,
+                     output: ['@BASENAME@.tab.c', '@BASENAME@.tab.h'],
+                     arguments : ['--verbose', '@INPUT@', '--defines=@OUTPUT1@', '--output=@OUTPUT0@'])
+
+subdir('acx')
+subdir('aindump')
+subdir('ainedit')
+subdir('aincmp')
+subdir('ar')
+subdir('ex')
+subdir('fnl')

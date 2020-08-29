@@ -1,0 +1,8 @@
+int main()
+{
+	int a;
+	ref int ra = a;
+	ref int rb = ra;
+	rb = 1;
+	return !(a == 1);
+}

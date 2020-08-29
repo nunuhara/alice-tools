@@ -1,0 +1,9 @@
+int gt(int a, int b)
+{
+	return a > b;
+}
+
+int main()
+{
+	return !gt(3, 2);
+}

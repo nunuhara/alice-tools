@@ -1,0 +1,11 @@
+void intref(ref int a)
+{
+	a = 13;
+}
+
+int main()
+{
+	int i;
+	intref(i);
+	return !(i == 13);
+}

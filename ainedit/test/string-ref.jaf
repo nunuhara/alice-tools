@@ -1,0 +1,11 @@
+void stringref(ref string a)
+{
+	a = "13";
+}
+
+int main()
+{
+	string s;
+	stringref(s);
+	return !(s == "13");
+}

@@ -1,0 +1,9 @@
+int neq(int a, int b)
+{
+	return a != b;
+}
+
+int main()
+{
+	return !neq(2, 3);
+}

@@ -1,0 +1,16 @@
+int result = 0;
+
+void message(int n, int total, string msg)
+{
+}
+
+void A(void)
+{
+	result = 1;
+}
+
+int main()
+{
+	'test' A;
+	return !(result == 1);
+}

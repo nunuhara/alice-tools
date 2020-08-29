@@ -1,0 +1,8 @@
+int main()
+{
+	string a;
+	ref string ra = a;
+	ref string rb = ra;
+	ra = "1";
+	return !(a == "1");
+}

@@ -1,0 +1,9 @@
+float f_sub(float a, float b)
+{
+	return a - b;
+}
+
+int main()
+{
+	return !(f_sub(2.0, 3.3) == -1.3);
+}

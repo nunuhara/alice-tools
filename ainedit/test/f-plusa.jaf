@@ -1,0 +1,9 @@
+float plusa(float a, float b)
+{
+	return a += b;
+}
+
+int main()
+{
+	return !(plusa(2.0, 3.3) == 5.3);
+}

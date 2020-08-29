@@ -1,0 +1,13 @@
+struct foo {
+	int pad;
+	int i;
+};
+
+int main()
+{
+	foo a;
+	ref foo ra = a;
+	ref foo rb = ra;
+	rb.i = 1;
+	return !(a.i == 1);
+}

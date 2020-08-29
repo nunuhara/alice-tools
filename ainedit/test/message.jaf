@@ -1,0 +1,12 @@
+int result = 0;
+
+void message(int n, int total, string msg)
+{
+	result = msg == "test";
+}
+
+int main()
+{
+	'test';
+	return !(result == 1);
+}

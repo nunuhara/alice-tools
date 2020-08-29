@@ -1,0 +1,9 @@
+int eq(float a, float b)
+{
+	return a == b;
+}
+
+int main()
+{
+	return !eq(2.0, 2.0);
+}

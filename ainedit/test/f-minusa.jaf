@@ -1,0 +1,9 @@
+float minusa(float a, float b)
+{
+	return a -= b;
+}
+
+int main()
+{
+	return !(minusa(2.0, 3.3) == -1.3);
+}

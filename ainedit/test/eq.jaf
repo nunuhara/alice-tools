@@ -1,0 +1,9 @@
+int eq(int a, int b)
+{
+	return a == b;
+}
+
+int main()
+{
+	return !eq(2, 2);
+}

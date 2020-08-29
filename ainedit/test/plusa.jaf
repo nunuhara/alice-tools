@@ -1,0 +1,9 @@
+int plusa(int a, int b)
+{
+	return a += b;
+}
+
+int main()
+{
+	return !(plusa(2, 3) == 5);
+}

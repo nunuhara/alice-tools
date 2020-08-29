@@ -1,0 +1,12 @@
+functype int thunk(void);
+
+int one(void)
+{
+	return 1;
+}
+
+int main()
+{
+	thunk f = &one;
+	return !(f() == 1);
+}

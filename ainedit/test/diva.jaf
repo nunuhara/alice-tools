@@ -1,0 +1,9 @@
+int diva(int a, int b)
+{
+	return a /= b;
+}
+
+int main()
+{
+	return !(diva(12, 3) == 4);
+}

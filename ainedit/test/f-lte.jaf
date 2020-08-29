@@ -1,0 +1,9 @@
+int lte(float a, float b)
+{
+	return a <= b;
+}
+
+int main()
+{
+	return !lte(3.3, 3.3);
+}

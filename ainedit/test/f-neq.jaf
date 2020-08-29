@@ -1,0 +1,9 @@
+int neq(float a, float b)
+{
+	return a != b;
+}
+
+int main()
+{
+	return !neq(2.0, 3.0);
+}

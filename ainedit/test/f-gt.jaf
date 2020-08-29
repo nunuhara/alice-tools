@@ -1,0 +1,9 @@
+int gt(float a, float b)
+{
+	return a > b;
+}
+
+int main()
+{
+	return !gt(3.0, 2.2);
+}

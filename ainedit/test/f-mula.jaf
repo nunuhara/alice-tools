@@ -1,0 +1,9 @@
+float mula(float a, float b)
+{
+	return a *= b;
+}
+
+int main()
+{
+	return !(mula(2.0, 3.3) == 6.6);
+}

@@ -1,0 +1,3 @@
+[submodule "subprojects/libsys4"]
+	path = subprojects/libsys4
+	url = https://github.com/nunuhara/libsys4

@@ -1,0 +1,9 @@
+int gt(string a, string b)
+{
+	return a > b;
+}
+
+int main()
+{
+	return !gt("b", "a");
+}

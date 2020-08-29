@@ -1,0 +1,9 @@
+int xora(int a, int b)
+{
+	return a ^= b;
+}
+
+int main()
+{
+	return !(xora(2, 3) == 1);
+}

@@ -1,0 +1,12 @@
+functype int arithmetic(int, int);
+
+int add(int a, int b)
+{
+	return a + b;
+}
+
+int main()
+{
+	arithmetic f = &add;
+	return !(f(1, 2) == 3);
+}

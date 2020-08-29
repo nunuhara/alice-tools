@@ -1,0 +1,9 @@
+int neq(string a, string b)
+{
+	return a != b;
+}
+
+int main()
+{
+	return !neq("a", "b");
+}

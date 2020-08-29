@@ -1,0 +1,9 @@
+int or(int a, int b)
+{
+	return a || b;
+}
+
+int main()
+{
+	return !or(1, 0);
+}

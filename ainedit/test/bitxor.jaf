@@ -1,0 +1,9 @@
+int xor(int a, int b)
+{
+	return a ^ b;
+}
+
+int main()
+{
+	return !(xor(2, 3) == 1);
+}

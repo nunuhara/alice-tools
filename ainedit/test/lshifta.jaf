@@ -1,0 +1,9 @@
+int lshifta(int a, int b)
+{
+	return a <<= b;
+}
+
+int main()
+{
+	return !(lshifta(1, 3) == 8);
+}

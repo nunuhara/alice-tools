@@ -1,0 +1,9 @@
+float f_add(float a, float b)
+{
+	return a + b;
+}
+
+int main()
+{
+	return !(f_add(2.0, 3.3) == 5.3);
+}

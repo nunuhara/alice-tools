@@ -1,0 +1,9 @@
+int gte(int a, int b)
+{
+	return a >= b;
+}
+
+int main()
+{
+	return !gte(2, 2);
+}

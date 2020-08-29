@@ -1,0 +1,9 @@
+int eq(string a, string b)
+{
+	return a == b;
+}
+
+int main()
+{
+	return !eq("a", "a");
+}

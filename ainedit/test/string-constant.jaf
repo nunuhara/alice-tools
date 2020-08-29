@@ -1,0 +1,5 @@
+int main()
+{
+	string a = "asdf\n" "\nfdsa";
+	return !(a == "asdf\n\nfdsa");
+}

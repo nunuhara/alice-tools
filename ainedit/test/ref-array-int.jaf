@@ -1,0 +1,11 @@
+void set(ref array@int a)
+{
+	a[0] = 1;
+}
+
+int main()
+{
+	array@int a[1];
+	set(a);
+	return !(a[0] == 1);
+}

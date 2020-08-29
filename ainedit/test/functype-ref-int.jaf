@@ -1,0 +1,13 @@
+functype int arithmetic(ref int, int);
+
+int add(ref int a, int b)
+{
+	return a + b;
+}
+
+int main()
+{
+	int a = 1;
+	arithmetic f = &add;
+	return !(f(a, 2) == 3);
+}

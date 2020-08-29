@@ -1,0 +1,16 @@
+struct foo {
+	int pad;
+	int i;
+};
+
+void set(ref foo a)
+{
+	a.i = 1;
+}
+
+int main()
+{
+	foo a;
+	set(a);
+	return !(a.i == 1);
+}

@@ -1,0 +1,9 @@
+int lt(string a, string b)
+{
+	return a < b;
+}
+
+int main()
+{
+	return !lt("a", "b");
+}

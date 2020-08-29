@@ -1,0 +1,9 @@
+int anda(int a, int b)
+{
+	return a &= b;
+}
+
+int main()
+{
+	return !(anda(3, 2) == 2);
+}

@@ -1,0 +1,9 @@
+int iora(int a, int b)
+{
+	return a |= b;
+}
+
+int main()
+{
+	return !(iora(1, 2) == 3);
+}

@@ -1,0 +1,11 @@
+void floatref(ref float a)
+{
+	a = 1.3;
+}
+
+int main()
+{
+	float f;
+	floatref(f);
+	return !(f == 1.3);
+}

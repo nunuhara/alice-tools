@@ -1,0 +1,11 @@
+void addone(ref int i)
+{
+	i = i+1;
+}
+
+int main()
+{
+	array@int a[1];
+	addone(a[0]);
+	return !(a[0] == 1);
+}

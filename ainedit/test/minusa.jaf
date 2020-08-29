@@ -1,0 +1,9 @@
+int minusa(int a, int b)
+{
+	return a -= b;
+}
+
+int main()
+{
+	return !(minusa(2, 3) == -1);
+}

@@ -1,0 +1,9 @@
+float f_mul(float a, float b)
+{
+	return a * b;
+}
+
+int main()
+{
+	return !(f_mul(2.0, 3.3) == 6.6);
+}
