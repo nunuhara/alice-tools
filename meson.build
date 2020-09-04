@@ -11,11 +11,11 @@ bison = find_program('bison')
 libsys4_proj = subproject('libsys4')
 libsys4_dep = libsys4_proj.get_variable('libsys4_dep')
 
-if build_machine.system() == 'windows'
+if meson.get_compiler('c').has_function('iconv')
+    tool_deps = [libm, zlib, libsys4_dep]
+else
     iconv = dependency('iconv')
     tool_deps = [libm, zlib, iconv, libsys4_dep]
-else
-    tool_deps = [libm, zlib, libsys4_dep]
 endif
 
 incdir = include_directories('include')
