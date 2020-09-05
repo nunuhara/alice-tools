@@ -19,8 +19,7 @@
 	struct string *string;
     };
 
-    assignment_list *statements;
-
+    extern assignment_list *statements;
 }
 
 %{
@@ -31,6 +30,7 @@
 
 extern int text_lex();
 extern unsigned long text_line;
+assignment_list *statements;
 
 void text_error(const char *s)
 {

@@ -368,8 +368,8 @@ void jaf_free_expr(struct jaf_expression *expr);
 void jaf_free_block(struct jaf_block *block);
 
 // jaf_parser.y
-struct ain *jaf_ain_out;
-struct jaf_block *jaf_toplevel;
+extern struct ain *jaf_ain_out;
+extern struct jaf_block *jaf_toplevel;
 struct jaf_block *jaf_parse(struct ain *ain, const char **files, unsigned nr_files);
 
 // jaf_compile.c

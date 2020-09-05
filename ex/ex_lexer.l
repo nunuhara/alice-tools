@@ -31,8 +31,8 @@
 
 char *encode_text(const char *str);
 
-char string_buf[65536];
-char *string_buf_ptr;
+static char string_buf[65536];
+static char *string_buf_ptr;
 
 struct string *make_string_from_utf8(const char *str, size_t len)
 {

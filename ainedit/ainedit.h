@@ -64,7 +64,7 @@ enum asm_pseudo_opcode {
 	NR_PSEUDO_OPS
 };
 
-const struct instruction asm_pseudo_ops[NR_PSEUDO_OPS - PSEUDO_OP_OFFSET];
+extern const struct instruction asm_pseudo_ops[NR_PSEUDO_OPS - PSEUDO_OP_OFFSET];
 
 // pje.c
 void pje_build(const char *path, int ain_version);

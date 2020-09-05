@@ -22,10 +22,10 @@
         parse_argument_list *args;
     };
 
-    parse_instruction_list *parsed_code;
+    extern parse_instruction_list *parsed_code;
 
     KHASH_MAP_INIT_STR(label_table, uint32_t);
-    khash_t(label_table) *label_table;
+    extern khash_t(label_table) *label_table;
 }
 
 %{
@@ -40,6 +40,8 @@
 
 extern int asm_lex();
 extern unsigned long asm_line;
+parse_instruction_list *parsed_code;
+khash_t(label_table) *label_table;
 
 #define PARSE_ERROR(fmt, ...)						\
     sys_error("ERROR: At line %d: " fmt "\n", asm_line-1, ##__VA_ARGS__)

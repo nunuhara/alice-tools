@@ -34,12 +34,12 @@
 extern int yylex();
 void yyerror(const char *s);
 int yyparse(void);
-FILE *yyin;
+extern FILE *yyin;
 
 struct ain *jaf_ain_out;
 struct jaf_block *jaf_toplevel;
 
-unsigned long jaf_line;
+extern unsigned long jaf_line;
 const char *jaf_file;
 
 static FILE *open_jaf_file(const char *file)

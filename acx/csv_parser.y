@@ -35,7 +35,7 @@
 extern int csv_lex();
 extern unsigned long csv_line;
 
-FILE *csv_in;
+static FILE *csv_input;
 static struct acx *acx_output;
 
 void csv_error(const char *s)
@@ -46,10 +46,10 @@ void csv_error(const char *s)
 struct acx *acx_parse(const char *path)
 {
     if (!strcmp(path, "-"))
-	csv_in = stdin;
+	csv_input = stdin;
     else
-	csv_in = fopen(path, "rb");
-    if (!csv_in)
+	csv_input = fopen(path, "rb");
+    if (!csv_input)
 	ERROR("Opening input file '%s': %s", path, strerror(errno));
 
     csv_parse();

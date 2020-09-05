@@ -29,8 +29,7 @@
     kv_decl(row_list,   value_list*);
     kv_decl(node_list,  struct ex_tree*);
 
-    struct ex *ex_data;
-
+    extern struct ex *ex_data;
 }
 
 %{
@@ -43,6 +42,8 @@
 
 extern int yex_lex();
 extern unsigned long yex_line;
+
+struct ex *ex_data;
 
 void yex_error(const char *s)
 {

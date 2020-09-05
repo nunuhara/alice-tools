@@ -23,8 +23,8 @@
 #include "system4.h"
 #include "system4/string.h"
 
-char string_buf[65536];
-char *string_buf_ptr;
+static char string_buf[65536];
+static char *string_buf_ptr;
 
 unsigned long csv_line = 1;
 extern void csv_error(const char *s);

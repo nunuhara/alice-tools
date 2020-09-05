@@ -25,8 +25,8 @@
 
 #define SAVE_TOKEN asm_lval.string = makes_string(asm_text, asm_leng)
 
-char string_buf[65536];
-char *string_buf_ptr;
+static char string_buf[65536];
+static char *string_buf_ptr;
 
 unsigned long asm_line = 1;
 extern void asm_error(const char *s);
