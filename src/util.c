@@ -1,0 +1,70 @@
+/* Copyright (C) 2019 Nunuhara Cabbage <nunuhara@haniwa.technology>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <http://gnu.org/licenses/>.
+ */
+
+#include <stdlib.h>
+#include <string.h>
+#include "system4.h"
+#include "alice.h"
+
+static char *_escape_string(const char *str, const char *escape_chars, const char *replace_chars)
+{
+	int escapes = 0;
+	char *u = conv_output(str);
+
+	// count number of required escapes
+	for (int i = 0; u[i]; i++) {
+		if (u[i] & 0x80)
+			continue;
+		for (int j = 0; escape_chars[j]; j++) {
+			if (u[i] == escape_chars[j]) {
+				escapes++;
+				break;
+			}
+		}
+	}
+
+	// add backslash escapes
+	if (escapes > 0) {
+		int dst = 0;
+		int len = strlen(u);
+		char *tmp = xmalloc(len + escapes + 1);
+		for (int i = 0; u[i]; i++) {
+			bool escaped = false;
+			for (int j = 0; escape_chars[j]; j++) {
+				if (u[i] == escape_chars[j]) {
+					tmp[dst++] = '\\';
+					tmp[dst++] = replace_chars[j];
+					escaped = true;
+					break;
+				}
+			}
+			if (!escaped)
+				tmp[dst++] = u[i];
+		}
+		tmp[len+escapes] = '\0';
+		free(u);
+		u = tmp;
+	}
+
+	return u;
+}
+
+char *escape_string(const char *str)
+{
+	const char escape_chars[]  = { '\\', '\"', '\n', 0 };
+	const char replace_chars[] = { '\\', '\"', 'n',  0  };
+	return _escape_string(str, escape_chars, replace_chars);
+}

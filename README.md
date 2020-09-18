@@ -2,17 +2,7 @@ alice-tools
 ===========
 
 This is a collection of command-line tools for viewing and editing file formats
-used in AliceSoft games. The currently included tools are:
-
-* aindump  - used to extract information from .ain files (code, text, etc.)
-* ainedit  - used to reinsert information back into an .ain file
-* exdump   - used to extract information from .ex files (static data)
-* exbuild  - used to rebuild an .ex file dumped by exdump
-* alice-ar - used to extract .ald/.afa/.flat files
-* acxdump  - used to dump .acx files
-* acxbuild - used to rebuild .acx files dumped by acxdump
-
-More tools are planned for future releases.
+used in AliceSoft games.
 
 Building
 --------
@@ -42,6 +32,27 @@ Then build the tools with meson,
 
 Usage
 -----
+
+All of the tools are accessed through the single `alice` executable. Running
+`alice` or any command without arguments will print the relevant usage
+instructions. E.g.
+
+    alice
+    alice ain
+    alice ain dump
+    
+The currently implemented commands are:
+
+    alice acx build   - Build a .acx file from a .csv
+    alice acx dump    - Dump the contents of a .acx file to .csv
+    alice ain compare - Compare .ain files
+    alice ain dump    - Dump various info fram a .ain file
+    alice ain edit    - Edit a .ain file
+    alice ar  extract - Extract an archive file
+    alice ar  list    - List the contents of an archive file
+    alice ex  build   - Build a .ex file
+    alice ex  compare - Compare .ex files
+    alice ex  dump    - Dump the contents of a .ex file
 
 ### Editing .ain files
 

@@ -10,19 +10,19 @@ current directory which you intend to edit.
 
 ### Editing Text
 
-First, dump the text using aindump as follows:
+First, dump the text using the following command:
 
-    aindump -t -o out.txt Rance10.ain
+    alice ain dump -t -o out.txt Rance10.ain
 
 This will create a file named "out.txt" containing all of the strings/messages
 in the .ain file, sorted by function.
 
 The syntax of this file is relatively simple. Anything following a ";"
-character up until the end of a line is considered a comment and ignored by
-ainedit when the file is read back in. Initially all lines are commented out,
-meaning that this file will cause no change to the output .ain file when given
-to ainedit. To change a line of text, you must first remove the leading ";"
-character from that line.
+character up until the end of a line is considered a comment and ignored when
+the file is read back in. Initially all lines are commented out, meaning that
+this file will cause no change to the output .ain file when given to ainedit.
+To change a line of text, you must first remove the leading ";" character from
+that line.
 
 An uncommented line should contain one of the following forms:
 
@@ -42,7 +42,7 @@ instance will be reflected in the output .ain file.
 Once you've finished editing the text, you can reinsert it back into the ain
 file by issuing the following command:
 
-    ainedit -t out.txt -o out.ain Rance10.ain
+    alice ain edit -t out.txt -o out.ain Rance10.ain
 
 This will create a file called "out.ain", which is a modified version of
 "Rance10.ain" containing the modified text from the file "out.txt". You can
@@ -50,9 +50,9 @@ then replace the .ain file in your game directory with this file.
 
 ### Editing Code
 
-First, dump the code using aindump as follows:
+First, dump the code with the following command:
 
-    aindump -c -o out.jam Rance10.ain
+    alice ain dump -c -o out.jam Rance10.ain
 
 This will create a file named "out.jam" containing the disassembled bytecode
 from the file "Rance10.ain".
@@ -66,7 +66,7 @@ SomeLoliCatgirl's "AinDecompiler" tool.
 Once you've finished editing out.jam, you can reinsert the code back into the
 .ain file using the following command:
 
-    ainedit -c out.jam -o out.ain Rance10.ain
+    alice ain edit -c out.jam -o out.ain Rance10.ain
 
 This will create a file called "out.ain", which is a modified version of
 "Rance10.ain" containing the modified code from the file "out.jam". You can
