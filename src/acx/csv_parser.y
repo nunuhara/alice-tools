@@ -133,11 +133,11 @@ static int parse_int(const char *tok)
     return i;
 }
 
-struct tagged_acx_value *value_int(struct string *s)
+struct tagged_acx_value *value_int(struct string *s, int sign)
 {
     struct tagged_acx_value *value = xmalloc(sizeof(struct tagged_acx_value));
     value->type = ACX_INT;
-    value->value.i = parse_int(s->text);
+    value->value.i = sign * parse_int(s->text);
     free_string(s);
     return value;
 }
@@ -193,8 +193,9 @@ values  :	value              { $$ = make_value_list($1); }
 	|	values COMMA value { $$ = push_value($1, $3); }
 	;
 
-value   :	INTEGER { $$ = value_int($1); }
-	|	STRING  { $$ = value_string($1); }
+value   :	INTEGER     { $$ = value_int($1, 1); }
+	|	'-' INTEGER { $$ = value_int($2, -1); }
+	|	STRING      { $$ = value_string($1); }
 	;
 
 %%

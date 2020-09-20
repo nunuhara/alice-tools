@@ -41,6 +41,7 @@ extern void csv_error(const char *s);
 [ \t\r] ;
 \n      csv_line++; return NEWLINE;
 ,       return COMMA;
+-       return '-';
 [0-9]+  csv_lval.string = make_string(csv_text, csv_leng); return INTEGER;
 int     return SYM_INT;
 string  return SYM_STRING;
