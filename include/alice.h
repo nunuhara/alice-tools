@@ -37,6 +37,7 @@ struct command {
 	char *name;
 	char *usage;
 	char *description;
+	bool hidden;
 	struct command *parent;
 	struct command *commands[16];
 	int (*fun)(int, char*[]);
@@ -68,11 +69,13 @@ extern struct command cmd_ar_list;
 extern struct command cmd_ex_build;
 extern struct command cmd_ex_compare;
 extern struct command cmd_ex_dump;
+extern struct command cmd_fnl_dump;
 
 extern struct command cmd_alice;
 extern struct command cmd_acx;
 extern struct command cmd_ain;
 extern struct command cmd_ar;
 extern struct command cmd_ex;
+extern struct command cmd_fnl;
 
 #endif /* ALICE_H_ */

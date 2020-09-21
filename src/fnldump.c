@@ -28,15 +28,7 @@
 #include "system4/fnl.h"
 #include "system4/string.h"
 #include "system4/utfsjis.h"
-
-static void usage(void)
-{
-	puts("Usage: fnldump [options...] input-file");
-	puts("    Unpack AliceSoft font archive files (.fnl)");
-	puts("");
-	puts("    -h, --help                 Display this message and exit");
-	puts("    -o, --output               Speficy the output directory");
-}
+#include "alice.h"
 
 void write_bitmap(FILE *f, uint32_t width, uint32_t height, uint8_t *pixels)
 {
@@ -66,35 +58,23 @@ void write_bitmap(FILE *f, uint32_t width, uint32_t height, uint8_t *pixels)
 }
 
 enum {
-	LOPT_HELP = 256,
-	LOPT_OUTPUT,
+	LOPT_OUTPUT = 256,
 };
 
-int main(int argc, char *argv[])
+int command_fnl_dump(int argc, char *argv[])
 {
 	char path[PATH_MAX];
 	char *output_dir = ".";
 	while (1) {
-		static struct option long_options[] = {
-			{ "help",   no_argument,       0, LOPT_HELP },
-			{ "output", required_argument, 0, LOPT_OUTPUT },
-		};
-		int option_index = 0;
-		int c = getopt_long(argc, argv, "ho:", long_options, &option_index);
+		int c = alice_getopt(argc, argv, &cmd_fnl_dump);
 		if (c == -1)
 			break;
 
 		switch (c) {
-		case 'h':
-		case LOPT_HELP:
-			usage();
-			return 0;
 		case 'o':
 		case LOPT_OUTPUT:
 			output_dir = optarg;
 			break;
-		case '?':
-			ERROR("Unrecognized command line argument");
 		}
 	}
 
@@ -102,8 +82,7 @@ int main(int argc, char *argv[])
 	argv += optind;
 
 	if (argc != 1) {
-		usage();
-		ERROR("Wrong number of arguments");
+		USAGE_ERROR(&cmd_fnl_dump, "Wrong number of arguments");
 	}
 
 	struct fnl *fnl = fnl_open(argv[0]);
@@ -143,3 +122,15 @@ int main(int argc, char *argv[])
 	fnl_free(fnl);
 	return 0;
 }
+
+struct command cmd_fnl_dump = {
+	.name = "dump",
+	.usage = "[options] <input-file>",
+	.description = "Unpack AliceSoft font library files (.fnl)",
+	.parent = &cmd_fnl,
+	.fun = command_fnl_dump,
+	.options = {
+		{ "output", 'o', "Specify the output directory", required_argument, LOPT_OUTPUT },
+		{ 0 }
+	}
+};

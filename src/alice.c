@@ -27,6 +27,7 @@ struct command cmd_acx;
 struct command cmd_ain;
 struct command cmd_ar;
 struct command cmd_ex;
+struct command cmd_fnl;
 
 struct command cmd_acx = {
 	.name = "acx",
@@ -78,6 +79,17 @@ struct command cmd_ex = {
 	}
 };
 
+struct command cmd_fnl = {
+	.name = "fnl",
+	.usage = "<command> ...",
+	.description = "Tools for extracting and editing .fnl font libraries",
+	.hidden = true,
+	.parent = &cmd_alice,
+	.commands = {
+		&cmd_fnl_dump,
+	}
+};
+
 struct command cmd_alice = {
 	.name = "alice",
 	.usage = "<command> ...",
@@ -88,6 +100,7 @@ struct command cmd_alice = {
 		&cmd_ain,
 		&cmd_ar,
 		&cmd_ex,
+		&cmd_fnl,
 		NULL
 	}
 };
@@ -151,11 +164,15 @@ void print_usage(struct command *cmd)
 		// calculate column width
 		size_t width = 0;
 		for (int i = 0; cmd->commands[i]; i++) {
+			if (cmd->commands[i]->hidden)
+				continue;
 			width = max(width, strlen(cmd->commands[i]->name));
 		}
 
 		printf("Commands:\n");
 		for (int i = 0; cmd->commands[i]; i++) {
+			if (cmd->commands[i]->hidden)
+				continue;
 			printf("    ");
 			for (int j = nr_commands-1; j >= 0; j--) {
 				printf("%s ", cmd_path[j]);
