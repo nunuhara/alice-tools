@@ -171,16 +171,16 @@ struct command cmd_ain_edit = {
 	.parent = &cmd_ain,
 	.fun = command_ain_edit,
 	.options = {
-		{ "output",          'o', "Set the output file path",                     required_argument, LOPT_OUTPUT },
-		{ "code",            'c', "Update the CODE section (assemble .jam file)", required_argument, LOPT_CODE },
-		{ "jaf",             0,   "Update .ain file from .jaf source code",       required_argument, LOPT_JAF },
-		{ "json",            'j', "Update .ain file from json data",              required_argument, LOPT_JSON },
-		{ "project",         'p', "Build .ain from project file",                 required_argument, LOPT_PROJECT },
-		{ "text",            't', "Update strings/messages",                      required_argument, LOPT_TEXT },
-		{ "ain-version",     0,   "Specify the .ain version",                     required_argument, LOPT_AIN_VERSION },
-		{ "raw",             0,   "Read code in raw mode",                        no_argument,       LOPT_RAW },
-		{ "silent",          0,   "Don't write messages to stdout",               no_argument,       LOPT_SILENT },
-		{ "transcode",       0,   "Change the .ain file's text encoding",         required_argument, LOPT_TRANSCODE },
+		{ "output",      'o', "Set the output file path",                     required_argument, LOPT_OUTPUT },
+		{ "code",        'c', "Update the CODE section (assemble .jam file)", required_argument, LOPT_CODE },
+		{ "jaf",         0,   "Update .ain file from .jaf source code",       required_argument, LOPT_JAF },
+		{ "json",        'j', "Update .ain file from json data",              required_argument, LOPT_JSON },
+		{ "project",     'p', "Build .ain from project file",                 required_argument, LOPT_PROJECT },
+		{ "text",        't', "Update strings/messages",                      required_argument, LOPT_TEXT },
+		{ "ain-version", 0,   "Specify the .ain version",                     required_argument, LOPT_AIN_VERSION },
+		{ "raw",         0,   "Read code in raw mode",                        no_argument,       LOPT_RAW },
+		{ "silent",      0,   "Don't write messages to stdout",               no_argument,       LOPT_SILENT },
+		{ "transcode",   0,   "Change the .ain file's text encoding",         required_argument, LOPT_TRANSCODE },
 		{ 0 }
 	}
 };

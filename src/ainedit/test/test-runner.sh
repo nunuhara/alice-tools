@@ -5,7 +5,7 @@ AIN_FILE="$(mktemp --suffix=.ain)"
 
 printf "Running test $TEST_FILE... "
 
-if ! ainedit --jaf "$TEST_FILE" -o "$AIN_FILE" --silent; then
+if ! alice ain edit --jaf "$TEST_FILE" -o "$AIN_FILE" --silent; then
     echo compile failed
     rm -f "$AIN_FILE"
     exit 1

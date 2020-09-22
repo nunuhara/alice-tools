@@ -231,6 +231,7 @@ static void compile_lvalue_after(struct compiler_state *state, enum ain_data_typ
 static void compile_lvalue(struct compiler_state *state, struct jaf_expression *expr)
 {
 	if (expr->type == JAF_EXP_IDENTIFIER) {
+		NOTICE("%s varno is %d", expr->ident.name->text, expr->ident.var_no);
 		struct ain_variable *v = get_identifier_variable(state, expr->ident.var_type, expr->ident.var_no);
 		compile_identifier_ref(state, expr->ident.var_type, expr->ident.var_no);
 		compile_lvalue_after(state, v->type.data);

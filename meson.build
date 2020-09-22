@@ -28,5 +28,4 @@ bisongen = generator(bison,
                      output: ['@BASENAME@.tab.c', '@BASENAME@.tab.h'],
                      arguments : ['--verbose', '@INPUT@', '--defines=@OUTPUT1@', '--output=@OUTPUT0@'])
 
-subdir('fnl')
 subdir('src')
