@@ -196,10 +196,25 @@ static void analyze_local_declaration(struct jaf_env *env, struct jaf_vardecl *d
 	assert(env->func_no >= 0 && env->func_no < env->ain->nr_functions);
 	assert(decl->var_no >= 0 && decl->var_no < env->ain->functions[env->func_no].nr_vars);
 	assert(decl->type);
+	assert((size_t)decl->var_no == env->nr_locals);
 	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
 	// add local to environment
-	env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+1, sizeof(struct ain_variable*));
-	env->locals[env->nr_locals++] = &env->ain->functions[env->func_no].vars[decl->var_no];
+	switch (env->ain->functions[env->func_no].vars[decl->var_no].type.data) {
+	case AIN_REF_INT:
+	case AIN_REF_FLOAT:
+	case AIN_REF_BOOL:
+	case AIN_REF_LONG_INT:
+		env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+2,
+					     sizeof(struct ain_variable*));
+		env->locals[env->nr_locals++] = &env->ain->functions[env->func_no].vars[decl->var_no];
+		env->locals[env->nr_locals++] = &env->ain->functions[env->func_no].vars[decl->var_no+1];
+		break;
+	default:
+		env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+1,
+					     sizeof(struct ain_variable*));
+		env->locals[env->nr_locals++] = &env->ain->functions[env->func_no].vars[decl->var_no];
+		break;
+	}
 	analyze_array_allocation(env, decl);
 	if (decl->init)
 		analyze_expression(env, &decl->init);
