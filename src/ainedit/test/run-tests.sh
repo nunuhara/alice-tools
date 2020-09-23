@@ -92,6 +92,7 @@ cd $(dirname "$0")
 ./test-runner.sh while.jaf
 ./test-runner.sh do-while.jaf
 ./test-runner.sh for.jaf
+./test-runner.sh ternary.jaf
 
 # reference types
 ./test-runner.sh int-ref.jaf

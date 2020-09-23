@@ -444,7 +444,16 @@ static void compile_binary(struct compiler_state *state, struct jaf_expression *
 
 static void compile_ternary(struct compiler_state *state, struct jaf_expression *expr)
 {
-	ERROR("Ternary operator not supported");
+	uint32_t addr[2];
+	compile_expression(state, expr->condition);
+	addr[0] = state->out.index + 2;
+	write_instruction1(state, IFZ, 0);
+	compile_expression(state, expr->consequent);
+	addr[1] = state->out.index + 2;
+	write_instruction1(state, JUMP, 0);
+	buffer_write_int32_at(&state->out, addr[0], state->out.index);
+	compile_expression(state, expr->alternative);
+	buffer_write_int32_at(&state->out, addr[1], state->out.index);
 }
 
 static bool ain_ref_type(enum ain_data_type type)

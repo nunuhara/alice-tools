@@ -233,13 +233,15 @@ static struct jaf_expression *jaf_simplify_ternary(struct jaf_expression *in)
 		if (in->condition->i) {
 			jaf_free_expr(in->condition);
 			jaf_free_expr(in->alternative);
+			struct jaf_expression *r = in->consequent;
 			free(in);
-			return in->consequent;
+			return r;
 		} else {
 			jaf_free_expr(in->condition);
 			jaf_free_expr(in->consequent);
+			struct jaf_expression *r = in->alternative;
 			free(in);
-			return in->alternative;
+			return r;
 		}
 	}
 
