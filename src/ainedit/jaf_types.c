@@ -326,7 +326,13 @@ static void jaf_check_types_identifier(struct jaf_env *env, struct jaf_expressio
 	int no;
 	struct ain_variable *v;
 	char *u = conv_output(expr->s->text);
-	if ((v = jaf_env_lookup(env, u, &no))) {
+	if (!strcmp(u, "super")) {
+		if (!env->fundecl || env->fundecl->super_no <= 0) {
+			ERROR("'super' used outside of a function override");
+		}
+		expr->valuetype.data = AIN_FUNCTION;
+		expr->valuetype.struc = env->fundecl->super_no;
+	} else if ((v = jaf_env_lookup(env, u, &no))) {
 		expr->valuetype = v->type;
 		expr->ident.var_type = v->var_type;
 		expr->ident.var_no = no;

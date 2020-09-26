@@ -93,6 +93,7 @@ unsigned long jaf_line = 1;
 "system"                                { return SYSTEM; }
 "array"					{ return ARRAY; }
 "functype"                              { return FUNCTYPE; }
+"override"                              { return OVERRIDE; }
 
 {L}{A}*					{ return check_type(); }
 

@@ -1,0 +1,14 @@
+int add(int a, int b)
+{
+	return a + b;
+}
+
+override int add(int a, int b)
+{
+	return super(a+1, b+1);
+}
+
+int main()
+{
+	return !(add(2, 3) == 7);
+}

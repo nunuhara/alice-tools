@@ -174,7 +174,7 @@ static struct jaf_block *jaf_functype(struct jaf_type_specifier *type, struct ja
 %token	<token>		SYM_REF REF_ASSIGN SYSTEM ARRAY FUNCTYPE
 %token	<token>		FILE_MACRO LINE_MACRO FUNC_MACRO DATE_MACRO TIME_MACRO
 
-%token	<token>		CONST
+%token	<token>		CONST OVERRIDE
 %token	<token>		BOOL CHAR INT LINT FLOAT VOID STRING INTP FLOATP
 %token	<token>		STRUCT UNION ENUM ELLIPSIS
 
@@ -464,8 +464,9 @@ enumerator	/* identifiers must be flagged as ENUMERATION_CONSTANT */
 	;
 
 type_qualifier
-	: CONST   { $$ = JAF_QUAL_CONST; }
-	| SYM_REF { $$ = JAF_QUAL_REF; }
+	: CONST    { $$ = JAF_QUAL_CONST; }
+	| SYM_REF  { $$ = JAF_QUAL_REF; }
+	| OVERRIDE { $$ = JAF_QUAL_OVERRIDE; }
 	;
 
 declarator

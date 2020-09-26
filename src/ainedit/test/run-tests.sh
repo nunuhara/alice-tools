@@ -109,3 +109,5 @@ cd $(dirname "$0")
 ./test-runner.sh message-call.jaf
 
 ./test-runner.sh char-constant.jaf
+
+./test-runner.sh override.jaf

@@ -46,6 +46,7 @@ enum jaf_type_qualifier {
 	JAF_QUAL_ARRAY       = 4,
 	JAF_QUAL_CONSTRUCTOR = 8,
 	JAF_QUAL_DESTRUCTOR  = 16,
+	JAF_QUAL_OVERRIDE    = 32,
 };
 
 enum jaf_expression_type {
@@ -241,6 +242,7 @@ struct jaf_fundecl {
 	struct jaf_block *params;
 	struct jaf_block *body;
 	int func_no;
+	int super_no;
 };
 
 // declaration or statement

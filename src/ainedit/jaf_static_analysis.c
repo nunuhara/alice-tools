@@ -542,14 +542,55 @@ static void function_init_vars(struct ain *ain, struct jaf_fundecl *decl, int32_
 		*vars = block_get_vars(ain, decl->body, *vars, nr_vars);
 }
 
-static void add_function(struct ain *ain, struct jaf_fundecl *decl)
+static int _add_function(struct ain *ain, struct jaf_fundecl *decl)
 {
 	struct ain_function f = {0};
 	f.name = strdup(decl->name->text);
 	jaf_to_ain_type(ain, &f.return_type, decl->type);
 	function_init_vars(ain, decl, &f.nr_args, &f.nr_vars, &f.vars);
+	return ain_add_function(ain, &f);
+}
 
-	decl->func_no = ain_add_function(ain, &f);
+static bool types_equal(struct ain_type *a, struct ain_type *b)
+{
+	if (a->data != b->data)
+		return false;
+	if (a->data == AIN_STRUCT)
+		return a->struc == b->struc;
+	return true;
+}
+
+static bool function_signatures_equal(struct ain *ain, int _a, int _b)
+{
+	struct ain_function *a = &ain->functions[_a];
+	struct ain_function *b = &ain->functions[_b];
+	if (!types_equal(&a->return_type, &b->return_type))
+		return false;
+	if (a->nr_args != b->nr_args || a->nr_vars != b->nr_vars)
+		return false;
+	for (int i = 0; i < a->nr_vars; i++) {
+		if (!types_equal(&a->vars[i].type, &b->vars[i].type))
+			return false;
+	}
+	return true;
+}
+
+static void add_function(struct ain *ain, struct jaf_fundecl *decl)
+{
+	int no = ain_get_function(ain, decl->name->text);
+	if (no > 0 && (decl->type->qualifiers & JAF_QUAL_OVERRIDE)) {
+		decl->func_no = no;
+		decl->super_no = _add_function(ain, decl);
+		if (!function_signatures_equal(ain, decl->func_no, decl->super_no))
+			ERROR("Invalid function signature in override of function '%s'", decl->name->text);
+		ain->functions[decl->super_no].address = ain->functions[no].address;
+	} else if (no > 0) {
+		ERROR("Function '%s' already exists");
+	} else {
+		decl->func_no = _add_function(ain, decl);
+		decl->super_no = 0;
+	}
+
 	if (!strcmp(decl->name->text, "main")) {
 		if (decl->params || decl->type->type != JAF_INT)
 			ERROR("Invalid signature for main function");

@@ -44,6 +44,7 @@ struct compiler_state {
 	struct ain *ain;
 	struct buffer out;
 	int func_no;
+	int super_no;
 	size_t nr_loops;
 	struct loop_state *loops;
 };
@@ -985,6 +986,7 @@ static void compile_function(struct compiler_state *state, struct jaf_fundecl *d
 {
 	assert(decl->func_no >= 0 && decl->func_no < state->ain->nr_functions);
 	state->func_no = decl->func_no;
+	state->super_no = decl->super_no;
 	write_instruction1(state, FUNC, decl->func_no);
 	state->ain->functions[decl->func_no].address = state->out.index;
 	compile_block(state, decl->body);
