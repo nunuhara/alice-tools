@@ -111,7 +111,7 @@ static int parse_int(struct string *s)
     errno = 0;
     int i = strtol(s->text, &endptr, 0);
     if (errno || *endptr != '\0')
-	ERROR("Invalid integer constant");
+	_COMPILER_ERROR(jaf_file, jaf_line, "Invalid integer constant");
     free_string(s);
     return i;
 }
@@ -124,9 +124,9 @@ static struct string *string_ftime(const char *fmt)
 
     t = time(NULL);
     if (!(tmp = localtime(&t)))
-	ERROR("localtime: %s", strerror(errno));
+	_COMPILER_ERROR(jaf_file, jaf_line, "localtime: %s", strerror(errno));
     if (strftime(out, sizeof(out), fmt, tmp) == 0)
-	ERROR("strftime returned 0");
+	_COMPILER_ERROR(jaf_file, jaf_line, "strftime returned 0");
 
     return make_string(out, strlen(out));
 }
@@ -145,7 +145,7 @@ static struct jaf_block *jaf_functype(struct jaf_type_specifier *type, struct ja
 {
     struct jaf_block *b = jaf_function(type, decl, NULL);
     b->items[0]->kind = JAF_DECL_FUNCTYPE;
-    jaf_define_functype(jaf_ain_out, &b->items[0]->fun);
+    jaf_define_functype(jaf_ain_out, b->items[0]);
     return b;
 }
 

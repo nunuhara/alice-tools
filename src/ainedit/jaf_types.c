@@ -26,7 +26,7 @@
 #define AIN_FUNCTION 8000
 
 // TODO: better error messages
-#define TYPE_ERROR(expr, expected) ERROR("Type error (expected %s; got %s)", ain_strtype(NULL, expected, -1), ain_strtype(NULL, expr->valuetype.data, -1))
+#define TYPE_ERROR(expr, expected) JAF_ERROR(expr, "Type error (expected %s; got %s)", strdup(ain_strtype(NULL, expected, -1)), strdup(ain_strtype(NULL, expr->valuetype.data, -1)))
 #define TYPE_CHECK(expr, expected) { if (expr->valuetype.data != expected) TYPE_ERROR(expr, expected); }
 
 const char *jaf_typestr(enum jaf_type type)
@@ -79,7 +79,7 @@ static bool jaf_type_equal(struct ain_type *a, struct ain_type *b)
 	return true;
 }
 
-static enum jaf_type jaf_type_check_numeric(struct jaf_expression *expr)
+static enum ain_data_type jaf_type_check_numeric(struct jaf_expression *expr)
 {
 	switch (expr->valuetype.data) {
 	case AIN_INT:
@@ -100,7 +100,7 @@ static enum jaf_type jaf_type_check_numeric(struct jaf_expression *expr)
 	}
 }
 
-static enum jaf_type jaf_type_check_int(struct jaf_expression *expr)
+static enum ain_data_type jaf_type_check_int(struct jaf_expression *expr)
 {
 	switch (expr->valuetype.data) {
 	case AIN_INT:
@@ -135,14 +135,14 @@ static enum ain_data_type jaf_merge_types(enum ain_data_type a, enum ain_data_ty
 		if (a == AIN_INT || a == AIN_LONG_INT)
 			return AIN_FLOAT;
 	}
-	ERROR("Incompatible types");
+	_COMPILER_ERROR(NULL, -1, "Incompatible types");
 }
 
 static void jaf_check_types_lvalue(possibly_unused struct jaf_env *env, struct jaf_expression *e)
 {
 	// TODO: array subscripts
 	if (e->type != JAF_EXP_IDENTIFIER && e->type != JAF_EXP_MEMBER && e->type != JAF_EXP_SUBSCRIPT)
-		ERROR("Invalid expression as lvalue");
+		JAF_ERROR(e, "Invalid expression as lvalue");
 	switch (e->valuetype.data) {
 	case AIN_INT:
 	case AIN_FLOAT:
@@ -156,7 +156,7 @@ static void jaf_check_types_lvalue(possibly_unused struct jaf_env *env, struct j
 	case AIN_REF_STRING:
 		break;
 	default:
-		ERROR("Invalid type as lvalue: %d", e->valuetype.data);
+		JAF_ERROR(e, "Invalid type as lvalue: %s", ain_strtype(NULL, e->valuetype.data, -1));
 	}
 }
 
@@ -181,14 +181,14 @@ static void jaf_check_types_unary(struct jaf_env *env, struct jaf_expression *ex
 		break;
 	case JAF_AMPERSAND:
 		if (expr->expr->type != JAF_EXP_IDENTIFIER)
-			ERROR("Non-identifier in '&' expression");
+			JAF_ERROR(expr, "Non-identifier in '&' expression");
 		if (expr->expr->valuetype.data != AIN_FUNCTION)
-			ERROR("Non-function in '&' expression");
+			JAF_ERROR(expr, "Non-function in '&' expression");
 		expr->valuetype.data = AIN_FUNCTION;
 		expr->valuetype.struc = expr->expr->valuetype.struc;
 		break;
 	default:
-		ERROR("Unhandled unary operator");
+		COMPILER_ERROR(expr, "Unhandled unary operator");
 	}
 }
 
@@ -271,7 +271,7 @@ static void jaf_check_types_binary(struct jaf_env *env, struct jaf_expression *e
 		break;
 	case JAF_REF_ASSIGN: // TODO
 	default:
-		ERROR("Unhandled binary operator");
+		COMPILER_ERROR(expr, "Unhandled binary operator");
 	}
 }
 
@@ -284,7 +284,7 @@ static void jaf_check_types_ternary(struct jaf_env *env, struct jaf_expression *
 	TYPE_CHECK(expr->condition, AIN_INT);
 	if (!jaf_type_equal(&expr->consequent->valuetype, &expr->alternative->valuetype)) {
 		// TODO: better error message
-		ERROR("Mismatched types in conditional expression");
+		JAF_ERROR(expr, "Mismatched types in conditional expression");
 	}
 
 	expr->valuetype = expr->consequent->valuetype;
@@ -328,7 +328,7 @@ static void jaf_check_types_identifier(struct jaf_env *env, struct jaf_expressio
 	char *u = conv_output(expr->s->text);
 	if (!strcmp(u, "super")) {
 		if (!env->fundecl || env->fundecl->super_no <= 0) {
-			ERROR("'super' used outside of a function override");
+			JAF_ERROR(expr, "'super' used outside of a function override");
 		}
 		expr->valuetype.data = AIN_FUNCTION;
 		expr->valuetype.struc = env->fundecl->super_no;
@@ -340,7 +340,7 @@ static void jaf_check_types_identifier(struct jaf_env *env, struct jaf_expressio
 		expr->valuetype.data = AIN_FUNCTION;
 		expr->valuetype.struc = no;
 	} else {
-		ERROR("Undefined variable: %s", expr->s->text);
+		JAF_ERROR(expr, "Undefined variable: %s", expr->s->text);
 	}
 	free(u);
 }
@@ -373,7 +373,7 @@ static void jaf_check_types_functype_call(struct jaf_env *env, struct jaf_expres
 	int arg = 0;
 	for (size_t i = 0; i < nr_args; i++, arg++) {
 		if (arg >= f->nr_arguments)
-			ERROR("Too many arguments to function");
+			JAF_ERROR(expr, "Too many arguments to function");
 
 		jaf_check_type(expr->call.args->items[i], &f->variables[arg].type);
 
@@ -382,7 +382,7 @@ static void jaf_check_types_functype_call(struct jaf_env *env, struct jaf_expres
 			arg++;
 	}
 	if (arg != f->nr_arguments)
-		ERROR("Too few arguments to function");
+		JAF_ERROR(expr, "Too few arguments to function");
 }
 
 static void jaf_check_types_funcall(struct jaf_env *env, struct jaf_expression *expr)
@@ -413,7 +413,7 @@ static void jaf_check_types_funcall(struct jaf_env *env, struct jaf_expression *
 	int arg = 0;
 	for (size_t i = 0; i < nr_args; i++, arg++) {
 		if (arg >= f->nr_args)
-			ERROR("Too many arguments to function");
+			JAF_ERROR(expr, "Too many arguments to function");
 
 		jaf_check_type(expr->call.args->items[i], &f->vars[arg].type);
 
@@ -422,7 +422,7 @@ static void jaf_check_types_funcall(struct jaf_env *env, struct jaf_expression *
 			arg++;
 	}
 	if (arg != f->nr_args)
-		ERROR("Too few arguments to function");
+		JAF_ERROR(expr, "Too few arguments to function");
 }
 
 static void jaf_check_types_syscall(struct jaf_env *env, struct jaf_expression *expr)
@@ -435,8 +435,9 @@ static void jaf_check_types_syscall(struct jaf_env *env, struct jaf_expression *
 
 	assert(no >= 0 && no < NR_SYSCALLS);
 	if (nr_args != syscalls[no].nr_args) {
-		ERROR("Wrong number of arguments to syscall 'system.%s' (expected %d; got %d)",
-		      syscalls[no].name, syscalls[no].nr_args, nr_args);
+		JAF_ERROR(expr,
+			  "Wrong number of arguments to syscall 'system.%s' (expected %d; got %d)",
+			  syscalls[no].name, syscalls[no].nr_args, nr_args);
 	}
 
 	for (unsigned i = 0; i < nr_args; i++) {
@@ -473,7 +474,7 @@ static void jaf_check_types_member(struct jaf_env *env, struct jaf_expression *e
 		}
 	}
 	if (expr->member.member_no == -1)
-		ERROR("Invalid struct member name: %s", u);
+		JAF_ERROR(expr, "Invalid struct member name: %s", u);
 	free(u);
 }
 
@@ -497,7 +498,7 @@ static enum ain_data_type array_data_type(enum ain_data_type type)
 	case AIN_ARRAY_DELEGATE:  case AIN_REF_ARRAY_DELEGATE:  return AIN_DELEGATE;
 		break;
 	case AIN_ARRAY:
-		ERROR("ain v11+ arrays not supported");
+		_COMPILER_ERROR(NULL, -1, "ain v11+ arrays not supported");
 	default:
 		return AIN_VOID;
 	}
@@ -510,7 +511,7 @@ static void jaf_type_check_array(struct jaf_expression *expr)
 	case AIN_REF_ARRAY_TYPE:
 		return;
 	case AIN_ARRAY:
-		ERROR("ain v11+ arrays not supported");
+		COMPILER_ERROR(expr, "ain v11+ arrays not supported");
 	default:
 		TYPE_ERROR(expr, AIN_ARRAY);
 	}

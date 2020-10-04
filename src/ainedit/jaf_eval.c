@@ -85,7 +85,7 @@ static struct jaf_expression *jaf_simplify_unary(struct jaf_expression *in)
 	default:
 		break;
 	}
-	ERROR("Invalid unary operator");
+	COMPILER_ERROR(in, "Invalid unary operator");
 }
 
 static struct jaf_expression *simplify_cast_to_float(struct jaf_expression *e)
@@ -219,7 +219,7 @@ static struct jaf_expression *jaf_simplify_binary(struct jaf_expression *e)
 	case JAF_REF_ASSIGN:
 		return e;
 	default:
-		ERROR("Invalid binary operator");
+		COMPILER_ERROR(e, "Invalid binary operator");
 	}
 }
 
@@ -368,7 +368,7 @@ valid:
 	in->i = c;
 	return in;
 invalid:
-	ERROR("Invalid character constant");
+	JAF_ERROR(in, "Invalid character constant");
 }
 
 /*
@@ -403,7 +403,7 @@ struct jaf_expression *jaf_simplify(struct jaf_expression *in)
 	case JAF_EXP_CHAR:
 		return jaf_simplify_char(in);
 	}
-	ERROR("Invalid expression type");
+	COMPILER_ERROR(in, "Invalid expression type");
 }
 
 struct jaf_expression *jaf_compute_constexpr(struct jaf_expression *in)

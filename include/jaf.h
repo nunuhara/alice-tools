@@ -18,8 +18,20 @@
 #define AINEDIT_JAF_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include "system4/ain.h"
+
+#define _COMPILER_ERROR(file, line, msgf, ...)		\
+	ERROR("at %s:%d: " msgf, file ? file : "?", line, ##__VA_ARGS__)
+
+#define COMPILER_ERROR(obj, msgf, ...) \
+	_COMPILER_ERROR(obj->file, obj->line, msgf, ##__VA_ARGS__)
+
+#define _JAF_ERROR(file, line, msgf, ...)				\
+	sys_error("*ERROR*: at %s:%d: " msgf "\n", file, line, ##__VA_ARGS__)
+
+#define JAF_ERROR(obj, msgf, ...) _JAF_ERROR(obj->file, obj->line, msgf, ##__VA_ARGS__)
 
 struct string;
 
@@ -130,6 +142,8 @@ struct jaf_type_specifier {
 };
 
 struct jaf_expression {
+	unsigned line;
+	const char *file;
 	enum jaf_expression_type type;
 	enum jaf_operator op;
 	struct ain_type valuetype;
@@ -247,6 +261,8 @@ struct jaf_fundecl {
 
 // declaration or statement
 struct jaf_block_item {
+	unsigned line;
+	const char *file;
 	enum block_item_kind kind;
 	union {
 		struct jaf_vardecl var;
@@ -390,6 +406,6 @@ void jaf_resolve_hll_declarations(struct ain *ain, struct jaf_block *block, cons
 struct jaf_block *jaf_static_analyze(struct ain *ain, struct jaf_block *block);
 enum ain_data_type jaf_to_ain_data_type(enum jaf_type type, unsigned qualifiers);
 void jaf_define_struct(struct ain *ain, struct jaf_block_item *type);
-void jaf_define_functype(struct ain *ain, struct jaf_fundecl *decl);
+void jaf_define_functype(struct ain *ain, struct jaf_block_item *item);
 
 #endif /* AINEDIT_JAF_H */

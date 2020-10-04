@@ -32,7 +32,7 @@ void jaf_define_struct(struct ain *ain, struct jaf_block_item *def)
 {
 	assert(def->kind == JAF_DECL_STRUCT);
 	if (!def->struc.name)
-		ERROR("Anonymous structs not supported");
+		JAF_ERROR(def, "Anonymous structs not supported");
 
 	struct ain_struct s = {
 		.name = conv_output(def->struc.name->text),
@@ -40,16 +40,17 @@ void jaf_define_struct(struct ain *ain, struct jaf_block_item *def)
 		.destructor = -1,
 	};
 	if (ain_get_struct(ain, s.name) >= 0)
-		ERROR("Redefining structs not supported");
+		JAF_ERROR(def, "Redefining structs not supported");
 	def->struc.struct_no = ain_add_struct(ain, &s);
 }
 
-void jaf_define_functype(struct ain *ain, struct jaf_fundecl *decl)
+void jaf_define_functype(struct ain *ain, struct jaf_block_item *item)
 {
+	struct jaf_fundecl *decl = &item->fun;
 	struct ain_function_type f = {0};
 	f.name = conv_output(decl->name->text);
 	if (ain_get_functype(ain, f.name) >= 0)
-		ERROR("Multiple definitions of function type '%s'", decl->name->text);
+		JAF_ERROR(item, "Multiple definitions of function type '%s'", decl->name->text);
 	decl->func_no = ain_add_functype(ain, &f);
 }
 
@@ -57,35 +58,35 @@ enum ain_data_type jaf_to_ain_data_type(enum jaf_type type, unsigned qualifiers)
 {
 	if (qualifiers & JAF_QUAL_REF && qualifiers & JAF_QUAL_ARRAY) {
 		switch (type) {
-		case JAF_VOID:     ERROR("void ref array type");
+		case JAF_VOID:     _COMPILER_ERROR(NULL, -1, "void ref array type");
 		case JAF_INT:      return AIN_REF_ARRAY_INT;
 		case JAF_FLOAT:    return AIN_REF_ARRAY_FLOAT;
 		case JAF_STRING:   return AIN_REF_ARRAY_STRING;
 		case JAF_STRUCT:   return AIN_REF_ARRAY_STRUCT;
-		case JAF_ENUM:     ERROR("Enums not supported");
-		case JAF_TYPEDEF:  ERROR("Unresolved typedef");
+		case JAF_ENUM:     _COMPILER_ERROR(NULL, -1, "Enums not supported");
+		case JAF_TYPEDEF:  _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
 		case JAF_FUNCTYPE: return AIN_REF_ARRAY_FUNC_TYPE;
 		}
 	} else if (qualifiers & JAF_QUAL_REF) {
 		switch (type) {
-		case JAF_VOID:     ERROR("void ref type");
+		case JAF_VOID:     _COMPILER_ERROR(NULL, -1, "void ref type");
 		case JAF_INT:      return AIN_REF_INT;
 		case JAF_FLOAT:    return AIN_REF_FLOAT;
 		case JAF_STRING:   return AIN_REF_STRING;
 		case JAF_STRUCT:   return AIN_REF_STRUCT;
-		case JAF_ENUM:     ERROR("Enums not supported");
-		case JAF_TYPEDEF:  ERROR("Unresolved typedef");
+		case JAF_ENUM:     _COMPILER_ERROR(NULL, -1, "Enums not supported");
+		case JAF_TYPEDEF:  _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
 		case JAF_FUNCTYPE: return AIN_REF_FUNC_TYPE;
 		}
 	} else if (qualifiers & JAF_QUAL_ARRAY) {
 		switch (type) {
-		case JAF_VOID:     ERROR("void array type");
+		case JAF_VOID:     _COMPILER_ERROR(NULL, -1, "void array type");
 		case JAF_INT:      return AIN_ARRAY_INT;
 		case JAF_FLOAT:    return AIN_ARRAY_FLOAT;
 		case JAF_STRING:   return AIN_ARRAY_STRING;
 		case JAF_STRUCT:   return AIN_ARRAY_STRUCT;
-		case JAF_ENUM:     ERROR("Enums not supported");
-		case JAF_TYPEDEF:  ERROR("Unresolved typedef");
+		case JAF_ENUM:     _COMPILER_ERROR(NULL, -1, "Enums not supported");
+		case JAF_TYPEDEF:  _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
 		case JAF_FUNCTYPE: return AIN_ARRAY_FUNC_TYPE;
 		}
 	} else {
@@ -95,12 +96,12 @@ enum ain_data_type jaf_to_ain_data_type(enum jaf_type type, unsigned qualifiers)
 		case JAF_FLOAT:    return AIN_FLOAT;
 		case JAF_STRING:   return AIN_STRING;
 		case JAF_STRUCT:   return AIN_STRUCT;
-		case JAF_ENUM:     ERROR("Enums not supported");
-		case JAF_TYPEDEF:  ERROR("Unresolved typedef");
+		case JAF_ENUM:     _COMPILER_ERROR(NULL, -1, "Enums not supported");
+		case JAF_TYPEDEF:  _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
 		case JAF_FUNCTYPE: return AIN_FUNC_TYPE;
 		}
 	}
-	ERROR("Unknown type: %d", type);
+	_COMPILER_ERROR(NULL, -1, "Unknown type: %d", type);
 }
 
 static void jaf_to_ain_type(possibly_unused struct ain *ain, struct ain_type *out, struct jaf_type_specifier *in)
@@ -116,7 +117,7 @@ static void jaf_to_ain_type(possibly_unused struct ain *ain, struct ain_type *ou
 	}
 }
 
-static void resolve_typedef(struct ain *ain, struct jaf_type_specifier *type)
+static void resolve_typedef(struct ain *ain, struct jaf_block_item *item, struct jaf_type_specifier *type)
 {
 	int no;
 	char *u = conv_output(type->name->text);
@@ -127,7 +128,7 @@ static void resolve_typedef(struct ain *ain, struct jaf_type_specifier *type)
 		type->type = JAF_FUNCTYPE;
 		type->func_no = no;
 	} else {
-		ERROR("Failed to resolve typedef \"%s\"", type->name->text);
+		COMPILER_ERROR(item, "Failed to resolve typedef \"%s\"", type->name->text);
 	}
 
 	free(u);
@@ -149,7 +150,7 @@ static void jaf_to_initval(struct ain_initval *dst, struct jaf_expression *expr)
 		dst->string_value = strdup(expr->s->text);
 		break;
 	default:
-		ERROR("Initval is not constant");
+		JAF_ERROR(expr, "Initval is not constant");
 	}
 }
 
@@ -163,19 +164,21 @@ static void analyze_expression(struct jaf_env *env, struct jaf_expression **expr
 
 static void analyze_block(struct jaf_env *env, struct jaf_block *block);
 
-static void analyze_array_allocation(struct jaf_env *env, struct jaf_vardecl *decl)
+static void analyze_array_allocation(struct jaf_env *env, struct jaf_block_item *item)
 {
+	struct jaf_vardecl *decl = &item->var;
 	if (!decl->array_dims)
 		return;
 	for (size_t i = 0; i < decl->type->rank; i++) {
 		analyze_expression(env, &decl->array_dims[i]);
 		if (decl->array_dims[i]->type != JAF_EXP_INT)
-			ERROR("Invalid expression as array size");
+			JAF_ERROR(item, "Invalid expression as array size");
 	}
 }
 
-static void analyze_global_declaration(struct jaf_env *env, struct jaf_vardecl *decl)
+static void analyze_global_declaration(struct jaf_env *env, struct jaf_block_item *item)
 {
+	struct jaf_vardecl *decl = &item->var;
 	if (!decl->init)
 		return;
 	analyze_expression(env, &decl->init);
@@ -186,13 +189,14 @@ static void analyze_global_declaration(struct jaf_env *env, struct jaf_vardecl *
 	struct ain_initval init = { .global_index = decl->var_no };
 	jaf_to_initval(&init, decl->init);
 	ain_add_initval(env->ain, &init);
-	analyze_array_allocation(env, decl);
+	analyze_array_allocation(env, item);
 	if (decl->init)
 		analyze_expression(env, &decl->init);
 }
 
-static void analyze_local_declaration(struct jaf_env *env, struct jaf_vardecl *decl)
+static void analyze_local_declaration(struct jaf_env *env, struct jaf_block_item *item)
 {
+	struct jaf_vardecl *decl = &item->var;
 	assert(env->func_no >= 0 && env->func_no < env->ain->nr_functions);
 	assert(decl->var_no >= 0 && decl->var_no < env->ain->functions[env->func_no].nr_vars);
 	assert(decl->type);
@@ -215,7 +219,7 @@ static void analyze_local_declaration(struct jaf_env *env, struct jaf_vardecl *d
 		env->locals[env->nr_locals++] = &env->ain->functions[env->func_no].vars[decl->var_no];
 		break;
 	}
-	analyze_array_allocation(env, decl);
+	analyze_array_allocation(env, item);
 	if (decl->init)
 		analyze_expression(env, &decl->init);
 }
@@ -251,7 +255,7 @@ static void analyze_message(struct jaf_env *env, struct jaf_block_item *item)
 
 	char *u = conv_output(item->msg.func->text);
 	if ((item->msg.func_no = ain_get_function(env->ain, u)) < 0)
-		ERROR("Undefined function: %s", item->msg.func->text);
+		JAF_ERROR(item, "Undefined function: %s", item->msg.func->text);
 	free(u);
 }
 
@@ -281,9 +285,9 @@ static void analyze_statement(struct jaf_env *env, struct jaf_block_item *item)
 	switch (item->kind) {
 	case JAF_DECL_VAR:
 		if (env->parent)
-			analyze_local_declaration(env, &item->var);
+			analyze_local_declaration(env, item);
 		else
-			analyze_global_declaration(env, &item->var);
+			analyze_global_declaration(env, item);
 		break;
 	case JAF_DECL_FUN:
 		analyze_function(env, &item->fun);
@@ -380,7 +384,7 @@ static void resolve_statement_types(struct ain *ain, struct jaf_block_item *item
 	switch (item->kind) {
 	case JAF_DECL_VAR:
 		if (item->var.type->type == JAF_TYPEDEF)
-			resolve_typedef(ain, item->var.type);
+			resolve_typedef(ain, item, item->var.type);
 		break;
 	case JAF_DECL_FUNCTYPE:
 		if (item->fun.params)
@@ -513,7 +517,7 @@ static struct ain_variable *block_item_get_vars(struct ain *ain, struct jaf_bloc
 		break;
 
 	case JAF_DECL_FUN:
-		ERROR("Nested functions not supported");
+		JAF_ERROR(item, "Nested functions not supported");
 	}
 	return vars;
 }
@@ -575,17 +579,18 @@ static bool function_signatures_equal(struct ain *ain, int _a, int _b)
 	return true;
 }
 
-static void add_function(struct ain *ain, struct jaf_fundecl *decl)
+static void add_function(struct ain *ain, struct jaf_block_item *item)
 {
+	struct jaf_fundecl *decl = &item->fun;
 	int no = ain_get_function(ain, decl->name->text);
 	if (no > 0 && (decl->type->qualifiers & JAF_QUAL_OVERRIDE)) {
 		decl->func_no = no;
 		decl->super_no = _add_function(ain, decl);
 		if (!function_signatures_equal(ain, decl->func_no, decl->super_no))
-			ERROR("Invalid function signature in override of function '%s'", decl->name->text);
+			JAF_ERROR(item, "Invalid function signature in override of function '%s'", decl->name->text);
 		ain->functions[decl->super_no].address = ain->functions[no].address;
 	} else if (no > 0) {
-		ERROR("Function '%s' already exists");
+		JAF_ERROR(item, "Function '%s' already exists");
 	} else {
 		decl->func_no = _add_function(ain, decl);
 		decl->super_no = 0;
@@ -593,7 +598,7 @@ static void add_function(struct ain *ain, struct jaf_fundecl *decl)
 
 	if (!strcmp(decl->name->text, "main")) {
 		if (decl->params || decl->type->type != JAF_INT)
-			ERROR("Invalid signature for main function");
+			JAF_ERROR(item, "Invalid signature for main function");
 		if (ain->main > 0)
 			WARNING("Overriding main function");
 		ain->main = decl->func_no;
@@ -607,7 +612,7 @@ static void add_function(struct ain *ain, struct jaf_fundecl *decl)
 		    decl->params->items[2]->fun.type->type != JAF_STRING ||
 		    decl->params->items[2]->fun.type->qualifiers ||
 		    decl->type->type != JAF_VOID) {
-			ERROR("Invalid signature for message function");
+			JAF_ERROR(item, "Invalid signature for message function");
 		}
 		if (ain->msgf > 0)
 			WARNING("Overriding message function");
@@ -639,7 +644,7 @@ static void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
 			add_global(ain, &block->items[i]->var);
 			break;
 		case JAF_DECL_FUN:
-			add_function(ain, &block->items[i]->fun);
+			add_function(ain, block->items[i]);
 			break;
 		case JAF_DECL_FUNCTYPE:
 			add_functype(ain, &block->items[i]->fun);
@@ -648,7 +653,8 @@ static void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
 		case JAF_EOF:
 			break;
 		default:
-			ERROR("Unhandled declaration at top-level: %d", block->items[i]->kind);
+			JAF_ERROR(block->items[i], "Unhandled declaration at top-level: %d",
+				  block->items[i]->kind);
 		}
 	}
 }
@@ -688,9 +694,11 @@ void jaf_resolve_hll_declarations(struct ain *ain, struct jaf_block *block, cons
 	lib.functions = xcalloc(lib.nr_functions, sizeof(struct ain_hll_function));
 	for (int i = 0; i < lib.nr_functions; i++) {
 		if (block->items[i]->kind != JAF_DECL_FUN)
-			ERROR("Only function declarations are allowed in HLL files: %d", block->items[i]->kind);
+			JAF_ERROR(block->items[i],
+				  "Only function declarations are allowed in HLL files: %d",
+				  block->items[i]->kind);
 		if (block->items[i]->fun.body)
-			ERROR("Function definitions not allowed in HLL files");
+			JAF_ERROR(block->items[i], "Function definitions not allowed in HLL files");
 		jaf_process_hll_declaration(ain, &block->items[i]->fun, &lib.functions[i]);
 	}
 	ain_add_library(ain, &lib);

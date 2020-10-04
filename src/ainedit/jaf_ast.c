@@ -23,9 +23,14 @@
 #include "system4/string.h"
 #include "jaf.h"
 
+extern unsigned long jaf_line;
+extern const char *jaf_file;
+
 static struct jaf_expression *jaf_expr(enum jaf_expression_type type, enum jaf_operator op)
 {
 	struct jaf_expression *e = xcalloc(1, sizeof(struct jaf_expression));
+	e->line = jaf_line;
+	e->file = jaf_file;
 	e->type = type;
 	e->op = op;
 	return e;
@@ -45,7 +50,7 @@ struct jaf_expression *jaf_parse_integer(struct string *text)
 	errno = 0;
 	int i = strtol(text->text, &endptr, 0);
 	if (errno || *endptr != '\0')
-		ERROR("Invalid integer constant: %s", text->text);
+		_JAF_ERROR(jaf_file, jaf_line, "Invalid integer constant: %s", text->text);
 	free_string(text);
 	return jaf_integer(i);
 }
@@ -64,7 +69,7 @@ struct jaf_expression *jaf_parse_float(struct string *text)
 	errno = 0;
 	float f = strtof(text->text, &endptr);
 	if (errno || *endptr != '\0')
-		ERROR("Invalid floating point constant");
+		_JAF_ERROR(jaf_file, jaf_line, "Invalid floating point constant");
 	free_string(text);
 	return jaf_float(f);
 }
@@ -85,7 +90,7 @@ struct string *jaf_process_string(struct string *text)
 			case 'b':  *dst++ = '\b'; break;
 			case '"':  *dst++ = '"';  break;
 			case '\\': *dst++ = '\\'; break;
-			default: ERROR("Unhandled escape sequence in string");
+			default: _JAF_ERROR(jaf_file, jaf_line, "Unhandled escape sequence in string");
 			}
 		} else if (*src == '"') {
 			src++;
@@ -182,7 +187,7 @@ struct jaf_expression *jaf_system_call(struct string *name, struct jaf_argument_
 	}
 
 	if (e->call.func_no == -1)
-		ERROR("Invalid system call: system.%s", name->text);
+		_JAF_ERROR(jaf_file, jaf_line, "Invalid system call: system.%s", name->text);
 
 	free_string(name);
 	return e;
@@ -249,7 +254,7 @@ struct jaf_type_specifier *jaf_typedef(struct string *name)
 struct jaf_type_specifier *jaf_array_type(struct jaf_type_specifier *type, int rank)
 {
 	if (rank < 0)
-		ERROR("Negative array rank");
+		_JAF_ERROR(jaf_file, jaf_line, "Negative array rank");
 	type->qualifiers |= JAF_QUAL_ARRAY;
 	type->rank = rank;
 	return type;
@@ -294,18 +299,26 @@ struct jaf_declarator_list *jaf_declarators(struct jaf_declarator_list *head, st
 
 static void init_declaration(struct jaf_type_specifier *type, struct jaf_block_item *dst, struct jaf_declarator *src)
 {
-	dst->kind = JAF_DECL_VAR;
 	dst->var.type = type;
 	if (src) {
 		dst->var.name = src->name;
 		dst->var.init = src->init;
 		dst->var.array_dims = src->array_dims;
 		if (src->array_rank && src->array_rank != type->rank)
-			ERROR("Invalid array declaration");
+			JAF_ERROR(dst, "Invalid array declaration");
 		free(src);
 	} else {
 		dst->var.name = make_string("", 0);
 	}
+}
+
+static struct jaf_block_item *block_item(enum block_item_kind kind)
+{
+	struct jaf_block_item *item = xcalloc(1, sizeof(struct jaf_block_item));
+	item->line = jaf_line;
+	item->file = jaf_file;
+	item->kind = kind;
+	return item;
 }
 
 struct jaf_block *jaf_parameter(struct jaf_type_specifier *type, struct jaf_declarator *declarator)
@@ -313,7 +326,7 @@ struct jaf_block *jaf_parameter(struct jaf_type_specifier *type, struct jaf_decl
 	struct jaf_block *p = xmalloc(sizeof(struct jaf_block));
 	p->nr_items = 1;
 	p->items = xmalloc(sizeof(struct jaf_block_item*));
-	p->items[0] = xcalloc(1, sizeof(struct jaf_block_item));
+	p->items[0] = block_item(JAF_DECL_VAR);
 	init_declaration(type, p->items[0], declarator);
 	return p;
 }
@@ -338,8 +351,7 @@ struct jaf_block *jaf_function(struct jaf_type_specifier *type, struct jaf_funct
 	struct jaf_block *p = xmalloc(sizeof(struct jaf_block));
 	p->nr_items = 1;
 	p->items = xmalloc(sizeof(struct jaf_block_item*));
-	p->items[0] = xcalloc(1, sizeof(struct jaf_block_item));
-	p->items[0]->kind = JAF_DECL_FUN;
+	p->items[0] = block_item(JAF_DECL_FUN);
 	p->items[0]->fun.type = type;
 	p->items[0]->fun.name = decl->name;
 	p->items[0]->fun.params = decl->params;
@@ -370,7 +382,7 @@ struct jaf_block *jaf_vardecl(struct jaf_type_specifier *type, struct jaf_declar
 	decls->nr_items = declarators->nr_decls;
 	decls->items = xcalloc(declarators->nr_decls, sizeof(struct jaf_block_item*));
 	for (size_t i = 0; i < declarators->nr_decls; i++) {
-		decls->items[i] = xcalloc(1, sizeof(struct jaf_block_item));
+		decls->items[i] = block_item(JAF_DECL_VAR);
 		init_declaration(type, decls->items[i], declarators->decls[i]);
 	}
 	free(declarators->decls);
@@ -412,13 +424,6 @@ struct jaf_block *jaf_block(struct jaf_block_item *item)
 	block->items[0] = item;
 	block->nr_items = 1;
 	return block;
-}
-
-static struct jaf_block_item *block_item(enum block_item_kind kind)
-{
-	struct jaf_block_item *item = xcalloc(1, sizeof(struct jaf_block_item));
-	item->kind = kind;
-	return item;
 }
 
 struct jaf_block_item *jaf_compound_statement(struct jaf_block *block)
@@ -551,7 +556,7 @@ struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields)
 		} else if (fields->items[i]->kind == JAF_DECL_FUN) {
 			p->struc.methods->items[p->struc.methods->nr_items++] = fields->items[i];
 		} else {
-			ERROR("Unhandled declaration type in struct definition");
+			_JAF_ERROR(jaf_file, jaf_line, "Unhandled declaration type in struct definition");
 		}
 	}
 	free(fields->items);
@@ -672,7 +677,7 @@ void jaf_free_block_item(struct jaf_block_item *item)
 		jaf_free_block_item(item->cond.alternative);
 		break;
 	case JAF_STMT_SWITCH:
-		ERROR("switch not supported");
+		COMPILER_ERROR(item, "switch not supported");
 		break;
 	case JAF_STMT_WHILE:
 	case JAF_STMT_DO_WHILE:
