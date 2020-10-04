@@ -20,18 +20,25 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
+#include "system4.h"
 #include "system4/ain.h"
 
 #define _COMPILER_ERROR(file, line, msgf, ...)		\
 	ERROR("at %s:%d: " msgf, file ? file : "?", line, ##__VA_ARGS__)
 
 #define COMPILER_ERROR(obj, msgf, ...) \
-	_COMPILER_ERROR(obj->file, obj->line, msgf, ##__VA_ARGS__)
+	_Generic((obj),\
+		 struct jaf_expression*: _COMPILER_ERROR(obj->file, obj->line, msgf, ##__VA_ARGS__),\
+		 struct jaf_block_item*: _COMPILER_ERROR(obj->file, obj->line, msgf, ##__VA_ARGS__))
 
 #define _JAF_ERROR(file, line, msgf, ...)				\
-	sys_error("*ERROR*: at %s:%d: " msgf "\n", file, line, ##__VA_ARGS__)
+	jaf_generic_error(file, line, msgf, ##__VA_ARGS__)
 
-#define JAF_ERROR(obj, msgf, ...) _JAF_ERROR(obj->file, obj->line, msgf, ##__VA_ARGS__)
+#define JAF_ERROR(obj, msgf, ...)					\
+	_Generic((obj),							\
+		 struct jaf_expression*: jaf_expression_error,		\
+		 struct jaf_block_item*: jaf_block_item_error)		\
+	(obj, msgf, ##__VA_ARGS__)
 
 struct string;
 
@@ -325,6 +332,10 @@ struct jaf_env {
 	size_t nr_locals;
 	struct ain_variable **locals;
 };
+
+noreturn void jaf_generic_error(const char *file, int line, const char *msgf, ...);
+noreturn void jaf_expression_error(struct jaf_expression *expr, const char *msgf, ...);
+noreturn void jaf_block_item_error(struct jaf_block_item *item, const char *msgf, ...);
 
 struct jaf_expression *jaf_integer(int i);
 struct jaf_expression *jaf_parse_integer(struct string *text);
