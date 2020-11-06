@@ -646,6 +646,7 @@ struct command cmd_ain_dump = {
 		{ "keycode",            0,   "Dump keycode value",                            no_argument,       LOPT_KEYCODE },
 		{ "main",               0,   "Dump main function index",                      no_argument,       LOPT_MAIN },
 		{ "msgf",               0,   "Dump message function index",                   no_argument,       LOPT_MSGF },
+		{ "ain-version",        0,   "Dump .ain file version",                        no_argument,       LOPT_AIN_VERSION },
 		{ "game-version",       0,   "Dump game version",                             no_argument,       LOPT_GAME_VERSION },
 		{ "ojmp",               0,   "Dump OJMP value",                               no_argument,       LOPT_OJMP },
 		{ "decrypt",            'd', "Dump decrypted .ain file",                      no_argument,       LOPT_DECRYPT },
