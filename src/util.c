@@ -64,7 +64,7 @@ static char *_escape_string(const char *str, const char *escape_chars, const cha
 
 char *escape_string(const char *str)
 {
-	const char escape_chars[]  = { '\\', '\"', '\n', 0 };
-	const char replace_chars[] = { '\\', '\"', 'n',  0  };
+	const char escape_chars[]  = { '\\', '\"', '\n', '\r', 0 };
+	const char replace_chars[] = { '\\', '\"', 'n',  'r',  0 };
 	return _escape_string(str, escape_chars, replace_chars);
 }
