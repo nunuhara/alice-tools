@@ -22,6 +22,8 @@
 #include "system4.h"
 #include "alice.h"
 
+#define ALICE_TOOLS_VERSION "0.7-pre"
+
 static unsigned long _current_line_nr = 0;
 static const char *_current_file_name = NULL;
 
@@ -126,6 +128,11 @@ FILE *alice_open_output_file(const char *path)
 	return out;
 }
 
+static void print_version(void)
+{
+	puts("alice-tools version " ALICE_TOOLS_VERSION);
+}
+
 void print_usage(struct command *cmd)
 {
 	// flatten command path
@@ -195,8 +202,9 @@ void print_usage(struct command *cmd)
 
 enum {
 	LOPT_HELP = -2,
-	LOPT_INPUT_ENCODING = -3,
-	LOPT_OUTPUT_ENCODING = -4,
+	LOPT_VERSION = -3,
+	LOPT_INPUT_ENCODING = -4,
+	LOPT_OUTPUT_ENCODING = -5,
 };
 
 int alice_getopt(int argc, char *argv[], struct command *cmd)
@@ -225,10 +233,12 @@ int alice_getopt(int argc, char *argv[], struct command *cmd)
 			}
 		}
 		long_opts[nr_opts++] = (struct option) { "help",            no_argument,       NULL, LOPT_HELP };
+		long_opts[nr_opts++] = (struct option) { "version",         no_argument,       NULL, LOPT_VERSION };
 		long_opts[nr_opts++] = (struct option) { "input-encoding",  required_argument, NULL, LOPT_INPUT_ENCODING };
 		long_opts[nr_opts++] = (struct option) { "output-encoding", required_argument, NULL, LOPT_OUTPUT_ENCODING };
 		long_opts[nr_opts] = (struct option) { 0, 0, 0, 0 };
 		short_opts[nr_short_opts++] = 'h';
+		short_opts[nr_short_opts++] = 'v';
 		short_opts[nr_short_opts] = '\0';
 		initialized = true;
 	}
@@ -239,6 +249,10 @@ int alice_getopt(int argc, char *argv[], struct command *cmd)
 	case 'h':
 	case LOPT_HELP:
 		print_usage(cmd);
+		exit(0);
+	case 'v':
+	case LOPT_VERSION:
+		print_version();
 		exit(0);
 	case LOPT_INPUT_ENCODING:
 		set_input_encoding(optarg);
@@ -269,6 +283,10 @@ static int process_command(struct command *cmd, int argc, char *argv[])
 
 	if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) {
 		print_usage(cmd);
+		exit(0);
+	}
+	if (!strcmp(argv[1], "-v") || !strcmp(argv[1], "--version")) {
+		print_version();
 		exit(0);
 	}
 
