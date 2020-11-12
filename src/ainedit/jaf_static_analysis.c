@@ -555,6 +555,35 @@ static int _add_function(struct ain *ain, struct jaf_fundecl *decl)
 	return ain_add_function(ain, &f);
 }
 
+static void copy_type(struct ain_type *dst, struct ain_type *src)
+{
+	*dst = *src;
+	if (ain_is_array_data_type(src->data)) {
+		dst->array_type = xcalloc(src->rank, sizeof(struct ain_type));
+		for (int i = 0; i < src->rank; i++) {
+			copy_type(dst->array_type + i, src->array_type + i);
+		}
+	}
+}
+
+static int copy_function(struct ain *ain, int no)
+{
+	struct ain_function *src = &ain->functions[no];
+	struct ain_function dst = *src;
+	dst.name = strdup(src->name);
+	copy_type(&dst.return_type, &src->return_type);
+	dst.vars = xcalloc(src->nr_vars, sizeof(struct ain_variable));
+	for (int i = 0; i < src->nr_vars; i++) {
+		dst.vars[i] = src->vars[i];
+		dst.vars[i].name = strdup(src->vars[i].name);
+		if (src->vars[i].name2) {
+			dst.vars[i].name2 = strdup(src->vars[i].name2);
+		}
+		copy_type(&dst.vars[i].type, &src->vars[i].type);
+	}
+	return ain_add_function(ain, &dst);
+}
+
 static bool types_equal(struct ain_type *a, struct ain_type *b)
 {
 	if (a->data != b->data)
@@ -570,13 +599,30 @@ static bool function_signatures_equal(struct ain *ain, int _a, int _b)
 	struct ain_function *b = &ain->functions[_b];
 	if (!types_equal(&a->return_type, &b->return_type))
 		return false;
-	if (a->nr_args != b->nr_args || a->nr_vars != b->nr_vars)
+	if (a->nr_args != b->nr_args)
 		return false;
-	for (int i = 0; i < a->nr_vars; i++) {
+	for (int i = 0; i < a->nr_args; i++) {
 		if (!types_equal(&a->vars[i].type, &b->vars[i].type))
 			return false;
 	}
 	return true;
+}
+
+static void override_function(struct ain *ain, struct jaf_block_item *item, int no)
+{
+	struct jaf_fundecl *decl = &item->fun;
+	decl->func_no = no;
+	decl->super_no = copy_function(ain, no);
+	if (!function_signatures_equal(ain, decl->func_no, decl->super_no))
+		JAF_ERROR(item, "Invalid function signature in override of function '%s'", decl->name->text);
+	ain->functions[decl->super_no].address = ain->functions[no].address;
+
+	// reinitialize variables of overriden function
+	struct ain_function *fun = &ain->functions[no];
+	ain_free_variables(fun->vars, fun->nr_vars);
+	fun->nr_args = 0;
+	fun->nr_vars = 0;
+	function_init_vars(ain, decl, &fun->nr_args, &fun->nr_vars, &fun->vars);
 }
 
 static void add_function(struct ain *ain, struct jaf_block_item *item)
@@ -584,11 +630,7 @@ static void add_function(struct ain *ain, struct jaf_block_item *item)
 	struct jaf_fundecl *decl = &item->fun;
 	int no = ain_get_function(ain, decl->name->text);
 	if (no > 0 && (decl->type->qualifiers & JAF_QUAL_OVERRIDE)) {
-		decl->func_no = no;
-		decl->super_no = _add_function(ain, decl);
-		if (!function_signatures_equal(ain, decl->func_no, decl->super_no))
-			JAF_ERROR(item, "Invalid function signature in override of function '%s'", decl->name->text);
-		ain->functions[decl->super_no].address = ain->functions[no].address;
+		override_function(ain, item, no);
 	} else if (no > 0) {
 		JAF_ERROR(item, "Function '%s' already exists");
 	} else {
