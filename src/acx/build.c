@@ -37,6 +37,7 @@ enum {
 
 // csv_parser.y
 extern struct acx *acx_parse(const char *path);
+extern unsigned long csv_line;
 
 static void acx_write(FILE *out, struct acx *acx)
 {
@@ -123,6 +124,9 @@ int command_acx_build(int argc, char *argv[])
 	if (argc != 1) {
 		USAGE_ERROR(&cmd_acx_build, "Wrong number of arguments.");
 	}
+
+	current_line_nr = &csv_line;
+	current_file_name = (const char**)&argv[0];
 
 	FILE *out = alice_open_output_file(output_file);
 	struct acx *acx = acx_parse(argv[0]);

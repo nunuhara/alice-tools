@@ -17,23 +17,26 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include "alice.h"
 #include "system4.h"
 #include "system4/ain.h"
 #include "system4/string.h"
 #include "text_parser.tab.h"
 
 extern FILE *text_in;
+extern unsigned long text_line;
 
 void read_text(const char *filename, struct ain *ain)
 {
-	if (filename) {
-		if (!strcmp(filename, "-"))
-			text_in = stdin;
-		else
-			text_in = fopen(filename, "r");
-		if (!text_in)
-			ERROR("Opening input file '%s': %s", filename, strerror(errno));
-	}
+	current_line_nr = &text_line;
+	current_file_name = &filename;
+
+	if (!strcmp(filename, "-"))
+		text_in = stdin;
+	else
+		text_in = fopen(filename, "r");
+	if (!text_in)
+		ERROR("Opening input file '%s': %s", filename, strerror(errno));
 	text_parse();
 
 	for (size_t i = 0; i < kv_size(*statements); i++) {

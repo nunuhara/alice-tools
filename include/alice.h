@@ -59,6 +59,9 @@ char *conv_output_utf8(const char *str);
 /* util.c */
 char *escape_string(const char *str);
 
+extern unsigned long *current_line_nr;
+extern const char **current_file_name;
+
 extern struct command cmd_acx_dump;
 extern struct command cmd_acx_build;
 extern struct command cmd_ain_compare;

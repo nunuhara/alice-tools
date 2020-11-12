@@ -71,6 +71,9 @@ struct jaf_block *jaf_parse(struct ain *ain, const char **files, unsigned nr_fil
     jaf_ain_out = ain;
     jaf_toplevel = NULL;
 
+    current_line_nr = &jaf_line;
+    current_file_name = &jaf_file;
+
     for (unsigned i = 0; i < nr_files; i++) {
 	// open file
 	jaf_file = files[i];

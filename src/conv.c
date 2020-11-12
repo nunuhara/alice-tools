@@ -33,7 +33,10 @@ static char *convert_text(iconv_t cd, const char *str)
 
 	while (inbytesleft) {
 		if (iconv(cd, &inbuf, &inbytesleft, &outptr, &outbytesleft) == (size_t)-1 && errno != E2BIG) {
-			ALICE_ERROR("iconv: %s", strerror(errno));
+			if (*current_file_name)
+				ALICE_ERROR("%s:%lu: iconv: %s", *current_file_name, *current_line_nr, strerror(errno));
+			else
+				ALICE_ERROR("iconv: %s", strerror(errno));
 		}
 		// reallocate outbuf
 		size_t out_index = outbuf_size - outbytesleft;

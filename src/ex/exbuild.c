@@ -30,6 +30,7 @@
 
 void ex_write(FILE *out, struct ex *ex);
 extern bool columns_first;
+extern unsigned long yex_line;
 
 enum {
 	LOPT_OUTPUT = 256,
@@ -72,10 +73,15 @@ int command_ex_build(int argc, char *argv[])
 		in = stdin;
 	} else {
 		in = fopen(argv[0], "rb");
-		chdir(dirname(argv[0]));
+		char *tmp = strdup(argv[0]);
+		chdir(dirname(tmp));
+		free(tmp);
 	}
 	if (!in)
 		ERROR("fopen failed: %s", strerror(errno));
+
+	current_line_nr = &yex_line;
+	current_file_name = (const char**)&argv[0];
 
 	struct ex *ex = ex_parse(in);
 	ex_write(out, ex);

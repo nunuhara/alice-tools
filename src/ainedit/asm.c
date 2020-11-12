@@ -30,6 +30,7 @@
 #include "asm_parser.tab.h"
 
 extern FILE *asm_in;
+extern unsigned long asm_line;
 
 KHASH_MAP_INIT_STR(string_ht, size_t);
 
@@ -857,14 +858,16 @@ void asm_assemble_jam(const char *filename, struct ain *ain, uint32_t flags)
 	struct asm_state state;
 	init_asm_state(&state, ain, flags);
 
-	if (filename) {
-		if (!strcmp(filename, "-"))
-			asm_in = stdin;
-		else
-			asm_in = fopen(filename, "r");
-		if (!asm_in)
-			ERROR("Opening input file '%s': %s", filename, strerror(errno));
-	}
+	current_line_nr = &asm_line;
+	current_file_name = &filename;
+
+	if (!strcmp(filename, "-"))
+		asm_in = stdin;
+	else
+		asm_in = fopen(filename, "r");
+	if (!asm_in)
+		ERROR("Opening input file '%s': %s", filename, strerror(errno));
+
 	label_table = kh_init(label_table);
 	NOTICE("Parsing...");
 	asm_parse();
