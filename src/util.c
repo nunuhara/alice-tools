@@ -16,6 +16,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include "system4.h"
 #include "alice.h"
 
@@ -67,4 +68,24 @@ char *escape_string(const char *str)
 	const char escape_chars[]  = { '\\', '\"', '\n', '\r', 0 };
 	const char replace_chars[] = { '\\', '\"', 'n',  'r',  0 };
 	return _escape_string(str, escape_chars, replace_chars);
+}
+
+FILE *checked_fopen(const char *filename, const char *mode)
+{
+	FILE *f = fopen(filename, mode);
+	if (!f)
+		ALICE_ERROR("fopen(\"%s\", \"%s\"): %s", filename, mode, strerror(errno));
+	return f;
+}
+
+void checked_fwrite(void *ptr, size_t size, FILE *stream)
+{
+	if (fwrite(ptr, size, 1, stream) != 1)
+		ALICE_ERROR("fwrite: %s", strerror(errno));
+}
+
+void checked_fread(void *ptr, size_t size, FILE *stream)
+{
+	if (fread(ptr, size, 1, stream) != 1)
+		ALICE_ERROR("fwrite: %s", strerror(errno));
 }

@@ -5,8 +5,8 @@ The `alice ar` commands are used to extract files from various AliceSoft
 archive formats (.ald, .afa). It should be capable of extracting all .ald/.afa
 files up to Haha Ranman (the latest game at the time of this writing).
 
-Usage
------
+Extracting Archives
+-------------------
 
 First of all, if you're running this tool from the Windows command prompt, you
 should run the command `chcp 65001` to change the console's code page to UTF-8,
@@ -44,3 +44,21 @@ You can pass the --raw flag to prevent alice-ar from converting any files,
 
 When the --raw flag is given, .flat files will not be recursively extracted and
 images will not be converted to .png format.
+
+Creating Archives
+-----------------
+
+To create an archive, you must first create a manifest file that lists the files
+to be included in the archive. The format of the manifest file is as follows,
+
+    #ALICEPACK
+    output_filename.afa
+    input_filename1.qnt
+    input_filename2.qnt
+    ...
+    
+At this time only AFAv2 archives are supported.
+
+With your manifest created, run the `pack` command to create the archive,
+
+    alice ar pack manifest_filename

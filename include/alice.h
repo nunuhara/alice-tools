@@ -58,6 +58,9 @@ char *conv_output_utf8(const char *str);
 
 /* util.c */
 char *escape_string(const char *str);
+FILE *checked_fopen(const char *filename, const char *mode);
+void checked_fwrite(void *ptr, size_t size, FILE *stream);
+void checked_fread(void *ptr, size_t size, FILE *stream);
 
 extern unsigned long *current_line_nr;
 extern const char **current_file_name;
@@ -69,6 +72,7 @@ extern struct command cmd_ain_dump;
 extern struct command cmd_ain_edit;
 extern struct command cmd_ar_extract;
 extern struct command cmd_ar_list;
+extern struct command cmd_ar_pack;
 extern struct command cmd_ex_build;
 extern struct command cmd_ex_compare;
 extern struct command cmd_ex_dump;

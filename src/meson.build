@@ -20,9 +20,12 @@ sources = ['acx/build.c',
            'ainedit/transcode.c',
            'alice.c',
            'ar/afa_extract.c',
+           'ar/write_afa.c',
            'ar/extract.c',
            'ar/list.c',
+           'ar/manifest_parser.c',
            'ar/open.c',
+           'ar/pack.c',
            'cJSON.c',
            'conv.c',
            'dasm.c',
@@ -41,6 +44,9 @@ sources += bisongen.process('acx/csv_parser.y')
 
 sources += flexgen.process('ainedit/asm_lexer.l', 'ainedit/text_lexer.l', 'ainedit/jaf_lexer.l')
 sources += bisongen.process('ainedit/asm_parser.y', 'ainedit/text_parser.y', 'ainedit/jaf_parser.y')
+
+sources += flexgen.process('ar/manifest_lexer.l')
+sources += bisongen.process('ar/manifest_parser.y')
 
 sources += flexgen.process('ex/ex_lexer.l')
 sources += bisongen.process('ex/ex_parser.y')

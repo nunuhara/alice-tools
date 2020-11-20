@@ -181,18 +181,6 @@ static char *get_default_filename(struct archive_data *data, const char *ext)
 	return u;
 }
 
-static FILE *checked_fopen(const char *path, const char *mode)
-{
-	if (file_exists(path) && !force) {
-		errno = EEXIST;
-		return NULL;
-	}
-	FILE *f = file_open_utf8(path, mode);
-	if (!f)
-		ERROR("fopen failed: %s", strerror(errno));
-	return f;
-}
-
 static bool write_file(struct archive_data *data, const char *output_file)
 {
 	FILE *f = NULL;
@@ -201,12 +189,19 @@ static bool write_file(struct archive_data *data, const char *output_file)
 	if (!output_file) {
 		char *u = get_default_filename(data, output_img ? image_encoders[imgenc].ext : NULL);
 		mkdir_for_file(u);
+		if (!force && file_exists(u)) {
+			free(u);
+			return false;
+		}
 		if (!(f = checked_fopen(u, "wb"))) {
 			free(u);
 			return false;
 		}
 		free(u);
 	} else if (strcmp(output_file, "-")) {
+		if (!force && file_exists(output_file)) {
+			return false;
+		}
 		if (!(f = checked_fopen(output_file, "wb"))) {
 			return false;
 		}

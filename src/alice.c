@@ -75,6 +75,7 @@ struct command cmd_ar = {
 	.commands = {
 		&cmd_ar_extract,
 		&cmd_ar_list,
+		&cmd_ar_pack,
 		NULL
 	}
 };
