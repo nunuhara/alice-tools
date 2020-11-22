@@ -24,6 +24,7 @@
 #include "system4/buffer.h"
 #include "system4/file.h"
 #include "system4/string.h"
+#include "system4/utfsjis.h"
 #include "alice.h"
 #include "alice-ar.h"
 
@@ -34,7 +35,7 @@ static uint32_t align8(uint32_t i)
 
 static uint8_t zpad[0x1000] = {0};
 
-void write_afa(struct string *filename, struct string **files, size_t nr_files)
+void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_files)
 {
 	// open output file
 	FILE *f = checked_fopen(filename->text, "wb");
@@ -43,9 +44,9 @@ void write_afa(struct string *filename, struct string **files, size_t nr_files)
 	off_t *sizes = xcalloc(nr_files, sizeof(off_t));
 	size_t data_size = 0;
 	for (size_t i = 0; i < nr_files; i++) {
-		sizes[i] = file_size(files[i]->text);
+		sizes[i] = file_size(files[i]->path->text);
 		if (sizes[i] <= 0) {
-			ALICE_ERROR("can't determine size of file: %s", files[i]->text);
+			ALICE_ERROR("can't determine size of file: %s", files[i]->path->text);
 		}
 		data_size += align8(sizes[i]);
 	}
@@ -55,13 +56,15 @@ void write_afa(struct string *filename, struct string **files, size_t nr_files)
 	struct buffer buf;
 	buffer_init(&buf, NULL, 0);
 	for (size_t i = 0; i < nr_files; i++) {
-		buffer_write_int32(&buf, files[i]->size);
-		buffer_write_pascal_string(&buf, files[i]);
+		char *u = utf2sjis(files[i]->name->text, files[i]->name->size);
+		buffer_write_int32(&buf, strlen(u));
+		buffer_write_pascal_cstring(&buf, u);
 		buffer_write_int32(&buf, 0); // timestamp?
 		buffer_write_int32(&buf, 0); // timestamp?
 		buffer_write_int32(&buf, off);
 		buffer_write_int32(&buf, sizes[i]);
 		off += align8(sizes[i]);
+		free(u);
 	}
 
 	// compress index
@@ -114,7 +117,8 @@ void write_afa(struct string *filename, struct string **files, size_t nr_files)
 	buffer_write_int32(&buf, data_size+8);
 	checked_fwrite(buf.buf, buf.index, f);
 	for (size_t i = 0; i < nr_files; i++) {
-		FILE *in = checked_fopen(files[i]->text, "rb");
+		NOTICE("%s", files[i]->path->text);
+		FILE *in = checked_fopen(files[i]->path->text, "rb");
 		uint8_t *tmp = xmalloc(sizes[i]);
 		checked_fread(tmp, sizes[i], in);
 		checked_fwrite(tmp, sizes[i], f);

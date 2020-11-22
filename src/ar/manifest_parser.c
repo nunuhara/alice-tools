@@ -18,9 +18,23 @@
 #include <string.h>
 #include <errno.h>
 #include "system4.h"
+#include "system4/cg.h"
 #include "system4/string.h"
 #include "alice.h"
 #include "alice-ar.h"
+
+static enum cg_type ar_parse_image_format(struct string *str)
+{
+	if (!strcasecmp(str->text, "PNG"))
+		return ALCG_PNG;
+	if (!strcasecmp(str->text, "PMS"))
+		return ALCG_PMS16;
+	if (!strcasecmp(str->text, "QNT"))
+		return ALCG_QNT;
+	if (!strcasecmp(str->text, "WEBP"))
+		return ALCG_WEBP;
+	return ALCG_UNKNOWN;
+}
 
 static enum ar_manifest_type ar_parse_manifest_type(struct string *str)
 {
@@ -49,6 +63,29 @@ static void make_alicepack_manifest(struct ar_manifest *dst, ar_row_list *rows)
 	}
 }
 
+static void make_alicecg2_manifest(struct ar_manifest *dst, ar_row_list *rows)
+{
+	dst->type = AR_MF_ALICECG2;
+	dst->alicecg2 = xcalloc(dst->nr_rows, sizeof(struct alicecg2_line));
+	for (size_t i = 0; i < dst->nr_rows; i++) {
+		ar_string_list *row = kv_A(*rows, i);
+		if (kv_size(*row) != 5)
+			ALICE_ERROR("line %d: wrong number of columns", (int)i+2);
+		// TODO: parse file number (for ALD)
+		dst->alicecg2[i].file_no = 0;
+		dst->alicecg2[i].src = kv_A(*row, 1);
+		dst->alicecg2[i].src_fmt = ar_parse_image_format(kv_A(*row, 2));
+		dst->alicecg2[i].dst = kv_A(*row, 3);
+		dst->alicecg2[i].dst_fmt = ar_parse_image_format(kv_A(*row, 4));
+
+		free_string(kv_A(*row, 0));
+		free_string(kv_A(*row, 2));
+		free_string(kv_A(*row, 4));
+		kv_destroy(*row);
+		free(row);
+	}
+}
+
 struct ar_manifest *ar_make_manifest(struct string *magic, struct string *output_path, ar_row_list *rows)
 {
 	struct ar_manifest *mf = xcalloc(1, sizeof(struct ar_manifest));
@@ -60,7 +97,8 @@ struct ar_manifest *ar_make_manifest(struct string *magic, struct string *output
 		make_alicepack_manifest(mf, rows);
 		break;
 	case AR_MF_ALICECG2:
-		ALICE_ERROR("ALICECG2 manifest not supported");
+		make_alicecg2_manifest(mf, rows);
+		break;
 	case AR_MF_NL5:
 		ALICE_ERROR("NL5 manifest not supported");
 	case AR_MF_WAVLINKER:
@@ -72,8 +110,6 @@ struct ar_manifest *ar_make_manifest(struct string *magic, struct string *output
 
 	kv_destroy(*rows);
 	free(rows);
-
 	free_string(magic);
-
 	return mf;
 }

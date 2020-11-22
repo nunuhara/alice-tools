@@ -31,8 +31,10 @@
 #include "system4/ald.h"
 #include "system4/cg.h"
 #include "system4/file.h"
+#include "system4/png.h"
 #include "system4/string.h"
 #include "system4/utfsjis.h"
+#include "system4/webp.h"
 #include "alice.h"
 #include "archive.h"
 
@@ -76,93 +78,7 @@ static void mkdir_for_file(const char *filename)
 	free(tmp);
 }
 
-static void write_webp(struct cg *cg, FILE *f)
-{
-	uint8_t *out;
-	size_t len = WebPEncodeLosslessRGBA(cg->pixels, cg->metrics.w, cg->metrics.h, cg->metrics.w*4, &out);
-	if (!fwrite(out, len, 1, f))
-		ERROR("fwrite failed: %s", strerror(errno));
-	WebPFree(out);
-}
-
-static void write_png(struct cg *cg, FILE *f)
-{
-	png_structp png_ptr = NULL;
-	png_infop info_ptr = NULL;
-	png_byte **row_pointers = NULL;
-
-	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-	if (!png_ptr) {
-		WARNING("png_create_write_struct failed");
-		goto cleanup;
-	}
-
-	info_ptr = png_create_info_struct(png_ptr);
-	if (!info_ptr) {
-		WARNING("png_create_info_struct failed");
-		goto cleanup;
-	}
-
-	if (setjmp(png_jmpbuf(png_ptr))) {
-		WARNING("png_init_io failed");
-		goto cleanup;
-	}
-
-	png_init_io(png_ptr, f);
-
-	if (setjmp(png_jmpbuf(png_ptr))) {
-		WARNING("png_write_header failed");
-		goto cleanup;
-	}
-
-	png_set_IHDR(png_ptr, info_ptr, cg->metrics.w, cg->metrics.h,
-		     8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE,
-		     PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-	png_write_info(png_ptr, info_ptr);
-
-	png_uint_32 stride = cg->metrics.w * 4;
-	row_pointers = png_malloc(png_ptr, cg->metrics.h * sizeof(png_byte*));
-	for (int i = 0; i < cg->metrics.h; i++) {
-		row_pointers[i] = cg->pixels + i*stride;
-	}
-
-	if (setjmp(png_jmpbuf(png_ptr))) {
-		WARNING("png_write_image failed");
-		goto cleanup;
-	}
-
-	png_write_image(png_ptr, row_pointers);
-
-	if (setjmp(png_jmpbuf(png_ptr))) {
-		WARNING("png_write_end failed");
-		goto cleanup;
-	}
-
-	png_write_end(png_ptr, NULL);
-cleanup:
-	if (row_pointers)
-		png_free(png_ptr, row_pointers);
-	if (png_ptr)
-		png_destroy_write_struct(&png_ptr, info_ptr ? &info_ptr : NULL);
-	return;
-}
-
-enum imgenc {
-	IMGENC_PNG,
-	IMGENC_WEBP,
-};
-
-struct image_encoder {
-	void (*write)(struct cg *cg, FILE *f);
-	const char * const ext;
-};
-
-static struct image_encoder image_encoders[] = {
-	[IMGENC_PNG]  = { write_png,  ".png"  },
-	[IMGENC_WEBP] = { write_webp, ".webp" },
-};
-
-static enum imgenc imgenc = IMGENC_PNG;
+static enum cg_type imgenc = ALCG_PNG;
 
 static bool is_image_file(struct archive_data *data)
 {
@@ -175,8 +91,9 @@ static char *get_default_filename(struct archive_data *data, const char *ext)
 	if (ext) {
 		size_t ulen = strlen(u);
 		size_t extlen = strlen(ext);
-		u = xrealloc(u, ulen + extlen + 1);
-		memcpy(u+ulen, ext, extlen + 1);
+		u = xrealloc(u, ulen + extlen + 2);
+		u[ulen] = '.';
+		memcpy(u+ulen+1, ext, extlen + 1);
 	}
 	return u;
 }
@@ -187,7 +104,7 @@ static bool write_file(struct archive_data *data, const char *output_file)
 	bool output_img = !raw && is_image_file(data);
 
 	if (!output_file) {
-		char *u = get_default_filename(data, output_img ? image_encoders[imgenc].ext : NULL);
+		char *u = get_default_filename(data, output_img ? cg_file_extensions[imgenc] : NULL);
 		mkdir_for_file(u);
 		if (!force && file_exists(u)) {
 			free(u);
@@ -210,7 +127,7 @@ static bool write_file(struct archive_data *data, const char *output_file)
 	if (output_img) {
 		struct cg *cg = cg_load_data(data);
 		if (cg) {
-			image_encoders[imgenc].write(cg, f);
+			cg_write(cg, imgenc, f);
 			cg_free(cg);
 		} else {
 			WARNING("Failed to load CG");
@@ -243,7 +160,6 @@ static void extract_flat(struct archive_data *data, char *output_dir)
 	strcpy(prefix, output_dir);
 	strcpy(prefix+dir_len, uname);
 	strcpy(prefix+dir_len+name_len, ".");
-	//NOTICE("Extracting %s...", uname);
 
 	archive_for_each(ar, extract_all_iter, prefix);
 	archive_free(ar);
@@ -277,7 +193,7 @@ static void extract_all_iter(struct archive_data *data, void *_prefix)
 
 	char *prefix = _prefix;
 	bool is_image = is_image_file(data);
-	char *file_name = get_default_filename(data, !raw && is_image ? image_encoders[imgenc].ext : NULL);
+	char *file_name = get_default_filename(data, !raw && is_image ? cg_file_extensions[imgenc] : NULL);
 	char output_file[PATH_MAX];
 	snprintf(output_file, PATH_MAX, "%s%s", prefix, file_name);
 	free(file_name);
@@ -326,9 +242,9 @@ int command_ar_extract(int argc, char *argv[])
 			break;
 		case LOPT_IMAGE_FORMAT:
 			if (!strcasecmp(optarg, "png"))
-				imgenc = IMGENC_PNG;
+				imgenc = ALCG_PNG;
 			else if (!strcasecmp(optarg, "webp"))
-				imgenc = IMGENC_WEBP;
+				imgenc = ALCG_WEBP;
 			else
 				ERROR("Unrecognized image format: \"%s\"", optarg);
 			break;

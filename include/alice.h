@@ -20,6 +20,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <getopt.h>
+#include <dirent.h>
 #include "system4.h"
 
 #define ALICE_ERROR(msg, ...) sys_error("ERROR: " msg "\n", ##__VA_ARGS__)
@@ -56,11 +57,15 @@ char *conv_output(const char *str);
 char *conv_utf8(const char *str);
 char *conv_output_utf8(const char *str);
 
+struct stat;
+
 /* util.c */
 char *escape_string(const char *str);
 FILE *checked_fopen(const char *filename, const char *mode);
 void checked_fwrite(void *ptr, size_t size, FILE *stream);
 void checked_fread(void *ptr, size_t size, FILE *stream);
+DIR *checked_opendir(const char *path);
+void checked_stat(const char *path, struct stat *s);
 
 extern unsigned long *current_line_nr;
 extern const char **current_file_name;

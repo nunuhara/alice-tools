@@ -49,16 +49,52 @@ Creating Archives
 -----------------
 
 To create an archive, you must first create a manifest file that lists the files
-to be included in the archive. The format of the manifest file is as follows,
+to be included in the archive. Multiple manifest formats are supported. The type
+of manifest is indicated by the first line of the file, which should be a '#'
+character followed by the name of the format. See below for more information.
+
+Once you've created your manifest, run the `pack` command to create the archive,
+
+    alice ar pack manifest_filename
+    
+Note: At this time only AFAv2 archives can be created.
+
+### ALICEPACK
+
+This is the simplest manifest format. You simply specify the archive name and
+then list the files to be included in the archive. E.g.
 
     #ALICEPACK
     output_filename.afa
     input_filename1.qnt
     input_filename2.qnt
     ...
-    
-At this time only AFAv2 archives are supported.
 
-With your manifest created, run the `pack` command to create the archive,
+### ALICECG2
 
-    alice ar pack manifest_filename
+This is a format for creating CG archives. It supports conversion between image
+formats prior to archive creation. E.g.
+
+    #ALICECG2
+    output_filename.afa
+    0,src,PNG,dst,QNT
+    ...
+
+In the above example, all image files in the directory `src` will be converted
+to QNT format, saved in the `dst` directory, and then the contents of the `dst`
+directory will be added to the archive.
+
+The format of each line in the file is,
+
+    file_number,src_directory,src_format,dst_directory,dst_format
+
+where:
+
+* `file_number` is the archive number (ALD archives only)
+* `src_directory` is the path to a directory containing the source CG files
+* `src_format` is the name of the image format of the source CG files
+* `dst_directory` is the path to the directory to store the converted CG files
+* `dst_format` is the name of the image format to be used for converted CG files
+
+Note: `file_number` and `src_format` are included for compatibility with
+AliceSoft's own tools (from System 4 SDK). They are ignored by alice-tools.

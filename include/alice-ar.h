@@ -19,6 +19,7 @@
 
 #include <stddef.h>
 #include "kvec.h"
+#include "system4/cg.h"
 
 enum ar_manifest_type {
 	AR_MF_INVALID,
@@ -26,14 +27,6 @@ enum ar_manifest_type {
 	AR_MF_ALICECG2,
 	AR_MF_NL5,
 	AR_MF_WAVLINKER,
-};
-
-enum ar_image_format {
-	AR_IMG_NONE,
-	AR_IMG_BMP,
-	AR_IMG_PNG,
-	AR_IMG_PMS,
-	AR_IMG_QNT,
 };
 
 // Custom manifest format (simple)
@@ -49,9 +42,9 @@ struct alicepack_line {
 struct alicecg2_line {
 	int file_no;
 	struct string *src;
-	enum ar_image_format src_fmt;
+	enum cg_type src_fmt;
 	struct string *dst;
-	enum ar_image_format dst_fmt;
+	enum cg_type dst_fmt;
 };
 
 // NL5: file, link_no, filename
@@ -80,6 +73,11 @@ struct ar_manifest {
 		struct nl5_line *nl5;
 		struct wavlinker_line *wavlinker;
 	};
+};
+
+struct ar_file_spec {
+	struct string *path;
+	struct string *name;
 };
 
 kv_decl(ar_string_list, struct string*);

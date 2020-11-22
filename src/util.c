@@ -17,6 +17,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <dirent.h>
+#include <sys/stat.h>
 #include "system4.h"
 #include "alice.h"
 
@@ -88,4 +90,18 @@ void checked_fread(void *ptr, size_t size, FILE *stream)
 {
 	if (fread(ptr, size, 1, stream) != 1)
 		ALICE_ERROR("fwrite: %s", strerror(errno));
+}
+
+DIR *checked_opendir(const char *path)
+{
+	DIR *d = opendir(path);
+	if (!d)
+		ALICE_ERROR("opendir(\"%s\"): %s", strerror(errno));
+	return d;
+}
+
+void checked_stat(const char *path, struct stat *s)
+{
+	if (stat(path, s))
+		ALICE_ERROR("stat(\"%s\"): %s", strerror(errno));
 }
