@@ -25,11 +25,13 @@
 
 extern FILE *text_in;
 extern unsigned long text_line;
+struct ain *text_ain;
 
 void read_text(const char *filename, struct ain *ain)
 {
 	current_line_nr = &text_line;
 	current_file_name = &filename;
+	text_ain = ain;
 
 	if (!strcmp(filename, "-"))
 		text_in = stdin;
