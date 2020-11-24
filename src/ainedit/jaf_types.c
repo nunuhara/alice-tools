@@ -385,16 +385,91 @@ static void jaf_check_types_functype_call(struct jaf_env *env, struct jaf_expres
 		JAF_ERROR(expr, "Too few arguments to function");
 }
 
+static bool jaf_check_types_special_call(struct jaf_env *env, struct jaf_expression *expr)
+{
+	if (expr->call.fun->type != JAF_EXP_MEMBER)
+		return false;
+
+	struct jaf_expression *dot = expr->call.fun;
+	if (dot->member.struc->type != JAF_EXP_IDENTIFIER)
+		return false;
+
+	const char *obj_name = dot->member.struc->s->text;
+	const char *mbr_name = dot->member.name->text;
+
+	char *tmp = conv_output(obj_name);
+	int lib = ain_get_library(env->ain, tmp);
+	free(tmp);
+
+	// HLL call
+	if (lib >= 0) {
+		char *fun_name = conv_output(dot->member.name->text);
+		int fun = ain_get_library_function(env->ain, lib, fun_name);
+		free(fun_name);
+		if (fun <= 0) {
+			JAF_ERROR(expr, "Undefined HLL function: %s.%s", obj_name, mbr_name);
+		}
+		expr->type = JAF_EXP_HLLCALL;
+		expr->call.lib_no = lib;
+		expr->call.func_no = fun;
+
+		unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
+		struct ain_hll_function *def = &env->ain->libraries[lib].functions[fun];
+		if (nr_args < (unsigned)def->nr_arguments)
+			JAF_ERROR(expr, "Too few arguments to HLL function: %s.%s", obj_name, mbr_name);
+		if (nr_args > (unsigned)def->nr_arguments)
+			JAF_ERROR(expr, "Too many arguments to HLL function: %s.%s", obj_name, mbr_name);
+		for (unsigned i = 0; i < nr_args; i++) {
+			jaf_check_type(expr->call.args->items[i], &def->arguments[i].type);
+		}
+		expr->valuetype = def->return_type;
+		return true;
+	}
+
+	// system call
+	if (!strcmp(obj_name, "system")) {
+		expr->type = JAF_EXP_SYSCALL;
+		expr->call.func_no = -1;
+		for (int i = 0; i < NR_SYSCALLS; i++) {
+			if (!strcmp(mbr_name, syscalls[i].name+7)) {
+				expr->call.func_no = i;
+				break;
+			}
+		}
+		if (expr->call.func_no == -1) {
+			JAF_ERROR(expr, "Invalid system call: system.%s", mbr_name);
+		}
+
+		unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
+		for (unsigned i = 0; i < nr_args; i++) {
+			struct ain_type type = {
+				.data = syscalls[expr->call.func_no].argtypes[i],
+				.struc = -1,
+				.rank = 0
+			};
+			jaf_check_type(expr->call.args->items[i], &type);
+		}
+		expr->valuetype = syscalls[expr->call.func_no].return_type;
+		return true;
+	}
+
+	return false;
+}
+
 static void jaf_check_types_funcall(struct jaf_env *env, struct jaf_expression *expr)
 {
-	jaf_derive_types(env, expr->call.fun);
-	if (expr->call.fun->valuetype.data != AIN_FUNCTION && expr->call.fun->valuetype.data != AIN_FUNC_TYPE)
-		TYPE_ERROR(expr->call.fun, AIN_FUNC_TYPE);
-
 	unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
 	for (size_t i = 0; i < nr_args; i++) {
 		jaf_derive_types(env, expr->call.args->items[i]);
 	}
+
+	// handle HLL, system calls
+	if (jaf_check_types_special_call(env, expr))
+		return;
+
+	jaf_derive_types(env, expr->call.fun);
+	if (expr->call.fun->valuetype.data != AIN_FUNCTION && expr->call.fun->valuetype.data != AIN_FUNC_TYPE)
+		TYPE_ERROR(expr->call.fun, AIN_FUNC_TYPE);
 
 	if (expr->call.fun->valuetype.data == AIN_FUNC_TYPE) {
 		jaf_check_types_functype_call(env, expr);
@@ -423,33 +498,6 @@ static void jaf_check_types_funcall(struct jaf_env *env, struct jaf_expression *
 	}
 	if (arg != f->nr_args)
 		JAF_ERROR(expr, "Too few arguments to function");
-}
-
-static void jaf_check_types_syscall(struct jaf_env *env, struct jaf_expression *expr)
-{
-	int no = expr->call.func_no;
-	unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
-	for (size_t i = 0; i < nr_args; i++) {
-		jaf_derive_types(env, expr->call.args->items[i]);
-	}
-
-	assert(no >= 0 && no < NR_SYSCALLS);
-	if (nr_args != syscalls[no].nr_args) {
-		JAF_ERROR(expr,
-			  "Wrong number of arguments to syscall 'system.%s' (expected %d; got %d)",
-			  syscalls[no].name, syscalls[no].nr_args, nr_args);
-	}
-
-	for (unsigned i = 0; i < nr_args; i++) {
-		struct ain_type type = {
-			.data = syscalls[no].argtypes[i],
-			.struc = -1,
-			.rank = 0
-		};
-		jaf_check_type(expr->call.args->items[i], &type);
-	}
-
-	expr->valuetype = syscalls[no].return_type;
 }
 
 static bool is_struct_type(struct jaf_expression *e)
@@ -572,9 +620,6 @@ void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr)
 	case JAF_EXP_FUNCALL:
 		jaf_check_types_funcall(env, expr);
 		break;
-	case JAF_EXP_SYSCALL:
-		jaf_check_types_syscall(env, expr);
-		break;
 	case JAF_EXP_CAST:
 		expr->valuetype.data = jaf_to_ain_data_type(expr->cast.type, 0);
 		break;
@@ -587,16 +632,31 @@ void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr)
 	case JAF_EXP_SUBSCRIPT:
 		jaf_check_types_subscript(env, expr);
 		break;
+	case JAF_EXP_SYSCALL:
+	case JAF_EXP_HLLCALL:
+		// these should be JAF_EXP_FUNCALLs initially
+		JAF_ERROR(expr, "Unexpected expression type");
+	}
+}
+
+static bool is_numeric(enum ain_data_type type)
+{
+	switch (type) {
+	case AIN_INT:
+	case AIN_FLOAT:
+	case AIN_LONG_INT:
+	case AIN_BOOL:
+		return true;
+	default:
+		return false;
 	}
 }
 
 void jaf_check_type(struct jaf_expression *expr, struct ain_type *type)
 {
 	if (!jaf_type_equal(&expr->valuetype, type)) {
-		// treat ints and floats as interchangable
-		if (expr->valuetype.data == AIN_INT && type->data == AIN_FLOAT)
-			return;
-		if (expr->valuetype.data == AIN_FLOAT && type->data == AIN_INT)
+		// numeric types are compatible (implicit cast)
+		if (is_numeric(expr->valuetype.data) && is_numeric(type->data))
 			return;
 		TYPE_ERROR(expr, type->data);
 	}

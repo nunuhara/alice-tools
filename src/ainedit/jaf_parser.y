@@ -174,7 +174,7 @@ static struct jaf_block *jaf_functype(struct jaf_type_specifier *type, struct ja
 %token	<token>		AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
 %token	<token>		SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
 %token	<token>		XOR_ASSIGN OR_ASSIGN
-%token	<token>		SYM_REF REF_ASSIGN SYSTEM ARRAY FUNCTYPE
+%token	<token>		SYM_REF REF_ASSIGN ARRAY FUNCTYPE
 %token	<token>		FILE_MACRO LINE_MACRO FUNC_MACRO DATE_MACRO TIME_MACRO
 
 %token	<token>		CONST OVERRIDE
@@ -249,7 +249,6 @@ postfix_expression
 	| postfix_expression '(' ')'                             { $$ = jaf_function_call($1, NULL); }
 	| atomic_type_specifier '(' expression ')'               { $$ = jaf_cast_expression($1, $3); }
 	| postfix_expression '(' argument_expression_list ')'    { $$ = jaf_function_call($1, $3); }
-	| SYSTEM '.' IDENTIFIER '(' argument_expression_list ')' { $$ = jaf_system_call($3, $5); }
 	| postfix_expression '.' IDENTIFIER                      { $$ = jaf_member_expr($1, $3); }
 	| postfix_expression INC_OP                              { $$ = jaf_unary_expr(JAF_POST_INC, $1); }
 	| postfix_expression DEC_OP                              { $$ = jaf_unary_expr(JAF_POST_DEC, $1); }

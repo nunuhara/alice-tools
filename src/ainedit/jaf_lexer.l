@@ -90,7 +90,6 @@ unsigned long jaf_line = 1;
 "__DATE__"                              { return DATE_MACRO; }
 "__TIME__"                              { return TIME_MACRO; }
 "ref"                                   { return SYM_REF; }
-"system"                                { return SYSTEM; }
 "array"					{ return ARRAY; }
 "functype"                              { return FUNCTYPE; }
 "override"                              { return OVERRIDE; }

@@ -391,6 +391,7 @@ struct jaf_expression *jaf_simplify(struct jaf_expression *in)
 		return jaf_simplify_ternary(in);
 	case JAF_EXP_FUNCALL:
 	case JAF_EXP_SYSCALL:
+	case JAF_EXP_HLLCALL:
 		return jaf_simplify_funcall(in);
 	case JAF_EXP_CAST:
 		return jaf_simplify_cast(in);

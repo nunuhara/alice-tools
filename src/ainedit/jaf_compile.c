@@ -103,6 +103,14 @@ static void write_instruction2(struct compiler_state *state, uint16_t opcode, ui
 	write_argument(state, arg1);
 }
 
+static void write_instruction3(struct compiler_state *state, uint16_t opcode, uint32_t arg0, uint32_t arg1, uint32_t arg2)
+{
+	write_opcode(state, opcode);
+	write_argument(state, arg0);
+	write_argument(state, arg1);
+	write_argument(state, arg2);
+}
+
 static uint32_t flo2int(float f)
 {
 	union { uint32_t i; float f; } v = { .f = f};
@@ -527,6 +535,20 @@ static void compile_syscall(struct compiler_state *state, struct jaf_expression 
 	}
 }
 
+static void compile_hllcall(struct compiler_state *state, struct jaf_expression *expr)
+{
+	unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
+	for (unsigned i = 0; i < nr_args; i++) {
+		compile_expression(state, expr->call.args->items[i]);
+	}
+	if (AIN_VERSION_GTE(state->ain, 11, 0)) {
+		// FIXME: 3rd argument isn't always 0...
+		write_instruction3(state, CALLHLL, expr->call.lib_no, expr->call.func_no, 0);
+	} else {
+		write_instruction2(state, CALLHLL, expr->call.lib_no, expr->call.func_no);
+	}
+}
+
 static void compile_cast(struct compiler_state *state, struct jaf_expression *expr)
 {
 	enum ain_data_type src_type = expr->cast.expr->valuetype.data;
@@ -615,6 +637,9 @@ static void compile_expression(struct compiler_state *state, struct jaf_expressi
 		break;
 	case JAF_EXP_SYSCALL:
 		compile_syscall(state, expr);
+		break;
+	case JAF_EXP_HLLCALL:
+		compile_hllcall(state, expr);
 		break;
 	case JAF_EXP_CAST:
 		compile_cast(state, expr);

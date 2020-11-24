@@ -152,6 +152,7 @@ void jaf_print_expression(FILE *out, struct jaf_expression *expr)
 		fputc(')', out);
 		break;
 	case JAF_EXP_FUNCALL:
+	case JAF_EXP_HLLCALL:
 		jaf_print_expression(out, expr->call.fun);
 		print_arglist(out, expr->call.args);
 		break;
