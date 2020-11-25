@@ -276,7 +276,13 @@ static void compile_dereference(struct compiler_state *state, struct ain_type *t
 		break;
 	case AIN_STRING:
 	case AIN_REF_STRING:
-		write_instruction0(state, state->ain->version >= 11 ? A_REF : S_REF);
+		if (state->ain->version >= 11) {
+			if (state->ain->version >= 14)
+				write_instruction1(state, OP_0X10C, 1); // ???
+			write_instruction0(state, A_REF);
+		} else {
+			write_instruction0(state, S_REF);
+		}
 		break;
 	case AIN_ARRAY_TYPE:
 	case AIN_REF_ARRAY_TYPE:
