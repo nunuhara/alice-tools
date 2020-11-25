@@ -632,7 +632,7 @@ static void add_function(struct ain *ain, struct jaf_block_item *item)
 	if (no > 0 && (decl->type->qualifiers & JAF_QUAL_OVERRIDE)) {
 		override_function(ain, item, no);
 	} else if (no > 0) {
-		JAF_ERROR(item, "Function '%s' already exists");
+		JAF_ERROR(item, "Function '%s' already exists", decl->name->text);
 	} else {
 		decl->func_no = _add_function(ain, decl);
 		decl->super_no = 0;
