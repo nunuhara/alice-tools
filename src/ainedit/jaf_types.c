@@ -220,6 +220,26 @@ static void jaf_check_types_binary(struct jaf_env *env, struct jaf_expression *e
 		break;
 	// integer ops
 	case JAF_REMAINDER:
+		if (is_string_type(expr->lhs)) {
+			switch (expr->rhs->valuetype.data) {
+			case AIN_INT:
+			case AIN_FLOAT:
+			case AIN_BOOL:
+			case AIN_LONG_INT:
+			case AIN_STRING:
+			case AIN_REF_INT:
+			case AIN_REF_FLOAT:
+			case AIN_REF_BOOL:
+			case AIN_REF_LONG_INT:
+			case AIN_REF_STRING:
+				break;
+			default:
+				TYPE_ERROR(expr->rhs, AIN_STRING); // FIXME: many types ok...
+			}
+			expr->valuetype.data = AIN_STRING;
+			break;
+		}
+		// fallthrough
 	case JAF_LSHIFT:
 	case JAF_RSHIFT:
 	case JAF_BIT_AND:

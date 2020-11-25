@@ -117,72 +117,80 @@ static uint32_t flo2int(float f)
 	return v.i;
 }
 
-static enum opcode jaf_op_to_opcode(enum jaf_operator op, enum ain_data_type type)
+static void write_instruction_for_op(struct compiler_state *state, enum jaf_operator op, enum ain_data_type lhs_type, enum ain_data_type rhs_type)
 {
-	if (type == AIN_FLOAT || type == AIN_REF_FLOAT) {
+		if (lhs_type == AIN_FLOAT || lhs_type == AIN_REF_FLOAT) {
 		switch (op) {
-		case JAF_MULTIPLY:      return F_MUL;
-		case JAF_DIVIDE:        return F_DIV;
-		case JAF_PLUS:          return F_ADD;
-		case JAF_MINUS:         return F_SUB;
-		case JAF_LT:            return F_LT;
-		case JAF_GT:            return F_GT;
-		case JAF_LTE:           return F_LTE;
-		case JAF_GTE:           return F_GTE;
-		case JAF_EQ:            return F_EQUALE;
-		case JAF_NEQ:           return F_NOTE;
-		case JAF_ASSIGN:        return F_ASSIGN;
-		case JAF_MUL_ASSIGN:    return F_MULA;
-		case JAF_DIV_ASSIGN:    return F_DIVA;
-		case JAF_ADD_ASSIGN:    return F_PLUSA;
-		case JAF_SUB_ASSIGN:    return F_MINUSA;
+		case JAF_MULTIPLY:      write_instruction0(state, F_MUL); break;
+		case JAF_DIVIDE:        write_instruction0(state, F_DIV); break;
+		case JAF_PLUS:          write_instruction0(state, F_ADD); break;
+		case JAF_MINUS:         write_instruction0(state, F_SUB); break;
+		case JAF_LT:            write_instruction0(state, F_LT); break;
+		case JAF_GT:            write_instruction0(state, F_GT); break;
+		case JAF_LTE:           write_instruction0(state, F_LTE); break;
+		case JAF_GTE:           write_instruction0(state, F_GTE); break;
+		case JAF_EQ:            write_instruction0(state, F_EQUALE); break;
+		case JAF_NEQ:           write_instruction0(state, F_NOTE); break;
+		case JAF_ASSIGN:        write_instruction0(state, F_ASSIGN); break;
+		case JAF_MUL_ASSIGN:    write_instruction0(state, F_MULA); break;
+		case JAF_DIV_ASSIGN:    write_instruction0(state, F_DIVA); break;
+		case JAF_ADD_ASSIGN:    write_instruction0(state, F_PLUSA); break;
+		case JAF_SUB_ASSIGN:    write_instruction0(state, F_MINUSA); break;
 		case JAF_REF_ASSIGN:    // TODO
 		default:                _COMPILER_ERROR(NULL, -1, "Invalid floating point operator");
 		}
-	} else if (type == AIN_INT || type == AIN_REF_INT) {
+	} else if (lhs_type == AIN_INT || lhs_type == AIN_REF_INT) {
 		switch (op) {
-		case JAF_MULTIPLY:      return MUL;
-		case JAF_DIVIDE:        return DIV;
-		case JAF_REMAINDER:     return MOD;
-		case JAF_PLUS:          return ADD;
-		case JAF_MINUS:         return SUB;
-		case JAF_LSHIFT:        return LSHIFT;
-		case JAF_RSHIFT:        return RSHIFT;
-		case JAF_LT:            return LT;
-		case JAF_GT:            return GT;
-		case JAF_LTE:           return LTE;
-		case JAF_GTE:           return GTE;
-		case JAF_EQ:            return EQUALE;
-		case JAF_NEQ:           return NOTE;
-		case JAF_BIT_AND:       return AND;
-		case JAF_BIT_XOR:       return XOR;
-		case JAF_BIT_IOR:       return OR;
-		//case JAF_LOG_AND:       return AND;
-		//case JAF_LOG_OR:        return OR;
-		case JAF_ASSIGN:        return ASSIGN;
-		case JAF_MUL_ASSIGN:    return MULA;
-		case JAF_DIV_ASSIGN:    return DIVA;
-		case JAF_MOD_ASSIGN:    return MODA;
-		case JAF_ADD_ASSIGN:    return PLUSA;
-		case JAF_SUB_ASSIGN:    return MINUSA;
-		case JAF_LSHIFT_ASSIGN: return LSHIFTA;
-		case JAF_RSHIFT_ASSIGN: return RSHIFTA;
-		case JAF_AND_ASSIGN:    return ANDA;
-		case JAF_XOR_ASSIGN:    return XORA;
-		case JAF_OR_ASSIGN:     return ORA;
+		case JAF_MULTIPLY:      write_instruction0(state, MUL); break;
+		case JAF_DIVIDE:        write_instruction0(state, DIV); break;
+		case JAF_REMAINDER:     write_instruction0(state, MOD); break;
+		case JAF_PLUS:          write_instruction0(state, ADD); break;
+		case JAF_MINUS:         write_instruction0(state, SUB); break;
+		case JAF_LSHIFT:        write_instruction0(state, LSHIFT); break;
+		case JAF_RSHIFT:        write_instruction0(state, RSHIFT); break;
+		case JAF_LT:            write_instruction0(state, LT); break;
+		case JAF_GT:            write_instruction0(state, GT); break;
+		case JAF_LTE:           write_instruction0(state, LTE); break;
+		case JAF_GTE:           write_instruction0(state, GTE); break;
+		case JAF_EQ:            write_instruction0(state, EQUALE); break;
+		case JAF_NEQ:           write_instruction0(state, NOTE); break;
+		case JAF_BIT_AND:       write_instruction0(state, AND); break;
+		case JAF_BIT_XOR:       write_instruction0(state, XOR); break;
+		case JAF_BIT_IOR:       write_instruction0(state, OR); break;
+		//case JAF_LOG_AND:       write_instruction0(state, AND); break;
+		//case JAF_LOG_OR:        write_instruction0(state, OR); break;
+		case JAF_ASSIGN:        write_instruction0(state, ASSIGN); break;
+		case JAF_MUL_ASSIGN:    write_instruction0(state, MULA); break;
+		case JAF_DIV_ASSIGN:    write_instruction0(state, DIVA); break;
+		case JAF_MOD_ASSIGN:    write_instruction0(state, MODA); break;
+		case JAF_ADD_ASSIGN:    write_instruction0(state, PLUSA); break;
+		case JAF_SUB_ASSIGN:    write_instruction0(state, MINUSA); break;
+		case JAF_LSHIFT_ASSIGN: write_instruction0(state, LSHIFTA); break;
+		case JAF_RSHIFT_ASSIGN: write_instruction0(state, RSHIFTA); break;
+		case JAF_AND_ASSIGN:    write_instruction0(state, ANDA); break;
+		case JAF_XOR_ASSIGN:    write_instruction0(state, XORA); break;
+		case JAF_OR_ASSIGN:     write_instruction0(state, ORA); break;
 		case JAF_REF_ASSIGN:    // TODO
 		default:                _COMPILER_ERROR(NULL, -1, "Invalid integer operator");
 		}
-	} else if (type == AIN_STRING || type == AIN_REF_STRING) {
+	} else if (lhs_type == AIN_STRING || lhs_type == AIN_REF_STRING) {
 		switch (op) {
-		case JAF_PLUS:       return S_ADD;
-		case JAF_LT:         return S_LT;
-		case JAF_GT:         return S_GT;
-		case JAF_LTE:        return S_LTE;
-		case JAF_GTE:        return S_GTE;
-		case JAF_EQ:         return S_EQUALE;
-		case JAF_NEQ:        return S_NOTE;
-		case JAF_ASSIGN:     return S_ASSIGN;
+		case JAF_PLUS:       write_instruction0(state, S_ADD); break;
+		case JAF_LT:         write_instruction0(state, S_LT); break;
+		case JAF_GT:         write_instruction0(state, S_GT); break;
+		case JAF_LTE:        write_instruction0(state, S_LTE); break;
+		case JAF_GTE:        write_instruction0(state, S_GTE); break;
+		case JAF_EQ:         write_instruction0(state, S_EQUALE); break;
+		case JAF_NEQ:        write_instruction0(state, S_NOTE); break;
+		case JAF_ASSIGN:     write_instruction0(state, S_ASSIGN); break;
+		case JAF_REMAINDER:
+			switch (rhs_type) {
+			case AIN_INT: write_instruction1(state, S_MOD, 2); break;
+			case AIN_FLOAT:  write_instruction1(state, S_MOD, 3); break;
+			case AIN_STRING: write_instruction1(state, S_MOD, 4); break;
+			default:         _COMPILER_ERROR(NULL, -1, "Invalid type for string formatting");
+			}
+			break;
 		default:             _COMPILER_ERROR(NULL, -1, "Invalid string operator");
 		}
 	} else {
@@ -404,7 +412,7 @@ static void compile_binary(struct compiler_state *state, struct jaf_expression *
 	case JAF_BIT_IOR:
 		compile_expression(state, expr->lhs);
 		compile_expression(state, expr->rhs);
-		write_instruction0(state, jaf_op_to_opcode(expr->op, expr->lhs->valuetype.data));
+		write_instruction_for_op(state, expr->op, expr->lhs->valuetype.data, expr->rhs->valuetype.data);
 		break;
 	case JAF_LOG_AND:
 		compile_expression(state, expr->lhs);
@@ -449,7 +457,7 @@ static void compile_binary(struct compiler_state *state, struct jaf_expression *
 	case JAF_OR_ASSIGN:
 		compile_lvalue(state, expr->lhs);
 		compile_expression(state, expr->rhs);
-		write_instruction0(state, jaf_op_to_opcode(expr->op, expr->valuetype.data));
+		write_instruction_for_op(state, expr->op, expr->valuetype.data, expr->rhs->valuetype.data);
 		break;
 	case JAF_REF_ASSIGN:
 	default:
