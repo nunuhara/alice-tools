@@ -87,7 +87,16 @@ static void write_argument(struct compiler_state *state, uint32_t arg)
 
 static void write_instruction0(struct compiler_state *state, uint16_t opcode)
 {
-	write_opcode(state, opcode);
+	if (opcode == REF && state->ain->version >= 14) {
+		// XXX: nasty hack
+		write_opcode(state, OP_0X10C);
+		write_argument(state, 1);
+	} else if (opcode == REFREF && state->ain->version >= 14) {
+		write_opcode(state, OP_0X10C);
+		write_argument(state, 2);
+	} else {
+		write_opcode(state, opcode);
+	}
 }
 
 static void write_instruction1(struct compiler_state *state, uint16_t opcode, uint32_t arg0)
