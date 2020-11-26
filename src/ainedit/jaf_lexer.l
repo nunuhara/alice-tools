@@ -23,11 +23,18 @@
 %a  1213
 %o  1117
 
+U   [\x80-\xbf]
+U2  [\xc2-\xdf]
+U3  [\xe0-\xef]
+U4  [\xf0-\xf4]
+
+UCH {U2}{U}|{U3}{U}{U}|{U4}{U}{U}{U}
+
 O   [0-7]
 D   [0-9]
 NZ  [1-9]
-L   [a-zA-Z_]
-A   [a-zA-Z_0-9:@]
+L   ([a-zA-Z_]|{UCH})
+A   ([a-zA-Z_0-9:@#]|{UCH})
 H   [a-fA-F0-9]
 HP  (0[xX])
 E   ([Ee][+-]?{D}+)
