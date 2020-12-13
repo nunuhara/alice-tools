@@ -92,6 +92,13 @@ nunuhara@haniwa.technology, or find me on /haniho/.
 Version History
 ---------------
 
+### [Version 0.7.0](https://haniwa.technology/alice-tools/alice-tools-0.7.0.zip)
+
+* Combine all commands into the single binary 'alice'
+* Fix issue with the Dohna Dohna trial version .ain file
+* Fix issue with unescaped carriage returns characters in output
+* Improve error messages
+
 ### [Version 0.6.0](https://haniwa.technology/alice-tools/alice-tools-0.6.0.zip)
 
 * Add acxdump/acxbuild tools for editing .acx files
