@@ -92,6 +92,12 @@ nunuhara@haniwa.technology, or find me on /haniho/.
 Version History
 ---------------
 
+### [Version 0.8.0](https://haniwa.technology/alice-tools/alice-tools-0.8.0.zip)
+
+* Add `ar pack` command for creating AFAv2 archives
+* Fix issues with ALD files on Windows
+* Support indexing string table by value when using `ain edit -t` command
+
 ### [Version 0.7.0](https://haniwa.technology/alice-tools/alice-tools-0.7.0.zip)
 
 * Combine all commands into the single binary 'alice'

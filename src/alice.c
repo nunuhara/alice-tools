@@ -22,7 +22,7 @@
 #include "system4.h"
 #include "alice.h"
 
-#define ALICE_TOOLS_VERSION "0.7-pre"
+#define ALICE_TOOLS_VERSION "0.8.0"
 
 static unsigned long _current_line_nr = 0;
 static const char *_current_file_name = NULL;
