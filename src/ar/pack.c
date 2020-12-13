@@ -71,13 +71,6 @@ static struct string *replace_extension(const struct string *file, const char *e
 	return dst;
 }
 
-static bool timespec_lt(struct timespec *a, struct timespec *b)
-{
-	if (a->tv_sec == b->tv_sec)
-		return a->tv_nsec < b->tv_nsec;
-	return a->tv_sec < b->tv_sec;
-}
-
 static void convert_images(struct alicecg2_line *line)
 {
 	struct dirent *dir;
@@ -103,7 +96,7 @@ static void convert_images(struct alicecg2_line *line)
 		if (file_exists(dst_path->text)) {
 			struct stat dst_s;
 			checked_stat(dst_path->text, &dst_s);
-			if (timespec_lt(&src_s.st_mtim, &dst_s.st_mtim)) {
+			if (src_s.st_mtime < dst_s.st_mtime) {
 				goto loop_next;
 			}
 		}
