@@ -57,7 +57,7 @@ KHASH_MAP_INIT_STR(string_ht, size_t);
 		.args = { __VA_ARGS__ }		\
 	}
 
-const struct instruction asm_pseudo_ops[NR_PSEUDO_OPS - PSEUDO_OP_OFFSET] = {
+struct instruction asm_pseudo_ops[NR_PSEUDO_OPS - PSEUDO_OP_OFFSET] = {
 	PSEUDO_OP(PO_CASE,          ".CASE",              2),
 	PSEUDO_OP(PO_STRCASE,       ".STRCASE",           2),
 	PSEUDO_OP(PO_DEFAULT,       ".DEFAULT",           1),
@@ -152,6 +152,24 @@ static void asm_write_argument(struct asm_state *state, uint32_t arg)
 	state->buf[state->buf_ptr++] = (arg & 0x0000FF00) >> 8;
 	state->buf[state->buf_ptr++] = (arg & 0x00FF0000) >> 16;
 	state->buf[state->buf_ptr++] = (arg & 0xFF000000) >> 24;
+}
+
+static void asm_write_instruction0(struct asm_state *state, uint16_t opcode)
+{
+	asm_write_opcode(state, opcode);
+}
+
+static void asm_write_instruction1(struct asm_state *state, uint16_t opcode, uint32_t arg0)
+{
+	asm_write_opcode(state, opcode);
+	asm_write_argument(state, arg0);
+}
+
+static void asm_write_instruction2(struct asm_state *state, uint16_t opcode, uint32_t arg0, uint32_t arg1)
+{
+	asm_write_opcode(state, opcode);
+	asm_write_argument(state, arg0);
+	asm_write_argument(state, arg1);
 }
 
 const struct instruction *asm_get_instruction(const char *name)
@@ -521,275 +539,335 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		state->ain->messages[n_msg] = make_string(sjis, strlen(sjis));
 		free(sjis);
 
-		asm_write_opcode(state, MSG);
-		asm_write_argument(state, n_msg);
+		asm_write_instruction1(state, MSG, n_msg);
 		break;
 	}
 	case PO_LOCALREF: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, REF);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			asm_write_instruction1(state, X_REF, 1);
+		} else {
+			asm_write_instruction0(state, REF);
+		}
 		break;
 	}
 	case PO_GLOBALREF: {
-		asm_write_opcode(state, PUSHGLOBALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, REF);
+		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHGLOBALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			asm_write_instruction1(state, X_REF, 1);
+		} else {
+			asm_write_instruction0(state, REF);
+		}
 		break;
 	}
 	case PO_LOCALREFREF: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, REFREF);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction0(state, REFREF);
 		break;
 	}
 	case PO_GLOBALREFREF: {
-		asm_write_opcode(state, PUSHGLOBALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, REFREF);
+		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHGLOBALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction0(state, REFREF);
 		break;
 	}
 	case PO_LOCALINC: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, INC);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction0(state, INC);
 		break;
 	}
 	case PO_LOCALINC2: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, DUP2);
-		asm_write_opcode(state, REF);
-		asm_write_opcode(state, DUP_X2);
-		asm_write_opcode(state, POP);
-		asm_write_opcode(state, INC);
-		asm_write_opcode(state, POP);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			asm_write_instruction1(state, X_DUP, 2);
+			asm_write_instruction0(state, INC);
+			asm_write_instruction0(state, POP);
+			asm_write_instruction0(state, POP);
+		} else {
+			asm_write_instruction0(state, DUP2);
+			asm_write_instruction0(state, REF);
+			asm_write_instruction0(state, DUP_X2);
+			asm_write_instruction0(state, POP);
+			asm_write_instruction0(state, INC);
+			asm_write_instruction0(state, POP);
+		}
 		break;
 	}
 	case PO_LOCALDEC: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, DEC);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction0(state, DEC);
 		break;
 	}
 	case PO_LOCALDEC2: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, DUP2);
-		asm_write_opcode(state, REF);
-		asm_write_opcode(state, DUP_X2);
-		asm_write_opcode(state, POP);
-		asm_write_opcode(state, DEC);
-		asm_write_opcode(state, POP);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			asm_write_instruction1(state, X_DUP, 2);
+			asm_write_instruction0(state, DEC);
+			asm_write_instruction0(state, POP);
+			asm_write_instruction0(state, POP);
+		} else {
+			asm_write_instruction0(state, DUP2);
+			asm_write_instruction0(state, REF);
+			asm_write_instruction0(state, DUP_X2);
+			asm_write_instruction0(state, POP);
+			asm_write_instruction0(state, DEC);
+			asm_write_instruction0(state, POP);
+		}
 		break;
 	}
 	case PO_LOCALPLUSA: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text));
-		asm_write_opcode(state, PLUSA);
-		asm_write_opcode(state, POP);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t val = asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction1(state, PUSH, val);
+		asm_write_instruction0(state, PLUSA);
+		asm_write_instruction0(state, POP);
 		break;
 	}
 	case PO_LOCALMINUSA: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text));
-		asm_write_opcode(state, MINUSA);
-		asm_write_opcode(state, POP);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t val = asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction1(state, PUSH, val);
+		asm_write_instruction0(state, MINUSA);
+		asm_write_instruction0(state, POP);
 		break;
 	}
 	case PO_LOCALASSIGN: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text));
-		asm_write_opcode(state, ASSIGN);
-		asm_write_opcode(state, POP);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t val = asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction1(state, PUSH, val);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			asm_write_instruction1(state, X_ASSIGN, 1);
+		} else {
+			asm_write_instruction0(state, ASSIGN);
+		}
+		asm_write_instruction0(state, POP);
 		break;
 	}
 	case PO_LOCALASSIGN2: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, SWAP);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, SWAP);
-		asm_write_opcode(state, ASSIGN);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction0(state, SWAP);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction0(state, SWAP);
+		asm_write_instruction0(state, ASSIGN);
 		break;
 	}
 	case PO_F_LOCALASSIGN: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, F_PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, F_PUSH, T_FLOAT, kv_A(*instr->args, 1)->text));
-		asm_write_opcode(state, F_ASSIGN);
-		asm_write_opcode(state, POP);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t val = asm_resolve_arg(state, F_PUSH, T_FLOAT, kv_A(*instr->args, 1)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction1(state, F_PUSH, val);
+		asm_write_instruction0(state, F_ASSIGN);
+		asm_write_instruction0(state, POP);
 		break;
 	}
 	case PO_STACK_LOCALASSIGN: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, REF);
-		asm_write_opcode(state, DELETE);
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, SWAP);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, SWAP);
-		asm_write_opcode(state, ASSIGN);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction0(state, REF);
+		asm_write_instruction0(state, DELETE);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction0(state, SWAP);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction0(state, SWAP);
+		asm_write_instruction0(state, ASSIGN);
 		break;
 	}
 	case PO_S_LOCALASSIGN: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, REF);
-		asm_write_opcode(state, S_PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, S_PUSH, T_STRING, kv_A(*instr->args, 1)->text));
-		asm_write_opcode(state, S_ASSIGN);
-		asm_write_opcode(state, DELETE);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t str = asm_resolve_arg(state, S_PUSH, T_STRING, kv_A(*instr->args, 1)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			asm_write_instruction1(state, X_DUP, 2);
+			asm_write_instruction1(state, X_REF, 1);
+			asm_write_instruction0(state, DELETE);
+			asm_write_instruction1(state, S_PUSH, str);
+			asm_write_instruction1(state, X_ASSIGN, 1);
+			asm_write_instruction0(state, POP);
+		} else {
+			asm_write_instruction0(state, REF);
+			asm_write_instruction1(state, S_PUSH, str);
+			asm_write_instruction0(state, S_ASSIGN);
+			asm_write_instruction0(state, DELETE);
+		}
 		break;
 	}
 	case PO_LOCALDELETE: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, DUP2);
-		asm_write_opcode(state, REF);
-		asm_write_opcode(state, DELETE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, -1);
-		asm_write_opcode(state, ASSIGN);
-		asm_write_opcode(state, POP);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			asm_write_instruction1(state, X_DUP, 2);
+			asm_write_instruction1(state, X_REF, 1);
+			asm_write_instruction0(state, DELETE);
+			asm_write_instruction1(state, PUSH, -1);
+			asm_write_instruction1(state, X_ASSIGN, 1);
+			asm_write_instruction0(state, POP);
+		} else {
+			asm_write_instruction0(state, DUP2);
+			asm_write_instruction0(state, REF);
+			asm_write_instruction0(state, DELETE);
+			asm_write_instruction1(state, PUSH, -1);
+			asm_write_instruction0(state, ASSIGN);
+			asm_write_instruction0(state, POP);
+		}
 		break;
 	}
 	case PO_LOCALCREATE: {
-		asm_write_opcode(state, PUSHLOCALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, DUP2);
-		asm_write_opcode(state, REF);
-		asm_write_opcode(state, DELETE);
-		asm_write_opcode(state, DUP2);
-		asm_write_opcode(state, NEW);
-		asm_write_argument(state, asm_resolve_arg(state, NEW, T_STRUCT, kv_A(*instr->args, 1)->text));
-		asm_write_argument(state, -1);
-		asm_write_opcode(state, ASSIGN);
-		asm_write_opcode(state, POP);
-		asm_write_opcode(state, POP);
-		asm_write_opcode(state, POP);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t struc = asm_resolve_arg(state, NEW, T_STRUCT, kv_A(*instr->args, 1)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			asm_write_instruction1(state, X_DUP, 2);
+			asm_write_instruction1(state, X_REF, 1);
+			asm_write_instruction0(state, DELETE);
+			asm_write_instruction2(state, NEW, struc, -1);
+			asm_write_instruction1(state, X_ASSIGN, 1);
+			asm_write_instruction0(state, POP);
+		} else {
+			asm_write_instruction0(state, DUP2);
+			asm_write_instruction0(state, REF);
+			asm_write_instruction0(state, DELETE);
+			asm_write_instruction0(state, DUP2);
+			asm_write_instruction2(state, NEW, struc, -1);
+			asm_write_instruction0(state, ASSIGN);
+			asm_write_instruction0(state, POP);
+			asm_write_instruction0(state, POP);
+			asm_write_instruction0(state, POP);
+		}
 		break;
 	}
 	case PO_GLOBALINC: {
-		asm_write_opcode(state, PUSHGLOBALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, INC);
+		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHGLOBALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction0(state, INC);
 		break;
 	}
 	case PO_GLOBALDEC: {
-		asm_write_opcode(state, PUSHGLOBALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, DEC);
+		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHGLOBALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction0(state, DEC);
 		break;
 	}
 	case PO_GLOBALASSIGN: {
-		asm_write_opcode(state, PUSHGLOBALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text));
-		asm_write_opcode(state, ASSIGN);
-		asm_write_opcode(state, POP);
+		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text);
+		int32_t val = asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text);
+		asm_write_instruction0(state, PUSHGLOBALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction1(state, PUSH, val);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			asm_write_instruction1(state, X_ASSIGN, 1);
+		} else {
+			asm_write_instruction0(state, ASSIGN);
+		}
+		asm_write_instruction0(state, POP);
 		break;
 	}
 	case PO_F_GLOBALASSIGN: {
-		asm_write_opcode(state, PUSHGLOBALPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, F_PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, F_PUSH, T_FLOAT, kv_A(*instr->args, 1)->text));
-		asm_write_opcode(state, F_ASSIGN);
-		asm_write_opcode(state, POP);
+		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text);
+		int32_t val = asm_resolve_arg(state, F_PUSH, T_FLOAT, kv_A(*instr->args, 1)->text);
+		asm_write_instruction0(state, PUSHGLOBALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction1(state, F_PUSH, val);
+		asm_write_instruction0(state, F_ASSIGN);
+		asm_write_instruction0(state, POP);
 		break;
 	}
 	case PO_STRUCTREF: {
-		asm_write_opcode(state, PUSHSTRUCTPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text));
-		asm_write_opcode(state, REF);
+		int32_t memb = get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text);
+		asm_write_instruction0(state, PUSHSTRUCTPAGE);
+		asm_write_instruction1(state, PUSH, memb);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			asm_write_instruction1(state, X_REF, 1);
+		} else {
+			asm_write_instruction0(state, REF);
+		}
 		break;
 	}
 	case PO_STRUCTREFREF: {
-		asm_write_opcode(state, PUSHSTRUCTPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text));
-		asm_write_opcode(state, REFREF);
+		int32_t memb = get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text);
+		asm_write_instruction0(state, PUSHSTRUCTPAGE);
+		asm_write_instruction1(state, PUSH, memb);
+		asm_write_instruction0(state, REFREF);
 		break;
 	}
 	case PO_STRUCTINC: {
-		asm_write_opcode(state, PUSHSTRUCTPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text));
-		asm_write_opcode(state, INC);
+		int32_t memb = get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text);
+		asm_write_instruction0(state, PUSHSTRUCTPAGE);
+		asm_write_instruction1(state, PUSH, memb);
+		asm_write_instruction0(state, INC);
 		break;
 	}
 	case PO_STRUCTDEC: {
-		asm_write_opcode(state, PUSHSTRUCTPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text));
-		asm_write_opcode(state, DEC);
+		int32_t memb = get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text);
+		asm_write_instruction0(state, PUSHSTRUCTPAGE);
+		asm_write_instruction1(state, PUSH, memb);
+		asm_write_instruction0(state, DEC);
 		break;
 	}
 	case PO_STRUCTASSIGN: {
-		asm_write_opcode(state, PUSHSTRUCTPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text));
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 2)->text));
-		asm_write_opcode(state, ASSIGN);
-		asm_write_opcode(state, POP);
+		int32_t memb = get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text);
+		int32_t val = asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 2)->text);
+		asm_write_instruction0(state, PUSHSTRUCTPAGE);
+		asm_write_instruction1(state, PUSH, memb);
+		asm_write_instruction1(state, PUSH, val);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			asm_write_instruction1(state, X_ASSIGN, 1);
+		} else {
+			asm_write_instruction0(state, ASSIGN);
+		}
+		asm_write_instruction0(state, POP);
 		break;
 	}
 	case PO_F_STRUCTASSIGN: {
-		asm_write_opcode(state, PUSHSTRUCTPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text));
-		asm_write_opcode(state, F_PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, F_PUSH, T_FLOAT, kv_A(*instr->args, 2)->text));
-		asm_write_opcode(state, F_ASSIGN);
-		asm_write_opcode(state, POP);
+		int32_t memb = get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text);
+		int32_t val = asm_resolve_arg(state, F_PUSH, T_FLOAT, kv_A(*instr->args, 2)->text);
+		asm_write_instruction0(state, PUSHSTRUCTPAGE);
+		asm_write_instruction1(state, PUSH, memb);
+		asm_write_instruction1(state, F_PUSH, val);
+		asm_write_instruction0(state, F_ASSIGN);
+		asm_write_instruction0(state, POP);
 		break;
 	}
 	case PO_PUSHVMETHOD: {
-		asm_write_opcode(state, PUSHSTRUCTPAGE);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 0)->text));
-		asm_write_opcode(state, DUP_U2);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, get_vtable_no(state));
-		asm_write_opcode(state, REF);
-		asm_write_opcode(state, SWAP);
-		asm_write_opcode(state, PUSH);
-		asm_write_argument(state, asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text));
-		asm_write_opcode(state, ADD);
-		asm_write_opcode(state, REF);
+		int32_t memb = asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 0)->text);
+		int32_t val = asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text);
+		asm_write_instruction0(state, PUSHSTRUCTPAGE);
+		asm_write_instruction1(state, PUSH, memb);
+		asm_write_instruction0(state, DUP_U2);
+		asm_write_instruction1(state, PUSH, get_vtable_no(state));
+		asm_write_instruction0(state, REF);
+		asm_write_instruction0(state, SWAP);
+		asm_write_instruction1(state, PUSH, val);
+		asm_write_instruction0(state, ADD);
+		asm_write_instruction0(state, REF);
 		break;
 	}
 	}
@@ -855,6 +933,19 @@ static void asm_leave_function(struct asm_state *state)
 
 void asm_assemble_jam(const char *filename, struct ain *ain, uint32_t flags)
 {
+	// update offsets for version-dependent macro expansion
+	if (AIN_VERSION_GTE(ain, 14, 0)) {
+		asm_pseudo_ops[PO_LOCALREF      - PSEUDO_OP_OFFSET].ip_inc = 14;
+		asm_pseudo_ops[PO_GLOBALREF     - PSEUDO_OP_OFFSET].ip_inc = 14;
+		asm_pseudo_ops[PO_STRUCTREF     - PSEUDO_OP_OFFSET].ip_inc = 14;
+		asm_pseudo_ops[PO_LOCALASSIGN   - PSEUDO_OP_OFFSET].ip_inc = 22;
+		asm_pseudo_ops[PO_S_LOCALASSIGN - PSEUDO_OP_OFFSET].ip_inc = 36;
+		asm_pseudo_ops[PO_GLOBALASSIGN  - PSEUDO_OP_OFFSET].ip_inc = 22;
+		asm_pseudo_ops[PO_STRUCTASSIGN  - PSEUDO_OP_OFFSET].ip_inc = 22;
+		asm_pseudo_ops[PO_LOCALCREATE   - PSEUDO_OP_OFFSET].ip_inc = 40;
+		asm_pseudo_ops[PO_LOCALDELETE   - PSEUDO_OP_OFFSET].ip_inc = 36;
+	}
+
 	struct asm_state state;
 	init_asm_state(&state, ain, flags);
 

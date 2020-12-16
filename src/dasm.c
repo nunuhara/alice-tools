@@ -349,7 +349,7 @@ static void print_arguments(struct dasm_state *dasm, const struct instruction *i
 	}
 	if (instr->opcode == FUNC) {
 		fputc(' ', dasm->out);
-		fprintf(dasm->out, "0x%x", dasm->func);
+		fprintf(dasm->out, "%d", dasm->func);
 		//ain_dump_function(dasm->out, dasm->ain, &dasm->ain->functions[dasm->func]);
 		return;
 	}
@@ -435,6 +435,28 @@ int32_t dasm_arg(struct dasm_state *dasm, unsigned int n)
 	return LittleEndian_getDW(dasm->ain->code, dasm->addr + 2 + 4*n);
 }
 
+static void print_function_info(struct dasm_state *dasm, int fno)
+{
+	struct ain_function *f = &dasm->ain->functions[fno];
+	fprintf(dasm->out, "\n; ");
+	print_function_name(dasm, f);
+	fprintf(dasm->out, "\n");
+	for (int i = 0; i < f->nr_vars; i++) {
+		char *type_sjis = ain_strtype_d(dasm->ain, &f->vars[i].type);
+		char *type = conv_output(type_sjis);
+		char *name = conv_output(f->vars[i].name);
+		fprintf(dasm->out, "; %s %2d: %s : %s\n", i < f->nr_args ? "ARG" : "VAR", i, name, type);
+		free(type_sjis);
+		free(type);
+		free(name);
+	}
+	char *rtype_sjis = ain_strtype_d(dasm->ain, &f->return_type);
+	char *rtype = conv_output(rtype_sjis);
+	fprintf(dasm->out, "; RETURN: %s\n", rtype);
+	free(rtype_sjis);
+	free(rtype);
+}
+
 static void dasm_enter_function(struct dasm_state *dasm, int fno)
 {
 	if (fno < 0 || fno >= dasm->ain->nr_functions)
@@ -446,10 +468,7 @@ static void dasm_enter_function(struct dasm_state *dasm, int fno)
 	dasm->func_stack[0] = dasm->func;
 	dasm->func = fno;
 
-	fprintf(dasm->out, "; ");
-	ain_dump_function(dasm->out, dasm->ain, &dasm->ain->functions[fno]);
-	fputc('\n', dasm->out);
-	//fprintf(dasm->out, "; FUNC 0x%x\n", fno);
+	print_function_info(dasm, fno);
 }
 
 static void dasm_leave_function(struct dasm_state *dasm)

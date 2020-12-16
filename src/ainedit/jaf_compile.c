@@ -89,10 +89,10 @@ static void write_instruction0(struct compiler_state *state, uint16_t opcode)
 {
 	if (opcode == REF && state->ain->version >= 14) {
 		// XXX: nasty hack
-		write_opcode(state, OP_0X10C);
+		write_opcode(state, X_REF);
 		write_argument(state, 1);
 	} else if (opcode == REFREF && state->ain->version >= 14) {
-		write_opcode(state, OP_0X10C);
+		write_opcode(state, X_REF);
 		write_argument(state, 2);
 	} else {
 		write_opcode(state, opcode);
@@ -295,7 +295,7 @@ static void compile_dereference(struct compiler_state *state, struct ain_type *t
 	case AIN_REF_STRING:
 		if (state->ain->version >= 11) {
 			if (state->ain->version >= 14)
-				write_instruction1(state, OP_0X10C, 1); // ???
+				write_instruction1(state, X_REF, 1); // ???
 			write_instruction0(state, A_REF);
 		} else {
 			write_instruction0(state, S_REF);

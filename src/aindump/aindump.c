@@ -164,9 +164,10 @@ static void print_structure(FILE *f, struct ain *ain, struct ain_struct *s)
 	fprintf(f, " {\n");
 	for (int i = 0; i < s->nr_members; i++) {
 		struct ain_variable *m = &s->members[i];
-		if (m->type.data == AIN_VOID)
-			continue;
 		fprintf(f, "    ");
+		if (m->type.data == AIN_VOID) {
+			fprintf(f, "// ");
+		}
 		print_sjis(f, ain_variable_to_string(ain, m));
 		fprintf(f, ";\n");
 	}

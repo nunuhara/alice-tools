@@ -80,6 +80,27 @@ static bool local_check(struct dasm_state *dasm, int32_t *args)
 #define F_LOCALASSIGN_check local_check
 #define S_LOCALASSIGN_check local_check
 
+static bool X_LOCALREF_check(struct dasm_state *dasm, int32_t *args)
+{
+	return is_local(dasm, args[0]) && args[1] == 1;
+}
+
+static bool X_LOCALASSIGN_check(struct dasm_state *dasm, int32_t *args)
+{
+	return is_local(dasm, args[0]) && args[2] == 1;
+}
+
+static bool X_LOCALINC2_check(struct dasm_state *dasm, int32_t *args)
+{
+	return is_local(dasm, args[0]) && args[1] == 2;
+}
+#define X_LOCALDEC2_check X_LOCALINC2_check
+
+static bool X_S_LOCALASSIGN_check(struct dasm_state *dasm, int32_t *args)
+{
+	return is_local(dasm, args[0]) && args[1] == 2 && args[2] == 1 && args[4] == 1;
+}
+
 static bool STACK_LOCALASSIGN_check(struct dasm_state *dasm, int32_t *args)
 {
 	return is_local(dasm, args[0]) && args[1] == args[0];
@@ -90,9 +111,21 @@ static bool LOCALCREATE_check(struct dasm_state *dasm, int32_t *args)
 	return is_local(dasm, args[0]) && is_struct_type(dasm, args[1]) && args[2] == -1;
 }
 
+static bool X_LOCALCREATE_check(struct dasm_state *dasm, int32_t *args)
+{
+	return is_local(dasm, args[0]) && args[1] == 2 && args[2] == 1
+		&& is_struct_type(dasm, args[3]) && args[4] == -1 && args[5] == 1;
+}
+
 static bool LOCALDELETE_check(struct dasm_state *dasm, int32_t *args)
 {
 	return is_local(dasm, args[0]) && args[1] == -1;
+}
+
+static bool X_LOCALDELETE_check(struct dasm_state *dasm, int32_t *args)
+{
+	return is_local(dasm, args[0]) && args[1] == 2 && args[2] == 1
+		&& args[3] == -1 && args[4] == 1;
 }
 
 static void local_emit(struct dasm_state *dasm, int32_t *args)
@@ -100,12 +133,16 @@ static void local_emit(struct dasm_state *dasm, int32_t *args)
 	print_local(dasm, args[0]);
 }
 #define LOCALREF_emit          local_emit
+#define X_LOCALREF_emit        local_emit
 #define LOCALREFREF_emit       local_emit
 #define LOCALINC_emit          local_emit
 #define LOCALINC2_emit         local_emit
+#define X_LOCALINC2_emit       local_emit
 #define LOCALDEC_emit          local_emit
 #define LOCALDEC2_emit         local_emit
+#define X_LOCALDEC2_emit       local_emit
 #define LOCALDELETE_emit       local_emit
+#define X_LOCALDELETE_emit     local_emit
 #define LOCALASSIGN2_emit      local_emit
 #define STACK_LOCALASSIGN_emit local_emit
 
@@ -114,9 +151,10 @@ static void localassign_emit(struct dasm_state *dasm, int32_t *args)
 	print_local(dasm, args[0]);
 	fprintf(dasm->out, " %d", args[1]);
 }
-#define LOCALASSIGN_emit localassign_emit
-#define LOCALPLUSA_emit  localassign_emit
-#define LOCALMINUSA_emit localassign_emit
+#define LOCALASSIGN_emit   localassign_emit
+#define X_LOCALASSIGN_emit localassign_emit
+#define LOCALPLUSA_emit    localassign_emit
+#define LOCALMINUSA_emit   localassign_emit
 
 static void F_LOCALASSIGN_emit(struct dasm_state *dasm, int32_t *args)
 {
@@ -132,11 +170,25 @@ static void S_LOCALASSIGN_emit(struct dasm_state *dasm, int32_t *args)
 	dasm_print_string(dasm, dasm->ain->strings[args[1]]->text);
 }
 
+static void X_S_LOCALASSIGN_emit(struct dasm_state *dasm, int32_t *args)
+{
+	print_local(dasm, args[0]);
+	fputc(' ', dasm->out);
+	dasm_print_string(dasm, dasm->ain->strings[args[3]]->text);
+}
+
 static void LOCALCREATE_emit(struct dasm_state *dasm, int32_t *args)
 {
 	print_local(dasm, args[0]);
 	fputc(' ', dasm->out);
 	dasm_print_identifier(dasm, dasm->ain->structures[args[1]].name);
+}
+
+static void X_LOCALCREATE_emit(struct dasm_state *dasm, int32_t *args)
+{
+	print_local(dasm, args[0]);
+	fputc(' ', dasm->out);
+	dasm_print_identifier(dasm, dasm->ain->structures[args[3]].name);
 }
 
 static bool global_check(struct dasm_state *dasm, int32_t *args)
@@ -150,20 +202,33 @@ static bool global_check(struct dasm_state *dasm, int32_t *args)
 #define GLOBALASSIGN_check   global_check
 #define F_GLOBALASSIGN_check global_check
 
+static bool X_GLOBALREF_check(struct dasm_state *dasm, int32_t *args)
+{
+	return is_global(dasm, args[0]) && args[1] == 1;
+}
+
+static bool X_GLOBALASSIGN_check(struct dasm_state *dasm, int32_t *args)
+{
+	return is_global(dasm, args[0]) && args[2] == 1;
+}
+
 static void global_emit(struct dasm_state *dasm, int32_t *args)
 {
 	dasm_print_identifier(dasm, dasm->ain->globals[args[0]].name);
 }
 #define GLOBALREF_emit    global_emit
+#define X_GLOBALREF_emit  global_emit
 #define GLOBALREFREF_emit global_emit
 #define GLOBALINC_emit    global_emit
 #define GLOBALDEC_emit    global_emit
 
-static void GLOBALASSIGN_emit(struct dasm_state *dasm, int32_t *args)
+static void globalassign_emit(struct dasm_state *dasm, int32_t *args)
 {
 	dasm_print_identifier(dasm, dasm->ain->globals[args[0]].name);
 	fprintf(dasm->out, " %d", args[1]);
 }
+#define GLOBALASSIGN_emit   globalassign_emit
+#define X_GLOBALASSIGN_emit globalassign_emit
 
 static void F_GLOBALASSIGN_emit(struct dasm_state *dasm, int32_t *args)
 {
@@ -183,6 +248,16 @@ static bool struct_check(struct dasm_state *dasm, int32_t *args)
 #define STRUCTASSIGN_check   struct_check
 #define F_STRUCTASSIGN_check struct_check
 
+static bool X_STRUCTREF_check(struct dasm_state *dasm, int32_t *args)
+{
+	return is_member(dasm, args[0]) && args[1] == 1;
+}
+
+static bool X_STRUCTASSIGN_check(struct dasm_state *dasm, int32_t *args)
+{
+	return is_member(dasm, args[0]) && args[2] == 1;
+}
+
 static void struct_emit(struct dasm_state *dasm, int32_t *args)
 {
 	struct ain_struct *s = &dasm->ain->structures[dasm->ain->functions[dasm->func].struct_type];
@@ -191,15 +266,18 @@ static void struct_emit(struct dasm_state *dasm, int32_t *args)
 	dasm_print_identifier(dasm, s->members[args[0]].name);
 }
 #define STRUCTREF_emit    struct_emit
+#define X_STRUCTREF_emit  struct_emit
 #define STRUCTREFREF_emit struct_emit
 #define STRUCTINC_emit    struct_emit
 #define STRUCTDEC_emit    struct_emit
 
-static void STRUCTASSIGN_emit(struct dasm_state *dasm, int32_t *args)
+static void structassign_emit(struct dasm_state *dasm, int32_t *args)
 {
 	struct_emit(dasm, args);
 	fprintf(dasm->out, " %d", args[1]);
 }
+#define STRUCTASSIGN_emit   structassign_emit
+#define X_STRUCTASSIGN_emit structassign_emit
 
 static void F_STRUCTASSIGN_emit(struct dasm_state *dasm, int32_t *args)
 {
@@ -233,6 +311,14 @@ static void PUSHVMETHOD_emit(struct dasm_state *dasm, int32_t *args)
 		.emit = _name ## _emit,				\
 	}
 
+/* for defining version-dependent macros */
+#define ALTMACRO(prefix, _name, ...) {				\
+		.name = "." #_name,				\
+		.instructions = { __VA_ARGS__, NR_OPCODES },	\
+		.check = prefix ##_name ## _check,		\
+		.emit = prefix ## _name ## _emit,		\
+	}
+
 struct macrodef {
 	const char * const name;
 	enum opcode instructions[MACRO_INSTRUCTIONS_MAX];
@@ -242,31 +328,44 @@ struct macrodef {
 
 struct macrodef macrodefs[] = {
 	DEFMACRO(LOCALREF,          PUSHLOCALPAGE,  PUSH, REF),
+	ALTMACRO(X_, LOCALREF,      PUSHLOCALPAGE,  PUSH, X_REF),
 	DEFMACRO(LOCALREFREF,       PUSHLOCALPAGE,  PUSH, REFREF),
+	//ALTMACRO(X_, LOCALREFREF,   PUSHLOCALPAGE,  PUSH, X_REF), // FIXME: conflicts with X_LOCALREF
 	DEFMACRO(LOCALINC,          PUSHLOCALPAGE,  PUSH, INC),
 	DEFMACRO(LOCALINC2,         PUSHLOCALPAGE,  PUSH, DUP2, REF, DUP_X2, POP, INC, POP),
+	ALTMACRO(X_, LOCALINC2,     PUSHLOCALPAGE,  PUSH, X_DUP, INC, POP, POP),
 	DEFMACRO(LOCALDEC,          PUSHLOCALPAGE,  PUSH, DEC),
 	DEFMACRO(LOCALDEC2,         PUSHLOCALPAGE,  PUSH, DUP2, REF, DUP_X2, POP, DEC, POP),
+	ALTMACRO(X_, LOCALDEC2,     PUSHLOCALPAGE,  PUSH, X_DUP, DEC, POP, POP),
 	DEFMACRO(LOCALPLUSA,        PUSHLOCALPAGE,  PUSH, PUSH, PLUSA, POP),
 	DEFMACRO(LOCALMINUSA,       PUSHLOCALPAGE,  PUSH, PUSH, MINUSA, POP),
 	DEFMACRO(LOCALASSIGN,       PUSHLOCALPAGE,  PUSH, PUSH, ASSIGN, POP),
+	ALTMACRO(X_, LOCALASSIGN,   PUSHLOCALPAGE,  PUSH, PUSH, X_ASSIGN, POP),
 	DEFMACRO(LOCALASSIGN2,      PUSHLOCALPAGE,  SWAP, PUSH, SWAP, ASSIGN),
 	DEFMACRO(STACK_LOCALASSIGN, PUSHLOCALPAGE,  PUSH, REF, DELETE, PUSHLOCALPAGE, SWAP, PUSH, SWAP, ASSIGN),
 	DEFMACRO(F_LOCALASSIGN,     PUSHLOCALPAGE,  PUSH, F_PUSH, F_ASSIGN, POP),
-	DEFMACRO(S_LOCALASSIGN, PUSHLOCALPAGE, PUSH, REF, S_PUSH, S_ASSIGN, DELETE),
+	DEFMACRO(S_LOCALASSIGN,     PUSHLOCALPAGE,  PUSH, REF, S_PUSH, S_ASSIGN, DELETE),
+	ALTMACRO(X_, S_LOCALASSIGN, PUSHLOCALPAGE,  PUSH, X_DUP, X_REF, DELETE, S_PUSH, X_ASSIGN, POP),
 	DEFMACRO(LOCALCREATE,       PUSHLOCALPAGE,  PUSH, DUP2, REF, DELETE, DUP2, NEW, ASSIGN, POP, POP, POP),
+	ALTMACRO(X_, LOCALCREATE,   PUSHLOCALPAGE,  PUSH, X_DUP, X_REF, DELETE, NEW, X_ASSIGN, POP),
 	DEFMACRO(LOCALDELETE,       PUSHLOCALPAGE,  PUSH, DUP2, REF, DELETE, PUSH, ASSIGN, POP),
+	ALTMACRO(X_, LOCALDELETE,   PUSHLOCALPAGE,  PUSH, X_DUP, X_REF, DELETE, PUSH, X_ASSIGN, POP),
 	DEFMACRO(GLOBALREF,         PUSHGLOBALPAGE, PUSH, REF),
+	ALTMACRO(X_, GLOBALREF,     PUSHGLOBALPAGE, PUSH, X_REF),
 	DEFMACRO(GLOBALREFREF,      PUSHGLOBALPAGE, PUSH, REFREF),
+	//ALTMACRO(X_, GLOBALREFREF,  PUSHGLOBALPAGE, PUSH, X_REF), // FIXME: conflicts with X_GLOBALREF
 	DEFMACRO(GLOBALINC,         PUSHGLOBALPAGE, PUSH, INC),
 	DEFMACRO(GLOBALDEC,         PUSHGLOBALPAGE, PUSH, DEC),
 	DEFMACRO(GLOBALASSIGN,      PUSHGLOBALPAGE, PUSH, PUSH, ASSIGN, POP),
+	ALTMACRO(X_, GLOBALASSIGN,  PUSHGLOBALPAGE, PUSH, PUSH, X_ASSIGN, POP),
 	DEFMACRO(F_GLOBALASSIGN,    PUSHGLOBALPAGE, PUSH, F_PUSH, F_ASSIGN, POP),
 	DEFMACRO(STRUCTREF,         PUSHSTRUCTPAGE, PUSH, REF),
+	ALTMACRO(X_, STRUCTREF,     PUSHSTRUCTPAGE, PUSH, X_REF),
 	DEFMACRO(STRUCTREFREF,      PUSHSTRUCTPAGE, PUSH, REFREF),
 	DEFMACRO(STRUCTINC,         PUSHSTRUCTPAGE, PUSH, INC),
 	DEFMACRO(STRUCTDEC,         PUSHSTRUCTPAGE, PUSH, DEC),
 	DEFMACRO(STRUCTASSIGN,      PUSHSTRUCTPAGE, PUSH, PUSH, ASSIGN, POP),
+	ALTMACRO(X_, STRUCTASSIGN,  PUSHSTRUCTPAGE, PUSH, PUSH, X_ASSIGN, POP),
 	DEFMACRO(F_STRUCTASSIGN,    PUSHSTRUCTPAGE, PUSH, F_PUSH, F_ASSIGN, POP),
 	DEFMACRO(PUSHVMETHOD,       PUSHSTRUCTPAGE, PUSH, DUP_U2, PUSH, REF, SWAP, PUSH, ADD, REF),
 };

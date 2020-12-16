@@ -38,7 +38,7 @@ static cJSON *ain_type_to_json(struct ain *ain, struct ain_type *t)
 {
 	cJSON *a = _ain_type_to_json(ain, t);
 
-	if (t->data != AIN_ARRAY && t->data != AIN_REF_ARRAY && t->data != AIN_ITERATOR && t->data != AIN_ENUM1)
+	if (t->data != AIN_ARRAY && t->data != AIN_REF_ARRAY && t->data != AIN_WRAP && t->data != AIN_OPTION)
 		return a;
 
 	cJSON *sub = cJSON_CreateArray();
