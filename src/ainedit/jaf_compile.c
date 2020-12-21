@@ -87,13 +87,22 @@ static void write_argument(struct compiler_state *state, uint32_t arg)
 
 static void write_instruction0(struct compiler_state *state, uint16_t opcode)
 {
-	if (opcode == REF && state->ain->version >= 14) {
-		// XXX: nasty hack
-		write_opcode(state, X_REF);
-		write_argument(state, 1);
-	} else if (opcode == REFREF && state->ain->version >= 14) {
-		write_opcode(state, X_REF);
-		write_argument(state, 2);
+	if (state->ain->version >= 14) {
+		if (opcode == REF) {
+			write_opcode(state, X_REF);
+			write_argument(state, 1);
+		} else if (opcode == REFREF) {
+			write_opcode(state, X_REF);
+			write_argument(state, 2);
+		} else if (opcode == DUP) {
+			write_opcode(state, X_DUP);
+			write_argument(state, 1);
+		} else if (opcode == ASSIGN) {
+			write_opcode(state, X_ASSIGN);
+			write_argument(state, 1);
+		} else {
+			write_opcode(state, opcode);
+		}
 	} else {
 		write_opcode(state, opcode);
 	}
@@ -118,6 +127,12 @@ static void write_instruction3(struct compiler_state *state, uint16_t opcode, ui
 	write_argument(state, arg0);
 	write_argument(state, arg1);
 	write_argument(state, arg2);
+}
+
+static void write_CALLHLL(struct compiler_state *state, const char *lib, const char *fun, int type)
+{
+	int libno = ain_get_library(state->ain, lib);
+	write_instruction3(state, CALLHLL, libno, ain_get_library_function(state->ain, libno, fun), type);
 }
 
 static uint32_t flo2int(float f)
@@ -247,6 +262,7 @@ static void compile_lvalue_after(struct compiler_state *state, enum ain_data_typ
 	case AIN_REF_ARRAY_TYPE:
 	case AIN_STRUCT:
 	case AIN_REF_STRUCT:
+	case AIN_ARRAY:
 		write_instruction0(state, REF);
 		break;
 	default:
@@ -575,7 +591,7 @@ static void compile_hllcall(struct compiler_state *state, struct jaf_expression 
 static void compile_cast(struct compiler_state *state, struct jaf_expression *expr)
 {
 	enum ain_data_type src_type = expr->cast.expr->valuetype.data;
-	enum ain_data_type dst_type = jaf_to_ain_data_type(expr->cast.type, 0);
+	enum ain_data_type dst_type = expr->valuetype.data;
 	compile_expression(state, expr->cast.expr);
 
 	if (src_type == dst_type)
@@ -718,8 +734,7 @@ static void compile_nullexpr(struct compiler_state *state, enum ain_data_type ty
 static void compile_vardecl(struct compiler_state *state, struct jaf_block_item *item)
 {
 	struct jaf_vardecl *decl = &item->var;
-	enum ain_data_type type = jaf_to_ain_data_type(decl->type->type, decl->type->qualifiers);
-	switch (type) {
+	switch (decl->valuetype.data) {
 	case AIN_VOID:
 		COMPILER_ERROR(item, "void variable declaration");
 	case AIN_INT:
@@ -732,7 +747,7 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 			compile_expression(state, decl->init);
 		else
 			write_instruction1(state, PUSH, 0);
-		write_instruction0(state, type == AIN_LONG_INT ? LI_ASSIGN : ASSIGN);
+		write_instruction0(state, decl->valuetype.data == AIN_LONG_INT ? LI_ASSIGN : ASSIGN);
 		write_instruction0(state, POP);
 		break;
 	case AIN_FLOAT:
@@ -838,23 +853,60 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 			write_instruction0(state, POP);
 		}
 		break;
+	case AIN_ARRAY:
 	case AIN_ARRAY_TYPE:
-		if (state->ain->version >= 11)
-			JAF_ERROR(item, "Arrays not supported on ain v11+");
-		write_instruction0(state, PUSHLOCALPAGE);
-		write_instruction1(state, PUSH, decl->var_no);
-		if (decl->array_dims) {
-			for (size_t i = 0; i < decl->type->rank; i++) {
-				write_instruction1(state, PUSH, decl->array_dims[i]->i);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			write_instruction0(state, PUSHLOCALPAGE);
+			write_instruction1(state, PUSH, decl->var_no);
+			write_instruction1(state, X_DUP, 2);
+			write_instruction1(state, X_REF, 1);
+			write_instruction0(state, DELETE);
+			write_instruction1(state, PUSH, 0);
+			write_instruction1(state, X_A_INIT, 0);
+			write_instruction0(state, POP);
+			if (decl->array_dims) {
+				if (decl->type->rank != 1) {
+					JAF_ERROR(item, "Only rank-1 arrays supported on ain v14+");
+				}
+				write_instruction0(state, PUSHLOCALPAGE);
+				write_instruction1(state, PUSH, decl->var_no);
+				write_instruction0(state, REF);
+				write_instruction1(state, PUSH, decl->array_dims[0]->i);
+				write_CALLHLL(state, "Array", "Alloc", 1); // ???
 			}
-			write_instruction1(state, PUSH, decl->type->rank);
-			write_instruction0(state, A_ALLOC);
+		} else if (AIN_VERSION_GTE(state->ain, 11, 0)) {
+			write_instruction0(state, PUSHLOCALPAGE);
+			write_instruction1(state, PUSH, decl->var_no);
+			write_instruction0(state, REF);
+			if (decl->array_dims) {
+				if (decl->type->rank != 1) {
+					JAF_ERROR(item, "Only rank-1 arrays supported on ain v11+");
+				}
+				write_instruction0(state, DUP);
+				write_instruction1(state, PUSH, decl->array_dims[0]->i);
+				write_instruction1(state, PUSH, -1);
+				write_instruction1(state, PUSH, -1);
+				write_instruction1(state, PUSH, -1);
+				write_CALLHLL(state, "Array", "Alloc", decl->valuetype.data);
+			} else {
+				write_CALLHLL(state, "Array", "Free", decl->valuetype.data);
+			}
 		} else {
-			write_instruction0(state, A_FREE);
+			write_instruction0(state, PUSHLOCALPAGE);
+			write_instruction1(state, PUSH, decl->var_no);
+			if (decl->array_dims) {
+				for (size_t i = 0; i < decl->type->rank; i++) {
+					write_instruction1(state, PUSH, decl->array_dims[i]->i);
+				}
+				write_instruction1(state, PUSH, decl->type->rank);
+				write_instruction0(state, A_ALLOC);
+			} else {
+				write_instruction0(state, A_FREE);
+			}
 		}
 		break;
 	default:
-		COMPILER_ERROR(item, "Unsupported variable type: %d", type);
+		COMPILER_ERROR(item, "Unsupported variable type: %d", decl->valuetype.data);
 	}
 }
 

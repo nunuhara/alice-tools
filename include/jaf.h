@@ -49,8 +49,9 @@ enum jaf_type {
 	JAF_STRING,
 	JAF_STRUCT,
 	JAF_ENUM,
+	JAF_ARRAY,
 	JAF_TYPEDEF,
-	JAF_FUNCTYPE,
+	JAF_FUNCTYPE
 };
 
 enum _jaf_type {
@@ -62,7 +63,7 @@ enum _jaf_type {
 enum jaf_type_qualifier {
 	JAF_QUAL_CONST       = 1,
 	JAF_QUAL_REF         = 2,
-	JAF_QUAL_ARRAY       = 4,
+	//JAF_QUAL_ARRAY       = 4,
 	JAF_QUAL_CONSTRUCTOR = 8,
 	JAF_QUAL_DESTRUCTOR  = 16,
 	JAF_QUAL_OVERRIDE    = 32,
@@ -139,6 +140,7 @@ struct jaf_argument_list {
 
 struct jaf_type_specifier {
 	enum jaf_type type;
+	struct jaf_type_specifier *array_type;
 	unsigned qualifiers;
 	struct string *name;
 	union {
@@ -416,7 +418,7 @@ void jaf_check_type(struct jaf_expression *expr, struct ain_type *type);
 void jaf_resolve_declarations(struct ain *ain, struct jaf_block *block);
 void jaf_resolve_hll_declarations(struct ain *ain, struct jaf_block *block, const char *hll_name);
 struct jaf_block *jaf_static_analyze(struct ain *ain, struct jaf_block *block);
-enum ain_data_type jaf_to_ain_data_type(enum jaf_type type, unsigned qualifiers);
+enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type);
 void jaf_define_struct(struct ain *ain, struct jaf_block_item *type);
 void jaf_define_functype(struct ain *ain, struct jaf_block_item *item);
 

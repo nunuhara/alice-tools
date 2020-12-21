@@ -410,6 +410,8 @@ type_specifier
 	| ARRAY '@' atomic_type_specifier '@' I_CONSTANT { $$ = jaf_array_type(jaf_type($3), parse_int($5)); }
 	| ARRAY '@' TYPEDEF_NAME                         { $$ = jaf_array_type(jaf_typedef($3), 1); }
 	| ARRAY '@' TYPEDEF_NAME '@' I_CONSTANT          { $$ = jaf_array_type(jaf_typedef($3), parse_int($5)); }
+	| ARRAY '<' atomic_type_specifier '>'            { $$ = jaf_array_type(jaf_type($3), 1); }
+	| ARRAY '<' TYPEDEF_NAME '>'                     { $$ = jaf_array_type(jaf_typedef($3), 1); }
 	| TYPEDEF_NAME                                   { $$ = jaf_typedef($1); }
 	;
 

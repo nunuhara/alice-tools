@@ -78,6 +78,7 @@ static const char *jaf_type_to_string(enum jaf_type type)
 	case JAF_STRING: return "string";
 	case JAF_STRUCT: return "struct";
 	case JAF_ENUM: return "enum";
+	case JAF_ARRAY: return "array";
 	case JAF_TYPEDEF: return "typedef";
 	case JAF_FUNCTYPE: return "functype";
 	default: ERROR("Unhandled type: %d", type);
@@ -208,8 +209,10 @@ static void print_type_specifier(FILE *out, struct jaf_type_specifier *type)
 		fprintf(out, "%s", jaf_type_to_string(type->type));
 	}
 
-	if (type->qualifiers & JAF_QUAL_ARRAY) {
-		fprintf(out, "@%u", type->rank);
+	if (type->type == JAF_ARRAY) {
+		fputc('<', out);
+		print_type_specifier(out, type->array_type);
+		fprintf(out, ">@%u", type->rank);
 	}
 }
 

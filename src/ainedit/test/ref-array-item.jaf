@@ -5,7 +5,7 @@ void addone(ref int i)
 
 int main()
 {
-	array@int a[1];
+	array<int> a[1];
 	addone(a[0]);
 	return !(a[0] == 1);
 }

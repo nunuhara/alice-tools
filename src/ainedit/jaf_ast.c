@@ -187,7 +187,7 @@ struct jaf_expression *jaf_cast_expression(enum jaf_type type, struct jaf_expres
 	struct jaf_expression *e = jaf_expr(JAF_EXP_CAST, 0);
 	e->cast.type = type;
 	e->cast.expr = expr;
-	e->valuetype.data = jaf_to_ain_data_type(type, 0);
+	e->valuetype.data = jaf_to_ain_simple_type(type);
 	return e;
 }
 
@@ -220,6 +220,7 @@ struct jaf_type_specifier *jaf_type(enum jaf_type type)
 		p->type = type;
 	}
 	p->struct_no = -1;
+	p->array_type = NULL;
 	return p;
 }
 
@@ -234,9 +235,10 @@ struct jaf_type_specifier *jaf_array_type(struct jaf_type_specifier *type, int r
 {
 	if (rank < 0)
 		_JAF_ERROR(jaf_file, jaf_line, "Negative array rank");
-	type->qualifiers |= JAF_QUAL_ARRAY;
-	type->rank = rank;
-	return type;
+	struct jaf_type_specifier *array_type = jaf_type(JAF_ARRAY);
+	array_type->array_type = type;
+	array_type->rank = rank;
+	return array_type;
 }
 
 struct jaf_declarator *jaf_declarator(struct string *name)
@@ -605,6 +607,7 @@ void jaf_free_type_specifier(struct jaf_type_specifier *type)
 		return;
 	if (type->name)
 		free_string(type->name);
+	free(type->array_type);
 	free(type);
 }
 

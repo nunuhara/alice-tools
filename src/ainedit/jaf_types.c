@@ -38,6 +38,7 @@ const char *jaf_typestr(enum jaf_type type)
 	case JAF_STRING:   return "string";
 	case JAF_STRUCT:   return "struct";
 	case JAF_ENUM:     return "enum";
+	case JAF_ARRAY:    return "array";
 	case JAF_TYPEDEF:  return "typedef";
 	case JAF_FUNCTYPE: return "functype";
 	}
@@ -553,9 +554,9 @@ static void jaf_check_types_seq(struct jaf_env *env, struct jaf_expression *expr
 	expr->valuetype = expr->seq.tail->valuetype;
 }
 
-static enum ain_data_type array_data_type(enum ain_data_type type)
+static enum ain_data_type array_data_type(struct ain_type *type)
 {
-	switch (type) {
+	switch (type->data) {
 	case AIN_ARRAY_INT:       case AIN_REF_ARRAY_INT:       return AIN_INT;
 	case AIN_ARRAY_FLOAT:     case AIN_REF_ARRAY_FLOAT:     return AIN_FLOAT;
 	case AIN_ARRAY_STRING:    case AIN_REF_ARRAY_STRING:    return AIN_STRING;
@@ -564,9 +565,7 @@ static enum ain_data_type array_data_type(enum ain_data_type type)
 	case AIN_ARRAY_BOOL:      case AIN_REF_ARRAY_BOOL:      return AIN_BOOL;
 	case AIN_ARRAY_LONG_INT:  case AIN_REF_ARRAY_LONG_INT:  return AIN_LONG_INT;
 	case AIN_ARRAY_DELEGATE:  case AIN_REF_ARRAY_DELEGATE:  return AIN_DELEGATE;
-		break;
-	case AIN_ARRAY:
-		_COMPILER_ERROR(NULL, -1, "ain v11+ arrays not supported");
+	case AIN_ARRAY: return type->array_type->data;
 	default:
 		return AIN_VOID;
 	}
@@ -575,11 +574,10 @@ static enum ain_data_type array_data_type(enum ain_data_type type)
 static void jaf_type_check_array(struct jaf_expression *expr)
 {
 	switch (expr->valuetype.data) {
+	case AIN_ARRAY:
 	case AIN_ARRAY_TYPE:
 	case AIN_REF_ARRAY_TYPE:
 		return;
-	case AIN_ARRAY:
-		COMPILER_ERROR(expr, "ain v11+ arrays not supported");
 	default:
 		TYPE_ERROR(expr, AIN_ARRAY);
 	}
@@ -593,7 +591,7 @@ static void array_deref_type(struct ain_type *dst, struct ain_type *src)
 		dst->rank = src->rank - 1;
 	} else {
 		assert(src->rank == 1);
-		dst->data = array_data_type(src->data);
+		dst->data = array_data_type(src);
 		dst->struc = src->struc;
 		dst->rank = 0;
 	}
@@ -641,7 +639,7 @@ void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr)
 		jaf_check_types_funcall(env, expr);
 		break;
 	case JAF_EXP_CAST:
-		expr->valuetype.data = jaf_to_ain_data_type(expr->cast.type, 0);
+		expr->valuetype.data = jaf_to_ain_simple_type(expr->cast.type);
 		break;
 	case JAF_EXP_MEMBER:
 		jaf_check_types_member(env, expr);

@@ -54,66 +54,89 @@ void jaf_define_functype(struct ain *ain, struct jaf_block_item *item)
 	decl->func_no = ain_add_functype(ain, &f);
 }
 
-enum ain_data_type jaf_to_ain_data_type(enum jaf_type type, unsigned qualifiers)
+enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type)
 {
-	if (qualifiers & JAF_QUAL_REF && qualifiers & JAF_QUAL_ARRAY) {
-		switch (type) {
+	switch (type) {
+	case JAF_VOID:     return AIN_VOID;
+	case JAF_INT:      return AIN_INT;
+	case JAF_FLOAT:    return AIN_FLOAT;
+	case JAF_STRING:   return AIN_STRING;
+	case JAF_STRUCT:   return AIN_STRUCT;
+	case JAF_ENUM:     _COMPILER_ERROR(NULL, -1, "Enums not supported");
+	case JAF_ARRAY:    _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
+	case JAF_TYPEDEF:  _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
+	case JAF_FUNCTYPE: return AIN_FUNC_TYPE;
+	}
+	_COMPILER_ERROR(NULL, -1, "Unknown type: %d", type);
+}
+
+static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_specifier *type)
+{
+	if (type->qualifiers & JAF_QUAL_REF && type->type == JAF_ARRAY) {
+		if (AIN_VERSION_GTE(ain, 11, 0)) {
+			return AIN_REF_ARRAY;
+		}
+		switch (type->array_type->type) {
 		case JAF_VOID:     _COMPILER_ERROR(NULL, -1, "void ref array type");
 		case JAF_INT:      return AIN_REF_ARRAY_INT;
 		case JAF_FLOAT:    return AIN_REF_ARRAY_FLOAT;
 		case JAF_STRING:   return AIN_REF_ARRAY_STRING;
 		case JAF_STRUCT:   return AIN_REF_ARRAY_STRUCT;
 		case JAF_ENUM:     _COMPILER_ERROR(NULL, -1, "Enums not supported");
+		case JAF_ARRAY:    _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 		case JAF_TYPEDEF:  _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
 		case JAF_FUNCTYPE: return AIN_REF_ARRAY_FUNC_TYPE;
 		}
-	} else if (qualifiers & JAF_QUAL_REF) {
-		switch (type) {
+	} else if (type->qualifiers & JAF_QUAL_REF) {
+		switch (type->type) {
 		case JAF_VOID:     _COMPILER_ERROR(NULL, -1, "void ref type");
 		case JAF_INT:      return AIN_REF_INT;
 		case JAF_FLOAT:    return AIN_REF_FLOAT;
 		case JAF_STRING:   return AIN_REF_STRING;
 		case JAF_STRUCT:   return AIN_REF_STRUCT;
 		case JAF_ENUM:     _COMPILER_ERROR(NULL, -1, "Enums not supported");
+		case JAF_ARRAY:    _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 		case JAF_TYPEDEF:  _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
 		case JAF_FUNCTYPE: return AIN_REF_FUNC_TYPE;
 		}
-	} else if (qualifiers & JAF_QUAL_ARRAY) {
-		switch (type) {
+	} else if (type->type == JAF_ARRAY) {
+		if (AIN_VERSION_GTE(ain, 11, 0)) {
+			return AIN_ARRAY;
+		}
+		switch (type->array_type->type) {
 		case JAF_VOID:     _COMPILER_ERROR(NULL, -1, "void array type");
 		case JAF_INT:      return AIN_ARRAY_INT;
 		case JAF_FLOAT:    return AIN_ARRAY_FLOAT;
 		case JAF_STRING:   return AIN_ARRAY_STRING;
 		case JAF_STRUCT:   return AIN_ARRAY_STRUCT;
 		case JAF_ENUM:     _COMPILER_ERROR(NULL, -1, "Enums not supported");
+		case JAF_ARRAY:    _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 		case JAF_TYPEDEF:  _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
 		case JAF_FUNCTYPE: return AIN_ARRAY_FUNC_TYPE;
 		}
 	} else {
-		switch (type) {
-		case JAF_VOID:     return AIN_VOID;
-		case JAF_INT:      return AIN_INT;
-		case JAF_FLOAT:    return AIN_FLOAT;
-		case JAF_STRING:   return AIN_STRING;
-		case JAF_STRUCT:   return AIN_STRUCT;
-		case JAF_ENUM:     _COMPILER_ERROR(NULL, -1, "Enums not supported");
-		case JAF_TYPEDEF:  _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
-		case JAF_FUNCTYPE: return AIN_FUNC_TYPE;
-		}
+		return jaf_to_ain_simple_type(type->type);
 	}
 	_COMPILER_ERROR(NULL, -1, "Unknown type: %d", type);
 }
 
-static void jaf_to_ain_type(possibly_unused struct ain *ain, struct ain_type *out, struct jaf_type_specifier *in)
+static void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_specifier *in)
 {
-	out->data = jaf_to_ain_data_type(in->type, in->qualifiers);
+	out->data = jaf_to_ain_data_type(ain, in);
 	if (in->type == JAF_STRUCT || in->type == JAF_FUNCTYPE) {
 		out->struc = in->struct_no;
 	} else {
 		out->struc = -1;
 	}
-	if (in->qualifiers & JAF_QUAL_ARRAY) {
+	if (in->type == JAF_ARRAY) {
 		out->rank = in->rank;
+		if (AIN_VERSION_GTE(ain, 11, 0)) {
+			if (in->rank != 1) {
+				_JAF_ERROR(NULL, -1, "Only rank-1 arrays supported for ain v11+");
+			}
+			out->array_type = xcalloc(1, sizeof(struct ain_type));
+			jaf_to_ain_type(ain, out->array_type, in->array_type);
+		}
 	}
 }
 
