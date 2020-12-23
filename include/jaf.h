@@ -329,13 +329,18 @@ struct jaf_block {
 	struct jaf_block_item **items;
 };
 
+struct jaf_env_local {
+	int no;
+	struct ain_variable *var;
+};
+
 struct jaf_env {
 	struct ain *ain;
 	struct jaf_env *parent;
 	int func_no;
 	struct jaf_fundecl *fundecl;
 	size_t nr_locals;
-	struct ain_variable **locals;
+	struct jaf_env_local *locals;
 };
 
 noreturn void jaf_generic_error(const char *file, int line, const char *msgf, ...);

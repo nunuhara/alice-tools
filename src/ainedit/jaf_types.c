@@ -311,12 +311,11 @@ static void jaf_check_types_ternary(struct jaf_env *env, struct jaf_expression *
 	expr->valuetype = expr->consequent->valuetype;
 }
 
-static struct ain_variable *jaf_scope_lookup(struct jaf_env *env, const char *name, int *var_no)
+static struct jaf_env_local *jaf_scope_lookup(struct jaf_env *env, const char *name)
 {
 	for (size_t i = 0; i < env->nr_locals; i++) {
-		if (!strcmp(env->locals[i]->name, name)) {
-			*var_no = i;
-			return env->locals[i];
+		if (!strcmp(env->locals[i].var->name, name)) {
+			return &env->locals[i];
 		}
 	}
 	return NULL;
@@ -326,9 +325,10 @@ struct ain_variable *jaf_env_lookup(struct jaf_env *env, const char *name, int *
 {
 	struct jaf_env *scope = env;
         while (scope) {
-		struct ain_variable *v = jaf_scope_lookup(scope, name, var_no);
+		struct jaf_env_local *v = jaf_scope_lookup(scope, name);
 		if (v) {
-			return v;
+			*var_no = v->no;
+			return v->var;
 		}
 		scope = scope->parent;
 	}
