@@ -68,8 +68,10 @@ struct instruction asm_pseudo_ops[NR_PSEUDO_OPS - PSEUDO_OP_OFFSET] = {
 	MACRO(PO_LOCALREFREF,       ".LOCALREFREF",       1, 10),
 	MACRO(PO_LOCALINC,          ".LOCALINC",          1, 10),
 	MACRO(PO_LOCALINC2,         ".LOCALINC2",         1, 20),
+	MACRO(PO_LOCALINC3,         ".LOCALINC3",         1, 20),
 	MACRO(PO_LOCALDEC,          ".LOCALDEC",          1, 10),
 	MACRO(PO_LOCALDEC2,         ".LOCALDEC2",         1, 20),
+	MACRO(PO_LOCALDEC3,         ".LOCALDEC3",         1, 20),
 	MACRO(PO_LOCALPLUSA,        ".LOCALPLUSA",        2, 18),
 	MACRO(PO_LOCALMINUSA,       ".LOCALMINUSA",       2, 18),
 	MACRO(PO_LOCALASSIGN,       ".LOCALASSIGN",       2, 18),
@@ -591,8 +593,9 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		asm_write_instruction1(state, PUSH, var);
 		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
 			asm_write_instruction1(state, X_DUP, 2);
+			asm_write_instruction1(state, X_REF, 1);
+			asm_write_instruction2(state, X_MOV, 3, 1);
 			asm_write_instruction0(state, INC);
-			asm_write_instruction0(state, POP);
 			asm_write_instruction0(state, POP);
 		} else {
 			asm_write_instruction0(state, DUP2);
@@ -602,6 +605,16 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 			asm_write_instruction0(state, INC);
 			asm_write_instruction0(state, POP);
 		}
+		break;
+	}
+	case PO_LOCALINC3: {
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction1(state, X_DUP, 2);
+		asm_write_instruction0(state, INC);
+		asm_write_instruction0(state, POP);
+		asm_write_instruction0(state, POP);
 		break;
 	}
 	case PO_LOCALDEC: {
@@ -617,8 +630,9 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		asm_write_instruction1(state, PUSH, var);
 		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
 			asm_write_instruction1(state, X_DUP, 2);
+			asm_write_instruction1(state, X_REF, 1);
+			asm_write_instruction2(state, X_MOV, 3, 1);
 			asm_write_instruction0(state, DEC);
-			asm_write_instruction0(state, POP);
 			asm_write_instruction0(state, POP);
 		} else {
 			asm_write_instruction0(state, DUP2);
@@ -628,6 +642,16 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 			asm_write_instruction0(state, DEC);
 			asm_write_instruction0(state, POP);
 		}
+		break;
+	}
+	case PO_LOCALDEC3: {
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		asm_write_instruction0(state, PUSHLOCALPAGE);
+		asm_write_instruction1(state, PUSH, var);
+		asm_write_instruction1(state, X_DUP, 2);
+		asm_write_instruction0(state, DEC);
+		asm_write_instruction0(state, POP);
+		asm_write_instruction0(state, POP);
 		break;
 	}
 	case PO_LOCALPLUSA: {
@@ -944,6 +968,8 @@ void asm_assemble_jam(const char *filename, struct ain *ain, uint32_t flags)
 		asm_pseudo_ops[PO_STRUCTASSIGN  - PSEUDO_OP_OFFSET].ip_inc = 22;
 		asm_pseudo_ops[PO_LOCALCREATE   - PSEUDO_OP_OFFSET].ip_inc = 40;
 		asm_pseudo_ops[PO_LOCALDELETE   - PSEUDO_OP_OFFSET].ip_inc = 36;
+		asm_pseudo_ops[PO_LOCALINC2     - PSEUDO_OP_OFFSET].ip_inc = 34;
+		asm_pseudo_ops[PO_LOCALDEC2     - PSEUDO_OP_OFFSET].ip_inc = 34;
 	}
 
 	struct asm_state state;

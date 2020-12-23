@@ -92,9 +92,15 @@ static bool X_LOCALASSIGN_check(struct dasm_state *dasm, int32_t *args)
 
 static bool X_LOCALINC2_check(struct dasm_state *dasm, int32_t *args)
 {
-	return is_local(dasm, args[0]) && args[1] == 2;
+	return is_local(dasm, args[0]) && args[1] == 2 && args[2] == 1 && args[3] == 3 && args[4] == 1;
 }
 #define X_LOCALDEC2_check X_LOCALINC2_check
+
+static bool LOCALINC3_check(struct dasm_state *dasm, int32_t *args)
+{
+	return is_local(dasm, args[0]) && args[1] == 2;
+}
+#define LOCALDEC3_check LOCALINC3_check
 
 static bool X_S_LOCALASSIGN_check(struct dasm_state *dasm, int32_t *args)
 {
@@ -138,9 +144,11 @@ static void local_emit(struct dasm_state *dasm, int32_t *args)
 #define LOCALINC_emit          local_emit
 #define LOCALINC2_emit         local_emit
 #define X_LOCALINC2_emit       local_emit
+#define LOCALINC3_emit         local_emit
 #define LOCALDEC_emit          local_emit
 #define LOCALDEC2_emit         local_emit
 #define X_LOCALDEC2_emit       local_emit
+#define LOCALDEC3_emit         local_emit
 #define LOCALDELETE_emit       local_emit
 #define X_LOCALDELETE_emit     local_emit
 #define LOCALASSIGN2_emit      local_emit
@@ -333,10 +341,12 @@ struct macrodef macrodefs[] = {
 	//ALTMACRO(X_, LOCALREFREF,   PUSHLOCALPAGE,  PUSH, X_REF), // FIXME: conflicts with X_LOCALREF
 	DEFMACRO(LOCALINC,          PUSHLOCALPAGE,  PUSH, INC),
 	DEFMACRO(LOCALINC2,         PUSHLOCALPAGE,  PUSH, DUP2, REF, DUP_X2, POP, INC, POP),
-	ALTMACRO(X_, LOCALINC2,     PUSHLOCALPAGE,  PUSH, X_DUP, INC, POP, POP),
+	ALTMACRO(X_, LOCALINC2,     PUSHLOCALPAGE,  PUSH, X_DUP, X_REF, X_MOV, INC, POP),
+	DEFMACRO(LOCALINC3,         PUSHLOCALPAGE,  PUSH, X_DUP, INC, POP, POP),
 	DEFMACRO(LOCALDEC,          PUSHLOCALPAGE,  PUSH, DEC),
 	DEFMACRO(LOCALDEC2,         PUSHLOCALPAGE,  PUSH, DUP2, REF, DUP_X2, POP, DEC, POP),
-	ALTMACRO(X_, LOCALDEC2,     PUSHLOCALPAGE,  PUSH, X_DUP, DEC, POP, POP),
+	ALTMACRO(X_, LOCALDEC2,     PUSHLOCALPAGE,  PUSH, X_DUP, X_REF, X_MOV, DEC, POP),
+	DEFMACRO(LOCALDEC3,         PUSHLOCALPAGE,  PUSH, X_DUP, DEC, POP, POP),
 	DEFMACRO(LOCALPLUSA,        PUSHLOCALPAGE,  PUSH, PUSH, PLUSA, POP),
 	DEFMACRO(LOCALMINUSA,       PUSHLOCALPAGE,  PUSH, PUSH, MINUSA, POP),
 	DEFMACRO(LOCALASSIGN,       PUSHLOCALPAGE,  PUSH, PUSH, ASSIGN, POP),

@@ -628,6 +628,7 @@ void jaf_free_block_item(struct jaf_block_item *item)
 			free(item->var.array_dims);
 		}
 		jaf_free_type_specifier(item->var.type);
+		ain_free_type(&item->var.valuetype);
 		break;
 	case JAF_DECL_FUNCTYPE:
 		free_string(item->fun.name);
