@@ -261,6 +261,12 @@ static void compile_lvalue_after(struct compiler_state *state, enum ain_data_typ
 		break;
 	case AIN_STRING:
 	case AIN_REF_STRING:
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			// nothing
+		} else {
+			write_instruction0(state, REF);
+		}
+		break;
 	case AIN_ARRAY_TYPE:
 	case AIN_REF_ARRAY_TYPE:
 	case AIN_STRUCT:
@@ -361,7 +367,7 @@ static void compile_pop(struct compiler_state *state, enum ain_data_type type)
 		break;
 	case AIN_STRING:
 	case AIN_REF_STRING:
-		write_instruction0(state, state->ain->version >= 11 ? DELETE : S_POP);
+		write_instruction0(state, AIN_VERSION_GTE(state->ain, 11, 0) ? DELETE : S_POP);
 		break;
 	default:
 		_COMPILER_ERROR(NULL, -1, "Unsupported type");
@@ -788,15 +794,31 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 		write_instruction0(state, POP);
 		break;
 	case AIN_STRING:
-		write_instruction0(state, PUSHLOCALPAGE);
-		write_instruction1(state, PUSH, decl->var_no);
-		write_instruction0(state, REF);
-		if (decl->init)
-			compile_expression(state, decl->init);
-		else
-			write_instruction1(state, S_PUSH, 0);
-		write_instruction0(state, S_ASSIGN);
-		write_instruction0(state, state->ain->version >= 11 ? DELETE : S_POP);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			write_instruction0(state, PUSHLOCALPAGE);
+			write_instruction1(state, PUSH, decl->var_no);
+			write_instruction1(state, X_DUP, 2);
+			write_instruction1(state, X_REF, 1);
+			write_instruction0(state, DELETE);
+			if (decl->init) {
+				compile_expression(state, decl->init);
+			} else {
+				write_instruction1(state, S_PUSH, 0);
+			}
+			write_instruction1(state, X_ASSIGN, 1);
+			write_instruction0(state, POP);
+		} else {
+			write_instruction0(state, PUSHLOCALPAGE);
+			write_instruction1(state, PUSH, decl->var_no);
+			write_instruction0(state, REF);
+			if (decl->init) {
+				compile_expression(state, decl->init);
+			} else {
+				write_instruction1(state, S_PUSH, 0);
+			}
+			write_instruction0(state, S_ASSIGN);
+			write_instruction0(state, state->ain->version >= 11 ? DELETE : S_POP);
+		}
 		break;
 	case AIN_STRUCT:
 		write_instruction1(state, SH_LOCALDELETE, decl->var_no); // FIXME: use verbose version
