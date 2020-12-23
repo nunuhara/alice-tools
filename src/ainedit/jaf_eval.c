@@ -392,6 +392,7 @@ struct jaf_expression *jaf_simplify(struct jaf_expression *in)
 	case JAF_EXP_FUNCALL:
 	case JAF_EXP_SYSCALL:
 	case JAF_EXP_HLLCALL:
+	case JAF_EXP_BUILTIN_CALL:
 		return jaf_simplify_funcall(in);
 	case JAF_EXP_CAST:
 		return jaf_simplify_cast(in);

@@ -81,6 +81,7 @@ enum jaf_expression_type {
 	JAF_EXP_FUNCALL,
 	JAF_EXP_SYSCALL,
 	JAF_EXP_HLLCALL,
+	JAF_EXP_BUILTIN_CALL,
 	JAF_EXP_CAST,
 	JAF_EXP_MEMBER,
 	JAF_EXP_SEQ,
@@ -189,6 +190,7 @@ struct jaf_expression {
 			struct jaf_argument_list *args;
 			int func_no;
 			int lib_no;
+			int type_param;
 		} call;
 		// struct member
 		struct {

@@ -574,6 +574,7 @@ void jaf_free_expr(struct jaf_expression *expr)
 	case JAF_EXP_FUNCALL:
 	case JAF_EXP_SYSCALL:
 	case JAF_EXP_HLLCALL:
+	case JAF_EXP_BUILTIN_CALL:
 		jaf_free_expr(expr->call.fun);
 		for (size_t i = 0; i < expr->call.args->nr_items; i++) {
 			jaf_free_expr(expr->call.args->items[i]);

@@ -97,6 +97,9 @@ static void write_instruction0(struct compiler_state *state, uint16_t opcode)
 		} else if (opcode == DUP) {
 			write_opcode(state, X_DUP);
 			write_argument(state, 1);
+		} else if (opcode == DUP2) {
+			write_opcode(state, X_DUP);
+			write_argument(state, 2);
 		} else if (opcode == ASSIGN) {
 			write_opcode(state, X_ASSIGN);
 			write_argument(state, 1);
@@ -396,19 +399,33 @@ static void compile_unary(struct compiler_state *state, struct jaf_expression *e
 		break;
 	case JAF_POST_INC:
 		compile_lvalue(state, expr->expr);
-		write_instruction0(state, DUP2);
-		write_instruction0(state, REF);
-		write_instruction0(state, DUP_X2);
-		write_instruction0(state, POP);
-		write_instruction0(state, INC);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			write_instruction1(state, X_DUP, 2);
+			write_instruction1(state, X_REF, 1);
+			write_instruction2(state, X_MOV, 3, 1);
+			write_instruction0(state, INC);
+		} else {
+			write_instruction0(state, DUP2);
+			write_instruction0(state, REF);
+			write_instruction0(state, DUP_X2);
+			write_instruction0(state, POP);
+			write_instruction0(state, INC);
+		}
 		break;
 	case JAF_POST_DEC:
 		compile_lvalue(state, expr->expr);
-		write_instruction0(state, DUP2);
-		write_instruction0(state, REF);
-		write_instruction0(state, DUP_X2);
-		write_instruction0(state, POP);
-		write_instruction0(state, DEC);
+		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+			write_instruction1(state, X_DUP, 2);
+			write_instruction1(state, X_REF, 1);
+			write_instruction2(state, X_MOV, 3, 1);
+			write_instruction0(state, DEC);
+		} else {
+			write_instruction0(state, DUP2);
+			write_instruction0(state, REF);
+			write_instruction0(state, DUP_X2);
+			write_instruction0(state, POP);
+			write_instruction0(state, DEC);
+		}
 		break;
 	default:
 		COMPILER_ERROR(expr, "Invalid unary operator");
@@ -581,11 +598,18 @@ static void compile_hllcall(struct compiler_state *state, struct jaf_expression 
 		compile_expression(state, expr->call.args->items[i]);
 	}
 	if (AIN_VERSION_GTE(state->ain, 11, 0)) {
-		// FIXME: 3rd argument isn't always 0...
-		write_instruction3(state, CALLHLL, expr->call.lib_no, expr->call.func_no, 0);
+		write_instruction3(state, CALLHLL, expr->call.lib_no, expr->call.func_no, expr->call.type_param);
 	} else {
 		write_instruction2(state, CALLHLL, expr->call.lib_no, expr->call.func_no);
 	}
+}
+
+static void compile_builtin_call(struct compiler_state *state, struct jaf_expression *expr)
+{
+	assert(expr->call.fun->type == JAF_EXP_MEMBER);
+	// FIXME: assuming self arg is a ref type here...
+	compile_lvalue(state, expr->call.fun->member.struc);
+	compile_hllcall(state, expr);
 }
 
 static void compile_cast(struct compiler_state *state, struct jaf_expression *expr)
@@ -679,6 +703,9 @@ static void compile_expression(struct compiler_state *state, struct jaf_expressi
 		break;
 	case JAF_EXP_HLLCALL:
 		compile_hllcall(state, expr);
+		break;
+	case JAF_EXP_BUILTIN_CALL:
+		compile_builtin_call(state, expr);
 		break;
 	case JAF_EXP_CAST:
 		compile_cast(state, expr);

@@ -406,74 +406,220 @@ static void jaf_check_types_functype_call(struct jaf_env *env, struct jaf_expres
 		JAF_ERROR(expr, "Too few arguments to function");
 }
 
+static void jaf_check_types_hll_call(struct jaf_env *env, int lib, struct jaf_expression *expr)
+{
+	struct jaf_expression *dot = expr->call.fun;
+	const char *obj_name = env->ain->libraries[lib].name;
+	const char *mbr_name = dot->member.name->text;
+
+	char *fun_name = conv_output(dot->member.name->text);
+	int fun = ain_get_library_function(env->ain, lib, fun_name);
+	free(fun_name);
+	if (fun < 0) {
+		JAF_ERROR(expr, "Undefined HLL function: %s.%s", obj_name, mbr_name);
+	}
+	expr->type = JAF_EXP_HLLCALL;
+	expr->call.lib_no = lib;
+	expr->call.func_no = fun;
+	expr->call.type_param = 0;
+
+	unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
+	struct ain_hll_function *def = &env->ain->libraries[lib].functions[fun];
+	if (nr_args < (unsigned)def->nr_arguments)
+		JAF_ERROR(expr, "Too few arguments to HLL function: %s.%s", obj_name, mbr_name);
+	if (nr_args > (unsigned)def->nr_arguments)
+		JAF_ERROR(expr, "Too many arguments to HLL function: %s.%s", obj_name, mbr_name);
+	for (unsigned i = 0; i < nr_args; i++) {
+		jaf_check_type(expr->call.args->items[i], &def->arguments[i].type);
+	}
+	expr->valuetype = def->return_type;
+}
+
+static int get_builtin_lib(struct ain *ain, enum ain_data_type type, struct jaf_expression *expr)
+{
+	int lib = -1;
+	switch (type) {
+	case AIN_ARRAY:
+		lib = ain_get_library(ain, "Array");
+		break;
+	default:
+		JAF_ERROR(expr, "Methods not supported on built-in type: %s",
+			  ain_strtype(ain, type, -1));
+	}
+	if (lib < 0) {
+		JAF_ERROR(expr, "Missing HLL library for built-in type: %s",
+			  ain_strtype(ain, type, -1));
+	}
+	return lib;
+}
+
+/*
+ * Determines the 3rd argument to CALLHLL for array member functions (ain v11+ only).
+ * For ain v11-12 it's just the data type of what's stored in the array.
+ * for ain v14 it's... complicated.
+ */
+static int array_type_param(struct jaf_env *env, struct ain_type *type)
+{
+	if (AIN_VERSION_GTE(env->ain, 14, 0)) {
+		// NOTE: I'm not really sure what the underlying logic is here...
+		//       * immediate types get 1
+		//       * structs and strings get 2
+		//       * 'ref struct' and 'wrap<struct>' get 0x10002
+		//       * 'wrap<iwrap<struct>>' gets 0x10003
+		switch (type->data) {
+		case AIN_REF_STRUCT:
+			return 0x10002;
+		case AIN_WRAP:
+			if (type->array_type->data == AIN_STRUCT)
+				return 0x10002;
+			if (type->array_type->data == AIN_IFACE_WRAP)
+				return 0x10003;
+			// XXX: Not totally sure if this is right... maybe always 2 here?
+			return array_type_param(env, type->array_type);
+		case AIN_ARRAY:
+			return array_type_param(env, type->array_type);
+		case AIN_INT:
+		case AIN_FLOAT:
+			return 1;
+		case AIN_STRING:
+		case AIN_STRUCT:
+			return 2;
+		default:
+			// XXX: assume 2 for unconfirmed types...
+			WARNING("Assuming HLL type param is 2 for type: %s", ain_strtype(env->ain, type->data, -1));
+			return 2;
+		}
+	}
+	return type->array_type->data;
+}
+
+/*
+ * Type check a method call on a built-in type (ain v11+ only).
+ * This is broadly similar to checking a regular HLL call.
+ */
+static void jaf_check_types_builtin_hll_call(struct jaf_env *env, struct ain_type *type,
+					     struct jaf_expression *expr)
+{
+	struct jaf_expression *dot = expr->call.fun;
+	int lib = get_builtin_lib(env->ain, type->data, expr);
+	const char *obj_name = env->ain->libraries[lib].name;
+	const char *mbr_name = dot->member.name->text;
+
+	char *fun_name = conv_output(dot->member.name->text);
+	int fun = ain_get_library_function(env->ain, lib, fun_name);
+	free(fun_name);
+	if (fun < 0) {
+		JAF_ERROR(expr, "Undefined built-in method: %s.%s", obj_name, mbr_name);
+	}
+	expr->type = JAF_EXP_BUILTIN_CALL;
+	expr->call.lib_no = lib;
+	expr->call.func_no = fun;
+	if (type->data == AIN_ARRAY) {
+		expr->call.type_param = array_type_param(env, type->array_type);
+	} else {
+		expr->call.type_param = 0;
+	}
+
+	unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
+	struct ain_hll_function *def = &env->ain->libraries[lib].functions[fun];
+	if (nr_args+1 < (unsigned)def->nr_arguments)
+		JAF_ERROR(expr, "Too few arguments to built-in method: %s.%s", obj_name, mbr_name);
+	if (nr_args+1 > (unsigned)def->nr_arguments)
+		JAF_ERROR(expr, "Too many arguments to built-in method: %s.%s", obj_name, mbr_name);
+	for (unsigned i = 0; i < nr_args; i++) {
+		jaf_check_type(expr->call.args->items[i], &def->arguments[i+1].type);
+	}
+	expr->valuetype = def->return_type;
+}
+
+static void jaf_check_types_sys_call(struct jaf_expression *expr)
+{
+	struct jaf_expression *dot = expr->call.fun;
+	const char *mbr_name = dot->member.name->text;
+
+	expr->type = JAF_EXP_SYSCALL;
+	expr->call.func_no = -1;
+	for (int i = 0; i < NR_SYSCALLS; i++) {
+		if (!strcmp(mbr_name, syscalls[i].name+7)) {
+			expr->call.func_no = i;
+			break;
+		}
+	}
+	if (expr->call.func_no == -1) {
+		JAF_ERROR(expr, "Invalid system call: system.%s", mbr_name);
+	}
+
+	unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
+	for (unsigned i = 0; i < nr_args; i++) {
+		struct ain_type type = {
+			.data = syscalls[expr->call.func_no].argtypes[i],
+			.struc = -1,
+			.rank = 0
+		};
+		jaf_check_type(expr->call.args->items[i], &type);
+	}
+	expr->valuetype = syscalls[expr->call.func_no].return_type;
+}
+
 static bool jaf_check_types_special_call(struct jaf_env *env, struct jaf_expression *expr)
 {
 	if (expr->call.fun->type != JAF_EXP_MEMBER)
 		return false;
 
-	struct jaf_expression *dot = expr->call.fun;
-	if (dot->member.struc->type != JAF_EXP_IDENTIFIER)
-		return false;
+	struct jaf_expression *obj = expr->call.fun->member.struc;
+	if (obj->type == JAF_EXP_IDENTIFIER) {
+		char *obj_name = conv_output(obj->s->text);
+		int lib = ain_get_library(env->ain, obj_name);
 
-	const char *obj_name = dot->member.struc->s->text;
-	const char *mbr_name = dot->member.name->text;
-
-	char *tmp = conv_output(obj_name);
-	int lib = ain_get_library(env->ain, tmp);
-	free(tmp);
-
-	// HLL call
-	if (lib >= 0) {
-		char *fun_name = conv_output(dot->member.name->text);
-		int fun = ain_get_library_function(env->ain, lib, fun_name);
-		free(fun_name);
-		if (fun <= 0) {
-			JAF_ERROR(expr, "Undefined HLL function: %s.%s", obj_name, mbr_name);
+		// HLL call
+		if (lib >= 0) {
+			jaf_check_types_hll_call(env, lib, expr);
+			free(obj_name);
+			return true;
 		}
-		expr->type = JAF_EXP_HLLCALL;
-		expr->call.lib_no = lib;
-		expr->call.func_no = fun;
-
-		unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
-		struct ain_hll_function *def = &env->ain->libraries[lib].functions[fun];
-		if (nr_args < (unsigned)def->nr_arguments)
-			JAF_ERROR(expr, "Too few arguments to HLL function: %s.%s", obj_name, mbr_name);
-		if (nr_args > (unsigned)def->nr_arguments)
-			JAF_ERROR(expr, "Too many arguments to HLL function: %s.%s", obj_name, mbr_name);
-		for (unsigned i = 0; i < nr_args; i++) {
-			jaf_check_type(expr->call.args->items[i], &def->arguments[i].type);
+		// system call
+		if (!strcmp(obj_name, "system")) {
+			jaf_check_types_sys_call(expr);
+			free(obj_name);
+			return true;
 		}
-		expr->valuetype = def->return_type;
-		return true;
+		free(obj_name);
 	}
 
-	// system call
-	if (!strcmp(obj_name, "system")) {
-		expr->type = JAF_EXP_SYSCALL;
-		expr->call.func_no = -1;
-		for (int i = 0; i < NR_SYSCALLS; i++) {
-			if (!strcmp(mbr_name, syscalls[i].name+7)) {
-				expr->call.func_no = i;
-				break;
-			}
+	jaf_derive_types(env, obj);
+	if (AIN_VERSION_GTE(env->ain, 11, 0)) {
+		switch (obj->valuetype.data) {
+		case AIN_INT:
+		case AIN_FLOAT:
+		case AIN_STRING:
+		case AIN_ARRAY:
+		case AIN_REF_INT:
+		case AIN_REF_FLOAT:
+		case AIN_REF_STRING:
+		case AIN_REF_ARRAY:
+			jaf_check_types_builtin_hll_call(env, &obj->valuetype, expr);
+			return true;
+			break;
+		default:
+			break;
 		}
-		if (expr->call.func_no == -1) {
-			JAF_ERROR(expr, "Invalid system call: system.%s", mbr_name);
+	} else {
+		switch (obj->valuetype.data) {
+		case AIN_INT:
+		case AIN_FLOAT:
+		case AIN_STRING:
+		case AIN_ARRAY_TYPE:
+		case AIN_REF_INT:
+		case AIN_REF_FLOAT:
+		case AIN_REF_STRING:
+		case AIN_REF_ARRAY_TYPE:
+			JAF_ERROR(expr, "Methods not supported on built-in type: %s",
+				  ain_strtype(env->ain, obj->valuetype.data, -1));
+			break;
+		default:
+			break;
 		}
-
-		unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
-		for (unsigned i = 0; i < nr_args; i++) {
-			struct ain_type type = {
-				.data = syscalls[expr->call.func_no].argtypes[i],
-				.struc = -1,
-				.rank = 0
-			};
-			jaf_check_type(expr->call.args->items[i], &type);
-		}
-		expr->valuetype = syscalls[expr->call.func_no].return_type;
-		return true;
 	}
-
 	return false;
 }
 
@@ -652,6 +798,7 @@ void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr)
 		break;
 	case JAF_EXP_SYSCALL:
 	case JAF_EXP_HLLCALL:
+	case JAF_EXP_BUILTIN_CALL:
 		// these should be JAF_EXP_FUNCALLs initially
 		JAF_ERROR(expr, "Unexpected expression type");
 	}

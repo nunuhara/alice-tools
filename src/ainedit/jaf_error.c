@@ -154,6 +154,7 @@ void jaf_print_expression(FILE *out, struct jaf_expression *expr)
 		break;
 	case JAF_EXP_FUNCALL:
 	case JAF_EXP_HLLCALL:
+	case JAF_EXP_BUILTIN_CALL:
 		jaf_print_expression(out, expr->call.fun);
 		print_arglist(out, expr->call.args);
 		break;
