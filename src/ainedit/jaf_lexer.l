@@ -102,6 +102,7 @@ unsigned long jaf_line = 1;
 "hll_param"                             { return HLL_PARAM; }
 "hll_func"                              { return HLL_FUNC; }
 "functype"                              { return FUNCTYPE; }
+"delegate"                              { return DELEGATE; }
 "override"                              { return OVERRIDE; }
 
 {L}{A}*					{ return check_type(); }

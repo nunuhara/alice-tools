@@ -174,7 +174,7 @@ static struct jaf_block *jaf_functype(struct jaf_type_specifier *type, struct ja
 %token	<token>		AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
 %token	<token>		SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
 %token	<token>		XOR_ASSIGN OR_ASSIGN
-%token	<token>		SYM_REF REF_ASSIGN ARRAY WRAP FUNCTYPE
+%token	<token>		SYM_REF REF_ASSIGN ARRAY WRAP FUNCTYPE DELEGATE
 %token	<token>		FILE_MACRO LINE_MACRO FUNC_MACRO DATE_MACRO TIME_MACRO
 
 %token	<token>		CONST OVERRIDE
@@ -404,6 +404,7 @@ atomic_type_specifier
 	| FLOATP           { $$ = JAF_FLOATP; }
 	| HLL_PARAM        { $$ = JAF_HLL_PARAM; }
 	| HLL_FUNC         { $$ = JAF_HLL_FUNC; }
+	| DELEGATE         { $$ = JAF_DELEGATE; }
 	;
 
 type_specifier

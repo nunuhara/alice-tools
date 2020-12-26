@@ -42,6 +42,7 @@ const char *jaf_typestr(enum jaf_type type)
 	case JAF_WRAP:      return "wrap";
 	case JAF_HLL_PARAM: return "hll_param";
 	case JAF_HLL_FUNC:  return "hll_func";
+	case JAF_DELEGATE:  return "delegate";
 	case JAF_TYPEDEF:   return "typedef";
 	case JAF_FUNCTYPE:  return "functype";
 	}
