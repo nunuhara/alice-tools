@@ -241,6 +241,13 @@ struct jaf_type_specifier *jaf_array_type(struct jaf_type_specifier *type, int r
 	return array_type;
 }
 
+struct jaf_type_specifier *jaf_wrap(struct jaf_type_specifier *type)
+{
+	struct jaf_type_specifier *wrap_type = jaf_type(JAF_WRAP);
+	wrap_type->array_type = type;
+	return wrap_type;
+}
+
 struct jaf_declarator *jaf_declarator(struct string *name)
 {
 	struct jaf_declarator *d = xcalloc(1, sizeof(struct jaf_declarator));

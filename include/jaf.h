@@ -50,6 +50,7 @@ enum jaf_type {
 	JAF_STRUCT,
 	JAF_ENUM,
 	JAF_ARRAY,
+	JAF_WRAP,
 	JAF_TYPEDEF,
 	JAF_FUNCTYPE
 };
@@ -370,6 +371,7 @@ struct jaf_argument_list *jaf_args(struct jaf_argument_list *head, struct jaf_ex
 struct jaf_type_specifier *jaf_type(enum jaf_type type);
 struct jaf_type_specifier *jaf_typedef(struct string *name);
 struct jaf_type_specifier *jaf_array_type(struct jaf_type_specifier *type, int rank);
+struct jaf_type_specifier *jaf_wrap(struct jaf_type_specifier *type);
 
 struct jaf_declarator *jaf_declarator(struct string *name);
 struct jaf_declarator *jaf_array_allocation(struct string *name, struct jaf_expression *dim);

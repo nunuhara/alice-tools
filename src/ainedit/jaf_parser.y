@@ -174,7 +174,7 @@ static struct jaf_block *jaf_functype(struct jaf_type_specifier *type, struct ja
 %token	<token>		AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
 %token	<token>		SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
 %token	<token>		XOR_ASSIGN OR_ASSIGN
-%token	<token>		SYM_REF REF_ASSIGN ARRAY FUNCTYPE
+%token	<token>		SYM_REF REF_ASSIGN ARRAY WRAP FUNCTYPE
 %token	<token>		FILE_MACRO LINE_MACRO FUNC_MACRO DATE_MACRO TIME_MACRO
 
 %token	<token>		CONST OVERRIDE
@@ -411,7 +411,11 @@ type_specifier
 	| ARRAY '@' TYPEDEF_NAME                         { $$ = jaf_array_type(jaf_typedef($3), 1); }
 	| ARRAY '@' TYPEDEF_NAME '@' I_CONSTANT          { $$ = jaf_array_type(jaf_typedef($3), parse_int($5)); }
 	| ARRAY '<' atomic_type_specifier '>'            { $$ = jaf_array_type(jaf_type($3), 1); }
+	| ARRAY '<' '?' '>'                              { $$ = jaf_array_type(jaf_type(JAF_VOID), 1); }
 	| ARRAY '<' TYPEDEF_NAME '>'                     { $$ = jaf_array_type(jaf_typedef($3), 1); }
+	| WRAP  '<' atomic_type_specifier '>'            { $$ = jaf_wrap(jaf_type($3)); }
+	| WRAP  '<' '?' '>'                              { $$ = jaf_wrap(jaf_type(JAF_VOID)); }
+	| WRAP  '<' TYPEDEF_NAME '>'                     { $$ = jaf_wrap(jaf_typedef($3)); }
 	| TYPEDEF_NAME                                   { $$ = jaf_typedef($1); }
 	;
 

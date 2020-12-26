@@ -64,6 +64,7 @@ enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type)
 	case JAF_STRUCT:   return AIN_STRUCT;
 	case JAF_ENUM:     _COMPILER_ERROR(NULL, -1, "Enums not supported");
 	case JAF_ARRAY:    _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
+	case JAF_WRAP:     return AIN_WRAP;
 	case JAF_TYPEDEF:  _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
 	case JAF_FUNCTYPE: return AIN_FUNC_TYPE;
 	}
@@ -84,6 +85,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_STRUCT:   return AIN_REF_ARRAY_STRUCT;
 		case JAF_ENUM:     _COMPILER_ERROR(NULL, -1, "Enums not supported");
 		case JAF_ARRAY:    _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
+		case JAF_WRAP:     _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
 		case JAF_TYPEDEF:  _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
 		case JAF_FUNCTYPE: return AIN_REF_ARRAY_FUNC_TYPE;
 		}
@@ -96,6 +98,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_STRUCT:   return AIN_REF_STRUCT;
 		case JAF_ENUM:     _COMPILER_ERROR(NULL, -1, "Enums not supported");
 		case JAF_ARRAY:    _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
+		case JAF_WRAP:     _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
 		case JAF_TYPEDEF:  _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
 		case JAF_FUNCTYPE: return AIN_REF_FUNC_TYPE;
 		}
@@ -111,6 +114,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_STRUCT:   return AIN_ARRAY_STRUCT;
 		case JAF_ENUM:     _COMPILER_ERROR(NULL, -1, "Enums not supported");
 		case JAF_ARRAY:    _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
+		case JAF_WRAP:     _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
 		case JAF_TYPEDEF:  _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
 		case JAF_FUNCTYPE: return AIN_ARRAY_FUNC_TYPE;
 		}
@@ -137,6 +141,12 @@ static void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_ty
 			out->array_type = xcalloc(1, sizeof(struct ain_type));
 			jaf_to_ain_type(ain, out->array_type, in->array_type);
 		}
+	} else if (in->type == JAF_WRAP) {
+		if (!AIN_VERSION_GTE(ain, 11, 0)) {
+			_JAF_ERROR(NULL, -1, "wrap<> type is ain v11+ only");
+		}
+		out->array_type = xcalloc(1, sizeof(struct ain_type));
+		jaf_to_ain_type(ain, out->array_type, in->array_type);
 	}
 }
 

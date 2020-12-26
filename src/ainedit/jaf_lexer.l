@@ -98,6 +98,7 @@ unsigned long jaf_line = 1;
 "__TIME__"                              { return TIME_MACRO; }
 "ref"                                   { return SYM_REF; }
 "array"					{ return ARRAY; }
+"wrap"                                  { return WRAP; }
 "functype"                              { return FUNCTYPE; }
 "override"                              { return OVERRIDE; }
 

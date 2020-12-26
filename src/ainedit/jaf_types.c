@@ -39,6 +39,7 @@ const char *jaf_typestr(enum jaf_type type)
 	case JAF_STRUCT:   return "struct";
 	case JAF_ENUM:     return "enum";
 	case JAF_ARRAY:    return "array";
+	case JAF_WRAP:     return "wrap";
 	case JAF_TYPEDEF:  return "typedef";
 	case JAF_FUNCTYPE: return "functype";
 	}
