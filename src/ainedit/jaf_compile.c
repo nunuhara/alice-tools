@@ -294,10 +294,15 @@ static void compile_lvalue(struct compiler_state *state, struct jaf_expression *
 		compile_expression(state, expr->subscript.index); // page-index
 		compile_lvalue_after(state, expr->valuetype.data);
 	} else {
-		COMPILER_ERROR(expr, "Invalid lvalue");
+		COMPILER_ERROR(expr, "Invalid lvalue (expression type %d)", expr->type);
 	}
 }
 
+/*
+ * Emit the code to copy the value at a reference onto the stack.
+ * This code assumes a page + page-index (reference) is already on the stack.
+ * The value at the reference is copied in a type-specific way.
+ */
 static void compile_dereference(struct compiler_state *state, struct ain_type *type)
 {
 	switch (type->data) {
@@ -319,8 +324,7 @@ static void compile_dereference(struct compiler_state *state, struct ain_type *t
 	case AIN_STRING:
 	case AIN_REF_STRING:
 		if (state->ain->version >= 11) {
-			if (state->ain->version >= 14)
-				write_instruction1(state, X_REF, 1); // ???
+			write_instruction0(state, REF);
 			write_instruction0(state, A_REF);
 		} else {
 			write_instruction0(state, S_REF);
@@ -537,6 +541,20 @@ static bool ain_ref_type(enum ain_data_type type)
 	}
 }
 
+static void compile_reference_argument(struct compiler_state *state, struct jaf_expression *expr)
+{
+	// XXX: in 14+ there is a distinction between a string lvalue and a reference argument
+	//      (string lvalue is a page+index, reference argument is just the string page)
+	if (AIN_VERSION_GTE(state->ain, 14, 0)) {
+		compile_lvalue(state, expr);
+		if (expr->valuetype.data == AIN_STRING || expr->valuetype.data == AIN_REF_STRING) {
+			write_instruction1(state, X_REF, 1);
+		}
+	} else {
+		compile_lvalue(state, expr);
+	}
+}
+
 static void jaf_compile_functype_call(struct compiler_state *state, struct jaf_expression *expr)
 {
 	// NOTE: The functype expression has to be compiled first and then swapped with each
@@ -548,7 +566,7 @@ static void jaf_compile_functype_call(struct compiler_state *state, struct jaf_e
 	for (size_t i = 0; i < expr->call.args->nr_items; i++) {
 		enum ain_data_type type = f->variables[expr->call.args->var_nos[i]].type.data;
 		if (ain_ref_type(type)) {
-			compile_lvalue(state, expr->call.args->items[i]);
+			compile_reference_argument(state, expr->call.args->items[i]);
 			write_instruction0(state, DUP2_X1);
 			write_instruction0(state, POP);
 			write_instruction0(state, POP);
@@ -571,7 +589,7 @@ static void compile_funcall(struct compiler_state *state, struct jaf_expression 
 	for (size_t i = 0; i < expr->call.args->nr_items; i++) {
 		struct ain_function *f = &state->ain->functions[expr->call.func_no];
 		if (ain_ref_type(f->vars[expr->call.args->var_nos[i]].type.data)) {
-			compile_lvalue(state, expr->call.args->items[i]);
+			compile_reference_argument(state, expr->call.args->items[i]);
 		} else {
 			compile_expression(state, expr->call.args->items[i]);
 		}
@@ -584,7 +602,7 @@ static void compile_syscall(struct compiler_state *state, struct jaf_expression 
 	unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
 	for (unsigned i = 0; i < nr_args; i++) {
 		if (ain_ref_type(syscalls[expr->call.func_no].argtypes[i])) {
-			compile_lvalue(state, expr->call.args->items[i]);
+			compile_reference_argument(state, expr->call.args->items[i]);
 		} else {
 			compile_expression(state, expr->call.args->items[i]);
 		}
@@ -597,11 +615,16 @@ static void compile_syscall(struct compiler_state *state, struct jaf_expression 
 	}
 }
 
-static void compile_hllcall(struct compiler_state *state, struct jaf_expression *expr)
+static void compile_hllcall(struct compiler_state *state, struct jaf_expression *expr, int builtin)
 {
 	unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
 	for (unsigned i = 0; i < nr_args; i++) {
-		compile_expression(state, expr->call.args->items[i]);
+		struct ain_library *lib = &state->ain->libraries[expr->call.lib_no];
+		if (ain_ref_type(lib->functions[expr->call.func_no].arguments[i+builtin].type.data)) {
+			compile_reference_argument(state, expr->call.args->items[i]);
+		} else {
+			compile_expression(state, expr->call.args->items[i]);
+		}
 	}
 	if (AIN_VERSION_GTE(state->ain, 11, 0)) {
 		write_instruction3(state, CALLHLL, expr->call.lib_no, expr->call.func_no, expr->call.type_param);
@@ -614,8 +637,8 @@ static void compile_builtin_call(struct compiler_state *state, struct jaf_expres
 {
 	assert(expr->call.fun->type == JAF_EXP_MEMBER);
 	// FIXME: assuming self arg is a ref type here...
-	compile_lvalue(state, expr->call.fun->member.struc);
-	compile_hllcall(state, expr);
+	compile_reference_argument(state, expr->call.fun->member.struc);
+	compile_hllcall(state, expr, 1);
 }
 
 static void compile_cast(struct compiler_state *state, struct jaf_expression *expr)
@@ -708,7 +731,7 @@ static void compile_expression(struct compiler_state *state, struct jaf_expressi
 		compile_syscall(state, expr);
 		break;
 	case JAF_EXP_HLLCALL:
-		compile_hllcall(state, expr);
+		compile_hllcall(state, expr, 0);
 		break;
 	case JAF_EXP_BUILTIN_CALL:
 		compile_builtin_call(state, expr);
@@ -910,24 +933,42 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 			write_instruction1(state, X_DUP, 2);
 			write_instruction1(state, X_REF, 1);
 			write_instruction0(state, DELETE);
-			write_instruction1(state, PUSH, 0);
-			write_instruction1(state, X_A_INIT, 0);
-			write_instruction0(state, POP);
-			if (decl->array_dims) {
-				if (decl->type->rank != 1) {
-					JAF_ERROR(item, "Only rank-1 arrays supported on ain v14+");
+			if (decl->init) {
+				if (decl->array_dims) {
+					// FIXME: need JAF_WARNING here
+					WARNING("Initializer provided; ignoring array dimensions");
 				}
-				write_instruction0(state, PUSHLOCALPAGE);
-				write_instruction1(state, PUSH, decl->var_no);
-				write_instruction0(state, REF);
-				write_instruction1(state, PUSH, decl->array_dims[0]->i);
-				write_CALLHLL(state, "Array", "Alloc", 1); // ???
+				compile_expression(state, decl->init);
+				write_instruction1(state, X_ASSIGN, 1);
+				write_instruction0(state, POP);
+			} else {
+				write_instruction1(state, PUSH, 0);
+				write_instruction1(state, X_A_INIT, 0);
+				write_instruction0(state, POP);
+				if (decl->array_dims) {
+					if (decl->type->rank != 1) {
+						JAF_ERROR(item, "Only rank-1 arrays supported on ain v14+");
+					}
+					write_instruction0(state, PUSHLOCALPAGE);
+					write_instruction1(state, PUSH, decl->var_no);
+					write_instruction0(state, REF);
+					write_instruction1(state, PUSH, decl->array_dims[0]->i);
+					write_CALLHLL(state, "Array", "Alloc", 1); // ???
+				}
 			}
 		} else if (AIN_VERSION_GTE(state->ain, 11, 0)) {
 			write_instruction0(state, PUSHLOCALPAGE);
 			write_instruction1(state, PUSH, decl->var_no);
 			write_instruction0(state, REF);
-			if (decl->array_dims) {
+			if (decl->init) {
+				if (decl->array_dims) {
+					// FIXME: need JAF_WARNING here
+					WARNING("Initializer provided; ignoring array dimensions");
+				}
+				compile_expression(state, decl->init);
+				write_instruction0(state, X_SET);
+				write_instruction0(state, DELETE);
+			} else if (decl->array_dims) {
 				if (decl->type->rank != 1) {
 					JAF_ERROR(item, "Only rank-1 arrays supported on ain v11+");
 				}
