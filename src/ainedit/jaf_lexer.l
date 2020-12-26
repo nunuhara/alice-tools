@@ -97,8 +97,10 @@ unsigned long jaf_line = 1;
 "__DATE__"                              { return DATE_MACRO; }
 "__TIME__"                              { return TIME_MACRO; }
 "ref"                                   { return SYM_REF; }
-"array"					{ return ARRAY; }
+"array"                                 { return ARRAY; }
 "wrap"                                  { return WRAP; }
+"hll_param"                             { return HLL_PARAM; }
+"hll_func"                              { return HLL_FUNC; }
 "functype"                              { return FUNCTYPE; }
 "override"                              { return OVERRIDE; }
 

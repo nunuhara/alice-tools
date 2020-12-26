@@ -178,7 +178,7 @@ static struct jaf_block *jaf_functype(struct jaf_type_specifier *type, struct ja
 %token	<token>		FILE_MACRO LINE_MACRO FUNC_MACRO DATE_MACRO TIME_MACRO
 
 %token	<token>		CONST OVERRIDE
-%token	<token>		BOOL CHAR INT LINT FLOAT VOID STRING INTP FLOATP
+%token	<token>		BOOL CHAR INT LINT FLOAT VOID STRING INTP FLOATP HLL_PARAM HLL_FUNC
 %token	<token>		STRUCT UNION ENUM ELLIPSIS
 
 %token	CASE DEFAULT IF ELSE SYM_SWITCH WHILE DO FOR GOTO CONTINUE BREAK SYM_RETURN
@@ -402,6 +402,8 @@ atomic_type_specifier
 	| STRING           { $$ = JAF_STRING; }
 	| INTP             { $$ = JAF_INTP; }
 	| FLOATP           { $$ = JAF_FLOATP; }
+	| HLL_PARAM        { $$ = JAF_HLL_PARAM; }
+	| HLL_FUNC         { $$ = JAF_HLL_FUNC; }
 	;
 
 type_specifier

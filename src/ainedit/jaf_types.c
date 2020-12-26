@@ -32,16 +32,18 @@
 const char *jaf_typestr(enum jaf_type type)
 {
 	switch (type) {
-	case JAF_VOID:     return "void";
-	case JAF_INT:      return "int";
-	case JAF_FLOAT:    return "float";
-	case JAF_STRING:   return "string";
-	case JAF_STRUCT:   return "struct";
-	case JAF_ENUM:     return "enum";
-	case JAF_ARRAY:    return "array";
-	case JAF_WRAP:     return "wrap";
-	case JAF_TYPEDEF:  return "typedef";
-	case JAF_FUNCTYPE: return "functype";
+	case JAF_VOID:      return "void";
+	case JAF_INT:       return "int";
+	case JAF_FLOAT:     return "float";
+	case JAF_STRING:    return "string";
+	case JAF_STRUCT:    return "struct";
+	case JAF_ENUM:      return "enum";
+	case JAF_ARRAY:     return "array";
+	case JAF_WRAP:      return "wrap";
+	case JAF_HLL_PARAM: return "hll_param";
+	case JAF_HLL_FUNC:  return "hll_func";
+	case JAF_TYPEDEF:   return "typedef";
+	case JAF_FUNCTYPE:  return "functype";
 	}
 	return "unknown";
 }

@@ -245,6 +245,7 @@ struct jaf_type_specifier *jaf_wrap(struct jaf_type_specifier *type)
 {
 	struct jaf_type_specifier *wrap_type = jaf_type(JAF_WRAP);
 	wrap_type->array_type = type;
+	wrap_type->rank = 1;
 	return wrap_type;
 }
 

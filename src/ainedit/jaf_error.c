@@ -80,6 +80,8 @@ static const char *jaf_type_to_string(enum jaf_type type)
 	case JAF_ENUM: return "enum";
 	case JAF_ARRAY: return "array";
 	case JAF_WRAP: return "wrap";
+	case JAF_HLL_PARAM: return "hll_param";
+	case JAF_HLL_FUNC: return "hll_func";
 	case JAF_TYPEDEF: return "typedef";
 	case JAF_FUNCTYPE: return "functype";
 	default: ERROR("Unhandled type: %d", type);
