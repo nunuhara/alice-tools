@@ -86,7 +86,11 @@ static void print_type(FILE *f, struct ain *ain, struct ain_type *t)
 
 static void ain_dump_version(FILE *f, struct ain *ain)
 {
-	fprintf(f, "AIN VERSION %d\n", ain->version);
+	if (ain->minor_version) {
+		fprintf(f, "AIN version %d (%d.%d)\n", ain->version, ain->version, ain->minor_version);
+	} else {
+		fprintf(f, "AIN version %d\n", ain->version);
+	}
 }
 
 static void print_arglist(FILE *f, struct ain *ain, struct ain_variable *args, int nr_args)
