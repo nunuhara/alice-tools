@@ -304,7 +304,7 @@ static void build_job_free(struct build_job *job)
 	free_string_list(&job->headers);
 }
 
-void pje_build(const char *path, int ain_version)
+void pje_build(const char *path, int major_version, int minor_version)
 {
 	struct build_job job = {0};
 	struct pje_config config = {0};
@@ -354,7 +354,7 @@ void pje_build(const char *path, int ain_version)
 		}
 		free_string(mod_ain);
 	} else {
-		ain = ain_new(ain_version);
+		ain = ain_new(major_version, minor_version);
 	}
 
 	// apply text substitution, if ModText given

@@ -42,6 +42,32 @@ enum {
 	LOPT_SILENT,
 };
 
+static bool parse_version(const char *str, int *major, int *minor)
+{
+	char major_str[3];
+	char minor_str[3];
+	const char *dot = strchr(str, '.');
+
+	if (dot) {
+		if (dot - str > 2)
+			return false;
+		if (strlen(dot+1) > 2)
+			return false;
+		strncpy(major_str, str, dot - str);
+		major_str[dot-str] = 0;
+		strcpy(minor_str, dot+1);
+	} else {
+		if (strlen(str) > 2)
+			return false;
+		strcpy(major_str, str);
+		strcpy(minor_str, "0");
+	}
+
+	*major = atoi(major_str);
+	*minor = atoi(minor_str);
+	return true;
+}
+
 int command_ain_edit(int argc, char *argv[])
 {
 	initialize_instructions();
@@ -54,7 +80,8 @@ int command_ain_edit(int argc, char *argv[])
 	const char *decl_file = NULL;
 	const char *text_file = NULL;
 	const char *output_file = NULL;
-	int ain_version = 4;
+	int major_version = 4;
+	int minor_version = 0;
 	bool transcode = false;
 	uint32_t flags = 0;
 
@@ -100,9 +127,12 @@ int command_ain_edit(int argc, char *argv[])
 			flags |= ASM_RAW;
 			break;
 		case LOPT_AIN_VERSION:
-			ain_version = atoi(optarg);
-			if (ain_version < 4 || ain_version > 12)
-				ALICE_ERROR("Invalid AIN version (4-12 supported)");
+			if (!parse_version(optarg, &major_version, &minor_version)) {
+				ALICE_ERROR("Invalid AIN version (parse error)");
+			}
+			if (major_version < 4 || major_version > 14) {
+				ALICE_ERROR("Invalid AIN version (4-14 supported)");
+			}
 			break;
 		case LOPT_SILENT:
 			sys_silent = true;
@@ -117,7 +147,7 @@ int command_ain_edit(int argc, char *argv[])
 	}
 
 	if (project_file) {
-		pje_build(project_file, ain_version);
+		pje_build(project_file, major_version, minor_version);
 		return 0;
 	}
 
@@ -126,7 +156,7 @@ int command_ain_edit(int argc, char *argv[])
 	}
 
 	if (!argc) {
-		ain = ain_new(ain_version);
+		ain = ain_new(major_version, minor_version);
 	} else {
 		if (!(ain = ain_open(argv[0], &err))) {
 			ALICE_ERROR("Failed to open ain file: %s", ain_strerror(err));

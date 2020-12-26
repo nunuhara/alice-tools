@@ -69,7 +69,7 @@ enum asm_pseudo_opcode {
 extern struct instruction asm_pseudo_ops[NR_PSEUDO_OPS - PSEUDO_OP_OFFSET];
 
 // pje.c
-void pje_build(const char *path, int ain_version);
+void pje_build(const char *path, int major_version, int minor_version);
 
 // asm.c
 void asm_assemble_jam(const char *filename, struct ain *ain, uint32_t flags);
