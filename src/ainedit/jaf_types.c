@@ -442,6 +442,9 @@ static int get_builtin_lib(struct ain *ain, enum ain_data_type type, struct jaf_
 	case AIN_ARRAY:
 		lib = ain_get_library(ain, "Array");
 		break;
+	case AIN_STRING:
+		lib = ain_get_library(ain, "String");
+		break;
 	default:
 		JAF_ERROR(expr, "Methods not supported on built-in type: %s",
 			  ain_strtype(ain, type, -1));
