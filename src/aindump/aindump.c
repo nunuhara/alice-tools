@@ -20,6 +20,8 @@
 #include <string.h>
 #include <errno.h>
 #include <getopt.h>
+#include <libgen.h>
+#include <unistd.h>
 #include <iconv.h>
 #include "little_endian.h"
 #include "system4.h"
@@ -271,31 +273,66 @@ static void ain_dump_messages(FILE *f, struct ain *ain)
 	}
 }
 
+static void ain_dump_library(FILE *out, struct ain *ain, int lib)
+{
+	for (int i = 0; i < ain->libraries[lib].nr_functions; i++) {
+		struct ain_hll_function *f = &ain->libraries[lib].functions[i];
+		print_sjis(out, ain_strtype(ain, f->return_type.data, f->return_type.struc));
+		fputc(' ', out);
+		print_sjis(out, f->name);
+		fputc('(', out);
+		for (int j = 0; j < f->nr_arguments; j++) {
+			struct ain_hll_argument *a = &f->arguments[j];
+			if (a->type.data == AIN_VOID) {
+				fprintf(out, "/* void */");
+				continue;
+			}
+			if (j > 0) {
+				fprintf(out, ", ");
+			}
+			print_sjis(out, ain_strtype(ain, a->type.data, a->type.struc));
+			fputc(' ', out);
+			print_sjis(out, a->name);
+		}
+		if (!f->nr_arguments) {
+			fprintf(out, "void");
+		}
+		fprintf(out, ");\n");
+	}
+}
+
 static void ain_dump_libraries(FILE *out, struct ain *ain)
 {
 	for (int i = 0; i < ain->nr_libraries; i++) {
 		fprintf(out, "--- ");
 		print_sjis(out, ain->libraries[i].name);
 		fprintf(out, " ---\n");
-		for (int j = 0; j < ain->libraries[i].nr_functions; j++) {
-			struct ain_hll_function *f = &ain->libraries[i].functions[j];
-			print_sjis(out, ain_strtype(ain, f->return_type.data, f->return_type.struc));
-			fputc(' ', out);
-			print_sjis(out, f->name);
-			fputc('(', out);
-			for (int k = 0; k < f->nr_arguments; k++) {
-				struct ain_hll_argument *a = &f->arguments[k];
-				if (a->type.data == AIN_VOID)
-					continue;
-				if (k > 0)
-					fprintf(out, ", ");
-				print_sjis(out, ain_strtype(ain, a->type.data, a->type.struc));
-				fputc(' ', out);
-				print_sjis(out, a->name);
-			}
-			fprintf(out, ")\n");
-		}
+		ain_dump_library(out, ain, i);
 	}
+}
+
+static void ain_dump_hll(FILE *out, struct ain *ain)
+{
+	fprintf(out, "SystemSource = {\n");
+	for (int i = 0; i < ain->nr_libraries; i++) {
+		char *name = conv_output(ain->libraries[i].name);
+		size_t name_len = strlen(name);
+		fprintf(out, "\"%s.hll\", \"%s\",\n", name, name);
+
+		char *file_name = xmalloc(name_len + 5);
+		memcpy(file_name, name, name_len);
+		memcpy(file_name+name_len, ".hll", 5);
+
+		FILE *f = fopen(file_name, "wb");
+		if (!f) {
+			ALICE_ERROR("fopen: %s", strerror(errno));
+		}
+		ain_dump_library(f, ain, i);
+		fclose(f);
+		free(file_name);
+		free(name);
+	}
+	fprintf(out, "}\n");
 }
 
 static void ain_dump_strings(FILE *f, struct ain *ain)
@@ -446,6 +483,7 @@ enum {
 	LOPT_MESSAGES,
 	LOPT_STRINGS,
 	LOPT_LIBRARIES,
+	LOPT_HLL,
 	LOPT_FILENAMES,
 	LOPT_FUNCTION_TYPES,
 	LOPT_DELEGATES,
@@ -531,6 +569,9 @@ int command_ain_dump(int argc, char *argv[])
 		case LOPT_LIBRARIES:
 			dump_targets[dump_ptr++] = LOPT_LIBRARIES;
 			break;
+		case LOPT_HLL:
+			dump_targets[dump_ptr++] = LOPT_HLL;
+			break;
 		case 'F':
 		case LOPT_FILENAMES:
 			dump_targets[dump_ptr++] = LOPT_FILENAMES;
@@ -595,6 +636,14 @@ int command_ain_dump(int argc, char *argv[])
 	}
 	ain_init_member_functions(ain, conv_utf8);
 
+	// chdir to output file directory so that subsequent opens are relative
+	if (output != stdout) {
+		char *tmp = strdup(output_file);
+		char *dir = dirname(tmp);
+		chdir(dir);
+		free(tmp);
+	}
+
 	for (int i = 0; i < dump_ptr; i++) {
 		switch (dump_targets[i]) {
 		case LOPT_CODE:           disassemble_ain(output, ain, flags); break;
@@ -607,6 +656,7 @@ int command_ain_dump(int argc, char *argv[])
 		case LOPT_MESSAGES:       ain_dump_messages(output, ain); break;
 		case LOPT_STRINGS:        ain_dump_strings(output, ain); break;
 		case LOPT_LIBRARIES:      ain_dump_libraries(output, ain); break;
+		case LOPT_HLL:            ain_dump_hll(output, ain); break;
 		case LOPT_FILENAMES:      ain_dump_filenames(output, ain); break;
 		case LOPT_FUNCTION_TYPES: ain_dump_functypes(output, ain, false); break;
 		case LOPT_DELEGATES:      ain_dump_functypes(output, ain, true); break;
@@ -643,6 +693,7 @@ struct command cmd_ain_dump = {
 		{ "messages",           'm', "Dump messages section",                         no_argument,       LOPT_MESSAGES },
 		{ "strings",            's', "Dump strings section",                          no_argument,       LOPT_STRINGS },
 		{ "libraries",          'l', "Dump libraries section",                        no_argument,       LOPT_LIBRARIES },
+		{ "hll",                0,   "Dump HLL files",                                no_argument,       LOPT_HLL },
 		{ "filenames",          'F', "Dump filenames",                                no_argument,       LOPT_FILENAMES },
 		{ "function-types",     0,   "Dump function types section",                   no_argument,       LOPT_FUNCTION_TYPES },
 		{ "delegates",          0,   "Dump delegate types section",                   no_argument,       LOPT_DELEGATES },
