@@ -91,6 +91,8 @@ unsigned long jaf_line = 1;
 "void"					{ return(VOID); }
 "while"					{ return(WHILE); }
 "bool"                                  { return BOOL; }
+"true"                                  { return SYM_TRUE; }
+"false"                                 { return SYM_FALSE; }
 "__FILE__"                              { return FILE_MACRO; }
 "__LINE__"                              { return LINE_MACRO; }
 "__FUNC__"                              { return FUNC_MACRO; }

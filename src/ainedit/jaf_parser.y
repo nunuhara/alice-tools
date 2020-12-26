@@ -179,7 +179,7 @@ static struct jaf_block *jaf_functype(struct jaf_type_specifier *type, struct ja
 
 %token	<token>		CONST OVERRIDE
 %token	<token>		BOOL CHAR INT LINT FLOAT VOID STRING INTP FLOATP HLL_PARAM HLL_FUNC
-%token	<token>		STRUCT UNION ENUM ELLIPSIS
+%token	<token>		STRUCT UNION ENUM ELLIPSIS SYM_TRUE SYM_FALSE
 
 %token	CASE DEFAULT IF ELSE SYM_SWITCH WHILE DO FOR GOTO CONTINUE BREAK SYM_RETURN
 
@@ -227,6 +227,8 @@ constant
 	: I_CONSTANT           { $$ = jaf_parse_integer($1); } /* includes character_constant */
 	| C_CONSTANT           { $$ = jaf_char($1); }
 	| F_CONSTANT           { $$ = jaf_parse_float($1); }
+	| SYM_TRUE             { $$ = jaf_integer(1); }
+	| SYM_FALSE            { $$ = jaf_integer(0); }
 	| ENUMERATION_CONSTANT { ERROR("Enums not supported"); } /* after it has been defined as such */
 	;
 
@@ -398,7 +400,7 @@ atomic_type_specifier
 	| INT              { $$ = JAF_INT; }
 	| LINT             { $$ = JAF_INT; }
 	| FLOAT            { $$ = JAF_FLOAT; }
-	| BOOL             { $$ = JAF_INT; }
+	| BOOL             { $$ = JAF_BOOL; }
 	| STRING           { $$ = JAF_STRING; }
 	| INTP             { $$ = JAF_INTP; }
 	| FLOATP           { $$ = JAF_FLOATP; }

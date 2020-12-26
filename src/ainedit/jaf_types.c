@@ -34,6 +34,7 @@ const char *jaf_typestr(enum jaf_type type)
 	switch (type) {
 	case JAF_VOID:      return "void";
 	case JAF_INT:       return "int";
+	case JAF_BOOL:      return "bool";
 	case JAF_FLOAT:     return "float";
 	case JAF_STRING:    return "string";
 	case JAF_STRUCT:    return "struct";

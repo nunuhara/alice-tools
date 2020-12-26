@@ -45,6 +45,7 @@ struct string;
 enum jaf_type {
 	JAF_VOID,
 	JAF_INT,
+	JAF_BOOL,
 	JAF_FLOAT,
 	JAF_STRING,
 	JAF_STRUCT,

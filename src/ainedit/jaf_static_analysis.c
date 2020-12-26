@@ -59,6 +59,7 @@ enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type)
 	switch (type) {
 	case JAF_VOID:      return AIN_VOID;
 	case JAF_INT:       return AIN_INT;
+	case JAF_BOOL:      return AIN_BOOL;
 	case JAF_FLOAT:     return AIN_FLOAT;
 	case JAF_STRING:    return AIN_STRING;
 	case JAF_STRUCT:    return AIN_STRUCT;
@@ -83,6 +84,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		switch (type->array_type->type) {
 		case JAF_VOID:      _COMPILER_ERROR(NULL, -1, "void ref array type");
 		case JAF_INT:       return AIN_REF_ARRAY_INT;
+		case JAF_BOOL:      return AIN_REF_ARRAY_BOOL;
 		case JAF_FLOAT:     return AIN_REF_ARRAY_FLOAT;
 		case JAF_STRING:    return AIN_REF_ARRAY_STRING;
 		case JAF_STRUCT:    return AIN_REF_ARRAY_STRUCT;
@@ -99,6 +101,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		switch (type->type) {
 		case JAF_VOID:      _COMPILER_ERROR(NULL, -1, "void ref type");
 		case JAF_INT:       return AIN_REF_INT;
+		case JAF_BOOL:      return AIN_REF_BOOL;
 		case JAF_FLOAT:     return AIN_REF_FLOAT;
 		case JAF_STRING:    return AIN_REF_STRING;
 		case JAF_STRUCT:    return AIN_REF_STRUCT;
@@ -118,6 +121,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		switch (type->array_type->type) {
 		case JAF_VOID:      _COMPILER_ERROR(NULL, -1, "void array type");
 		case JAF_INT:       return AIN_ARRAY_INT;
+		case JAF_BOOL:      return AIN_ARRAY_BOOL;
 		case JAF_FLOAT:     return AIN_ARRAY_FLOAT;
 		case JAF_STRING:    return AIN_ARRAY_STRING;
 		case JAF_STRUCT:    return AIN_ARRAY_STRUCT;
