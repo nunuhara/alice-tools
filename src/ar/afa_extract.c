@@ -93,11 +93,14 @@ struct archive_ops afa3_archive_ops = {
 	.free = afa3_free,
 };
 
-static const char *get_file_extension(char *data)
+static const char *get_file_extension(char *filename, char *data)
 {
 	for (size_t i = 0; i < sizeof(file_magic)/sizeof(*file_magic); i++) {
-		if (!strncmp(data, file_magic[i].magic, file_magic[i].len))
+		if (!strncmp(data, file_magic[i].magic, file_magic[i].len)) {
+			if (!strcmp(file_magic[i].ext, ".ex") && strstr(filename, "Pact.afa"))
+				return ".pactex";
 			return file_magic[i].ext;
+		}
 	}
 	return ".dat";
 }
@@ -106,7 +109,8 @@ static int _afa3_get_by_name(struct afa3_archive *ar, const char *name)
 {
 	char filename[512];
 	for (unsigned i = 0; i < ar->nr_files; i++) {
-		snprintf(filename, 512, "%u%s", i, get_file_extension(ar->mmap_ptr+ar->files[i].off));
+		const char *ext = get_file_extension(ar->filename, ar->mmap_ptr+ar->files[i].off);
+		snprintf(filename, 512, "%u%s", i, ext);
 		if (!strcmp(name, filename))
 			return i;
 	}
@@ -130,7 +134,7 @@ static struct archive_data *afa3_make_data(struct afa3_archive *ar, unsigned no)
 	data->data = ar->mmap_ptr+e->off;
 	data->size = e->size;
 	data->name = xmalloc(256);
-	snprintf(data->name, 256, "%d%s", no, get_file_extension((char*)data->data));
+	snprintf(data->name, 256, "%d%s", no, get_file_extension(ar->filename, (char*)data->data));
 	data->no = no;
 	data->archive = (struct archive*)ar;
 	return data;
