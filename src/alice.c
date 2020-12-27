@@ -18,9 +18,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <iconv.h>
 #include "system4.h"
 #include "alice.h"
+
+#ifdef _WIN32
+#include <io.h>
+#endif
 
 #define ALICE_TOOLS_VERSION "0.8.0"
 
@@ -121,8 +126,12 @@ struct command cmd_alice = {
 
 FILE *alice_open_output_file(const char *path)
 {
-	if (!path)
+	if (!path) {
+#ifdef _WIN32
+		setmode(fileno(stdout), O_BINARY);
+#endif
 		return stdout;
+	}
 	FILE *out = fopen(path, "wb");
 	if (!out)
 		ALICE_ERROR("fopen: %s", strerror(errno));
