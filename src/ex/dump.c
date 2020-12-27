@@ -62,7 +62,7 @@ static void ex_dump_identifier(FILE *out, struct string *s)
 		return;
 	}
 
-	size_t i = strcspn(u, " \t\r\n\\()[]{}=,.;\"-");
+	size_t i = strcspn(u, " \t\r\n\\()[]{}=,.;\"-*");
 	if (u[i]) {
 		free(u);
 		ex_dump_string(out, s);
