@@ -283,16 +283,18 @@ static void ain_dump_library(FILE *out, struct ain *ain, int lib)
 		fputc('(', out);
 		for (int j = 0; j < f->nr_arguments; j++) {
 			struct ain_hll_argument *a = &f->arguments[j];
+			if (j > 0) {
+				fprintf(out, ", ");
+			}
 			if (a->type.data == AIN_VOID) {
 				fprintf(out, "/* void */");
 				continue;
 			}
-			if (j > 0) {
-				fprintf(out, ", ");
-			}
-			print_sjis(out, ain_strtype(ain, a->type.data, a->type.struc));
+			char *type = ain_strtype_d(ain, &a->type);
+			print_sjis(out, type);
 			fputc(' ', out);
 			print_sjis(out, a->name);
+			free(type);
 		}
 		if (!f->nr_arguments) {
 			fprintf(out, "void");
