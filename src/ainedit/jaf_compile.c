@@ -1270,6 +1270,7 @@ void jaf_build(struct ain *out, const char **files, unsigned nr_files, const cha
 	for (unsigned i = 0; i < nr_hll; i += 2) {
 		struct jaf_block *hll_decl = jaf_parse(out, hll+i, 1);
 		jaf_resolve_hll_declarations(out, hll_decl, hll[i+1]);
+		jaf_free_block(hll_decl);
 	}
 
 	// Now that HLL declarations are available, we can do static analysis.

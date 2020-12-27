@@ -377,6 +377,7 @@ void pje_build(const char *path, int major_version, int minor_version)
 	free_string(out_dir);
 	free_string(output_file);
 	free(source_files);
+	free(header_files);
 	build_job_free(&job);
 	pje_free(&config);
 	ain_free(ain);

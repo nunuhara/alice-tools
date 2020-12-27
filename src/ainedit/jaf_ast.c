@@ -616,7 +616,7 @@ void jaf_free_type_specifier(struct jaf_type_specifier *type)
 		return;
 	if (type->name)
 		free_string(type->name);
-	free(type->array_type);
+	jaf_free_type_specifier(type->array_type);
 	free(type);
 }
 
