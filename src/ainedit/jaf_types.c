@@ -50,9 +50,9 @@ const char *jaf_typestr(enum jaf_type type)
 	return "unknown";
 }
 
-static enum ain_data_type strip_ref(enum ain_data_type type)
+static enum ain_data_type strip_ref(struct ain_type *type)
 {
-	switch (type) {
+	switch (type->data) {
 	case AIN_REF_INT:             return AIN_INT;
 	case AIN_REF_FLOAT:           return AIN_FLOAT;
 	case AIN_REF_STRING:          return AIN_STRING;
@@ -67,13 +67,16 @@ static enum ain_data_type strip_ref(enum ain_data_type type)
 	case AIN_REF_ARRAY_BOOL:      return AIN_ARRAY_BOOL;
 	case AIN_REF_LONG_INT:        return AIN_LONG_INT;
 	case AIN_REF_ARRAY_LONG_INT:  return AIN_ARRAY_LONG_INT;
-	default:                      return type;
+	case AIN_WRAP:
+		assert(type->array_type);
+		return type->array_type->data;
+	default:                      return type->data;
 	}
 }
 
 static bool jaf_type_equal(struct ain_type *a, struct ain_type *b)
 {
-	enum ain_data_type a_data = strip_ref(a->data), b_data = strip_ref(b->data);
+	enum ain_data_type a_data = strip_ref(a), b_data = strip_ref(b);
 	if (a_data != b_data)
 		return false;
 	if (a_data == AIN_STRUCT && a->struc != b->struc)
@@ -111,11 +114,14 @@ static enum ain_data_type jaf_type_check_int(struct jaf_expression *expr)
 	switch (expr->valuetype.data) {
 	case AIN_INT:
 	case AIN_LONG_INT:
+	case AIN_BOOL:
 		return expr->valuetype.data;
 	case AIN_REF_INT:
 		return AIN_INT;
 	case AIN_REF_LONG_INT:
 		return AIN_LONG_INT;
+	case AIN_REF_BOOL:
+		return AIN_BOOL;
 	default:
 		TYPE_ERROR(expr, AIN_INT);
 	}

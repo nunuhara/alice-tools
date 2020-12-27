@@ -415,12 +415,10 @@ type_specifier
 	| ARRAY '@' atomic_type_specifier '@' I_CONSTANT { $$ = jaf_array_type(jaf_type($3), parse_int($5)); }
 	| ARRAY '@' TYPEDEF_NAME                         { $$ = jaf_array_type(jaf_typedef($3), 1); }
 	| ARRAY '@' TYPEDEF_NAME '@' I_CONSTANT          { $$ = jaf_array_type(jaf_typedef($3), parse_int($5)); }
-	| ARRAY '<' atomic_type_specifier '>'            { $$ = jaf_array_type(jaf_type($3), 1); }
+	| ARRAY '<' type_specifier '>'                   { $$ = jaf_array_type($3, 1); }
 	| ARRAY '<' '?' '>'                              { $$ = jaf_array_type(jaf_type(JAF_VOID), 1); }
-	| ARRAY '<' TYPEDEF_NAME '>'                     { $$ = jaf_array_type(jaf_typedef($3), 1); }
-	| WRAP  '<' atomic_type_specifier '>'            { $$ = jaf_wrap(jaf_type($3)); }
+	| WRAP  '<' type_specifier '>'                   { $$ = jaf_wrap($3); }
 	| WRAP  '<' '?' '>'                              { $$ = jaf_wrap(jaf_type(JAF_VOID)); }
-	| WRAP  '<' TYPEDEF_NAME '>'                     { $$ = jaf_wrap(jaf_typedef($3)); }
 	| TYPEDEF_NAME                                   { $$ = jaf_typedef($1); }
 	;
 

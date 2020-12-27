@@ -332,6 +332,8 @@ static void compile_dereference(struct compiler_state *state, struct ain_type *t
 		break;
 	case AIN_ARRAY_TYPE:
 	case AIN_REF_ARRAY_TYPE:
+	case AIN_ARRAY:
+	case AIN_REF_ARRAY:
 		write_instruction0(state, REF);
 		write_instruction0(state, A_REF);
 		break;
@@ -535,6 +537,7 @@ static bool ain_ref_type(enum ain_data_type type)
 {
 	switch (type) {
 	case AIN_REF_TYPE:
+	case AIN_WRAP:
 		return true;
 	default:
 		return false;
