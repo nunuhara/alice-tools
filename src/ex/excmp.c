@@ -169,7 +169,7 @@ static int command_ex_compare(int argc, char *argv[])
 	}
 
 	struct ex *a, *b;
-	if (!(a = ex_read(argv[0])) || !(b = ex_read(argv[1]))) {
+	if (!(a = ex_read_file(argv[0])) || !(b = ex_read_file(argv[1]))) {
 		ERROR("Failed to open ex file");
 	}
 

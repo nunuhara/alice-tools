@@ -30,6 +30,7 @@
 #include "system4/afa.h"
 #include "system4/ald.h"
 #include "system4/cg.h"
+#include "system4/ex.h"
 #include "system4/file.h"
 #include "system4/png.h"
 #include "system4/string.h"
@@ -37,6 +38,8 @@
 #include "system4/webp.h"
 #include "alice.h"
 #include "archive.h"
+
+int ex_dump(FILE *out, struct ex *ex);
 
 enum {
 	LOPT_HELP = 256,
@@ -47,6 +50,13 @@ enum {
 	LOPT_IMAGE_FORMAT,
 	LOPT_IMAGES_ONLY,
 	LOPT_RAW,
+};
+
+enum filetype {
+	FT_UNKNOWN,
+	FT_IMAGE,
+	FT_EX,
+	FT_FLAT,
 };
 
 static bool raw = false;
@@ -85,8 +95,45 @@ static bool is_image_file(struct archive_data *data)
 	return cg_check_format(data->data) != ALCG_UNKNOWN;
 }
 
-static char *get_default_filename(struct archive_data *data, const char *ext)
+static bool is_ex_file(struct archive_data *data)
 {
+	return !memcmp(data->data, "HEAD", 4);
+}
+
+static bool is_flat_file(struct archive_data *data)
+{
+	if (!memcmp(data->data, "ELNA", 4))
+		data += 8;
+	return !memcmp(data->data, "FLAT", 4);
+}
+
+static enum filetype get_filetype(struct archive_data *data)
+{
+	if (data->size < 4)
+		return FT_UNKNOWN;
+	if (is_image_file(data))
+		return FT_IMAGE;
+	if (is_ex_file(data))
+		return FT_EX;
+	if (is_flat_file(data))
+		return FT_FLAT;
+	return FT_UNKNOWN;
+}
+
+/*
+ * Determine the default filename to use for an archived file.
+ */
+static char *get_default_filename(struct archive_data *data, enum filetype ft)
+{
+	const char *ext = NULL;
+	if (!raw) {
+		if (ft == FT_IMAGE) {
+			ext = cg_file_extensions[imgenc];
+		} else if (ft == FT_EX) {
+			ext = "x";
+		}
+	}
+
 	char *u = conv_output(data->name);
 	if (ext) {
 		size_t ulen = strlen(u);
@@ -98,13 +145,21 @@ static char *get_default_filename(struct archive_data *data, const char *ext)
 	return u;
 }
 
-static bool write_file(struct archive_data *data, const char *output_file)
+/*
+ * Write an archived file to disk.
+ */
+static bool write_file(struct archive_data *data, const char *output_file, enum filetype ft)
 {
 	FILE *f = NULL;
-	bool output_img = !raw && is_image_file(data);
+	bool is_image = is_image_file(data);
+	bool output_img = !raw && is_image;
+	bool output_ex = !raw && is_ex_file(data);
+
+	if (images_only && is_image)
+		return true;
 
 	if (!output_file) {
-		char *u = get_default_filename(data, output_img ? cg_file_extensions[imgenc] : NULL);
+		char *u = get_default_filename(data, ft);
 		mkdir_for_file(u);
 		if (!force && file_exists(u)) {
 			free(u);
@@ -132,7 +187,15 @@ static bool write_file(struct archive_data *data, const char *output_file)
 		} else {
 			WARNING("Failed to load CG");
 		}
-	} else if (!images_only && fwrite(data->data, data->size, 1, f ? f : stdout) != 1) {
+	} else if (output_ex) {
+		struct ex *ex = ex_read(data->data, data->size);
+		if (ex) {
+			ex_dump(f, ex);
+			ex_free(ex);
+		} else {
+			WARNING("Failed to load .ex file");
+		}
+	} else if (fwrite(data->data, data->size, 1, f ? f : stdout) != 1) {
 		ERROR("fwrite failed: %s", strerror(errno));
 	}
 
@@ -167,13 +230,6 @@ static void extract_flat(struct archive_data *data, char *output_dir)
 	free(uname);
 }
 
-static bool is_flat_file(const char *data)
-{
-	if (!strncmp(data, "ELNA", 4))
-		data += 8;
-	return !strncmp(data, "FLAT", 4);
-}
-
 static void extract_all_iter(struct archive_data *data, void *_prefix)
 {
 	if (!archive_load_file(data)) {
@@ -183,7 +239,9 @@ static void extract_all_iter(struct archive_data *data, void *_prefix)
 		return;
 	}
 
-	if (!raw && is_flat_file((char*)data->data)) {
+	enum filetype ft = get_filetype(data);
+
+	if (!raw && ft == FT_FLAT) {
 		char *u = conv_output(data->name);
 		NOTICE("Extracting %s...", u);
 		free(u);
@@ -193,7 +251,7 @@ static void extract_all_iter(struct archive_data *data, void *_prefix)
 
 	char *prefix = _prefix;
 	bool is_image = is_image_file(data);
-	char *file_name = get_default_filename(data, !raw && is_image ? cg_file_extensions[imgenc] : NULL);
+	char *file_name = get_default_filename(data, ft);
 	char output_file[PATH_MAX];
 	snprintf(output_file, PATH_MAX, "%s%s", prefix, file_name);
 	free(file_name);
@@ -204,7 +262,7 @@ static void extract_all_iter(struct archive_data *data, void *_prefix)
 
 	mkdir_for_file(output_file);
 
-	if (write_file(data, output_file))
+	if (write_file(data, output_file, ft))
 		NOTICE("%s", output_file);
 	else
 		NOTICE("Skipping existing file: %s", output_file);
@@ -279,14 +337,14 @@ int command_ar_extract(int argc, char *argv[])
 		struct archive_data *d = archive_get(ar, file_index);
 		if (!d)
 			ERROR("No file with index %d", file_index);
-		write_file(d, output_file);
+		write_file(d, output_file, get_filetype(d));
 		archive_free_data(d);
 	} else if (file_name) {
 		char *u = utf2sjis(file_name, strlen(file_name));
 		struct archive_data *d = archive_get_by_name(ar, u);
 		if (!d)
 			ERROR("No file with name \"%s\"", u);
-		write_file(d, output_file);
+		write_file(d, output_file, get_filetype(d));
 		archive_free_data(d);
 		free(u);
 	} else {

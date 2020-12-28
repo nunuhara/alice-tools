@@ -84,7 +84,7 @@ int command_ex_dump(int argc, char *argv[])
 		return 0;
 	}
 
-	struct ex *ex = ex_read(argv[0]);
+	struct ex *ex = ex_read_file(argv[0]);
 	if (split) {
 		const char *dir;
 		if (output_file)
