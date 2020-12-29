@@ -50,6 +50,7 @@ enum {
 	LOPT_IMAGE_FORMAT,
 	LOPT_IMAGES_ONLY,
 	LOPT_RAW,
+	LOPT_TOC,
 };
 
 enum filetype {
@@ -62,6 +63,9 @@ enum filetype {
 static bool raw = false;
 static bool force = false;
 static bool images_only = false;
+
+char **toc = NULL;
+size_t toc_size = 0;
 
 // Add a trailing slash to a path
 char *output_file_dir(const char *path)
@@ -125,6 +129,7 @@ static enum filetype get_filetype(struct archive_data *data)
  */
 static char *get_default_filename(struct archive_data *data, enum filetype ft)
 {
+	// get conversion extension
 	const char *ext = NULL;
 	if (!raw) {
 		if (ft == FT_IMAGE) {
@@ -134,7 +139,19 @@ static char *get_default_filename(struct archive_data *data, enum filetype ft)
 		}
 	}
 
-	char *u = conv_output(data->name);
+	// get filename
+	char *u;
+	if (toc) {
+		if ((size_t)data->no >= toc_size) {
+			WARNING("index exceeds table-of-contents length");
+			u = conv_output(data->name);
+		} else {
+			u = strdup(toc[data->no]);
+		}
+	} else {
+		u = conv_output(data->name);
+	}
+
 	if (ext) {
 		size_t ulen = strlen(u);
 		size_t extlen = strlen(ext);
@@ -268,10 +285,57 @@ static void extract_all_iter(struct archive_data *data, void *_prefix)
 		NOTICE("Skipping existing file: %s", output_file);
 }
 
+static char *toc_read_filename(char **data)
+{
+	char *p = *data;
+	if (!p)
+		return NULL;
+
+	// skip initial ws
+	while (*p == '\n' || *p == '\r') {
+		p++;
+	}
+
+	// skip filename
+	char *start = p;
+	while (*p && *p != '\r' && *p != '\n') {
+		p++;
+	}
+
+	// write null terminator
+	if (*p == 0) {
+		*data = NULL;
+	} else {
+		*p = 0;
+		*data = p+1;
+	}
+
+	return start;
+}
+
+static char **parse_toc(const char *toc_file, size_t *_nr_files)
+{
+	size_t file_size;
+	char *file_data = file_read(toc_file, &file_size);
+
+	char *filename;
+	char *p = file_data;
+	char **files = NULL;
+	size_t nr_files = 0;
+	while ((filename = toc_read_filename(&p))) {
+		files = xrealloc(files, (nr_files+1) * sizeof(char*));
+		files[nr_files++] = strdup(filename);
+	}
+
+	free(file_data);
+	*_nr_files = nr_files;
+	return files;
+}
+
 int command_ar_extract(int argc, char *argv[])
 {
 	char *output_file = NULL;
-	possibly_unused char *input_file = NULL;
+	char *toc_file = NULL;
 	char *file_name = NULL;
 	int file_index = -1;
 
@@ -312,6 +376,9 @@ int command_ar_extract(int argc, char *argv[])
 		case LOPT_RAW:
 			raw = true;
 			break;
+		case LOPT_TOC:
+			toc_file = optarg;
+			break;
 		}
 	}
 
@@ -330,6 +397,10 @@ int command_ar_extract(int argc, char *argv[])
 	ar = open_archive(argv[0], &type, &error);
 	if (!ar) {
 		ERROR("Opening archive: %s", archive_strerror(error));
+	}
+
+	if (toc_file) {
+		toc = parse_toc(toc_file, &toc_size);
 	}
 
 	// run command
@@ -354,6 +425,10 @@ int command_ar_extract(int argc, char *argv[])
 	}
 
 	archive_free(ar);
+	for (size_t i = 0; i < toc_size; i++) {
+		free(toc[i]);
+	}
+	free(toc);
 	return 0;
 }
 
@@ -371,6 +446,7 @@ struct command cmd_ar_extract = {
 		{ "image-format", 0,   "Image output format (png or webp)", required_argument, LOPT_IMAGE_FORMAT },
 		{ "images-only",  0,   "Only extract images",               no_argument,       LOPT_IMAGES_ONLY },
 		{ "raw",          0,   "Don't convert image files",         no_argument,       LOPT_RAW },
+		{ "toc",          0,   "Specify table of contents file",    required_argument, LOPT_TOC },
 		{ 0 }
 	}
 };
