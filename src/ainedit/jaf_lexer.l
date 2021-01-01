@@ -35,6 +35,7 @@ D   [0-9]
 NZ  [1-9]
 L   ([a-zA-Z_]|{UCH})
 A   ([a-zA-Z_0-9:@#]|{UCH})
+AT  ([a-zA-Z_0-9]|{UCH})
 H   [a-fA-F0-9]
 HP  (0[xX])
 E   ([Ee][+-]?{D}+)
@@ -107,7 +108,8 @@ unsigned long jaf_line = 1;
 "delegate"                              { return DELEGATE; }
 "override"                              { return OVERRIDE; }
 
-{L}{A}*					{ return check_type(); }
+{L}                                     { return check_type(); }
+{L}{A}*{AT}                             { return check_type(); }
 
 {HP}{H}+{IS}?				{ RETURN_STRING(I_CONSTANT); }
 {NZ}{D}*{IS}?				{ RETURN_STRING(I_CONSTANT); }

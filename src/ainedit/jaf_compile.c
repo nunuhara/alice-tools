@@ -40,6 +40,12 @@ struct loop_state {
 	uint32_t *breaks;
 };
 
+struct label {
+	const char *name;
+	size_t addr;
+	struct jaf_block_item *stmt;
+};
+
 struct compiler_state {
 	struct ain *ain;
 	struct buffer out;
@@ -47,6 +53,10 @@ struct compiler_state {
 	int super_no;
 	size_t nr_loops;
 	struct loop_state *loops;
+	size_t nr_labels;
+	struct label *labels;
+	size_t nr_gotos;
+	struct label *gotos;
 };
 
 static void start_loop(struct compiler_state *state)
@@ -65,6 +75,37 @@ static void end_loop(struct compiler_state *state)
 		buffer_write_int32_at(&state->out, loop->breaks[i], state->out.index);
 	}
 	free(loop->breaks);
+}
+
+static void start_function(struct compiler_state *state)
+{
+	state->nr_labels = 0;
+	state->nr_gotos = 0;
+	state->labels = NULL;
+	state->gotos = NULL;
+}
+
+static void end_function(struct compiler_state *state)
+{
+	for (size_t i = 0; i < state->nr_gotos; i++) {
+		// find corresponding label
+		struct label *label = NULL;
+		for (size_t j = 0; j < state->nr_labels; j++) {
+			if (!strcmp(state->labels[j].name, state->gotos[i].name)) {
+				label = &state->labels[j];
+				break;
+			}
+		}
+		if (!label) {
+			JAF_ERROR(state->gotos[i].stmt, "Undefined label");
+		}
+
+		// write label address into JUMP argument
+		buffer_write_int32_at(&state->out, state->gotos[i].addr, label->addr);
+	}
+
+	free(state->labels);
+	free(state->gotos);
 }
 
 static int get_string_no(struct compiler_state *state, const char *s)
@@ -1125,6 +1166,28 @@ static void compile_for(struct compiler_state *state, struct jaf_block *init, st
 	end_loop(state);
 }
 
+static void compile_label(struct compiler_state *state, struct jaf_block_item *item)
+{
+	// add label
+	state->labels = xrealloc_array(state->labels, state->nr_labels, state->nr_labels+1, sizeof(struct label));
+	state->labels[state->nr_labels].name = item->label.name->text;
+	state->labels[state->nr_labels].addr = state->out.index;
+	state->nr_labels++;
+
+	compile_statement(state, item->label.stmt);
+}
+
+static void compile_goto(struct compiler_state *state, struct jaf_block_item *item)
+{
+	// add goto
+	state->gotos = xrealloc_array(state->gotos, state->nr_gotos, state->nr_gotos+1, sizeof(struct label));
+	state->gotos[state->nr_gotos].name = item->label.name->text;
+	state->gotos[state->nr_gotos].addr = state->out.index + 2;
+	state->nr_gotos++;
+
+	write_instruction1(state, JUMP, 0);
+}
+
 static void compile_break(struct compiler_state *state, struct jaf_block_item *item)
 {
 	if (state->nr_loops == 0)
@@ -1156,7 +1219,8 @@ static void compile_statement(struct compiler_state *state, struct jaf_block_ite
 	case JAF_DECL_STRUCT:
 		JAF_ERROR(item, "Structs must be defined at top-level");
 	case JAF_STMT_LABELED:
-		COMPILER_ERROR(item, "Labels not supported");
+		compile_label(state, item);
+		break;
 	case JAF_STMT_COMPOUND:
 		compile_block(state, item->block);
 		break;
@@ -1180,7 +1244,8 @@ static void compile_statement(struct compiler_state *state, struct jaf_block_ite
 		compile_for(state, item->for_loop.init, item->for_loop.test, item->for_loop.after, item->for_loop.body);
 		break;
 	case JAF_STMT_GOTO:
-		COMPILER_ERROR(item, "goto not supported");
+		compile_goto(state, item);
+		break;
 	case JAF_STMT_CONTINUE:
 		if (state->nr_loops == 0)
 			JAF_ERROR(item, "continue outside of loop");
@@ -1219,14 +1284,19 @@ static void compile_block(struct compiler_state *state, struct jaf_block *block)
 static void compile_function(struct compiler_state *state, struct jaf_fundecl *decl)
 {
 	assert(decl->func_no >= 0 && decl->func_no < state->ain->nr_functions);
+
+	start_function(state);
 	state->func_no = decl->func_no;
 	state->super_no = decl->super_no;
+
 	write_instruction1(state, FUNC, decl->func_no);
 	state->ain->functions[decl->func_no].address = state->out.index;
 	compile_block(state, decl->body);
 	compile_nullexpr(state, state->ain->functions[state->func_no].return_type.data);
 	write_instruction0(state, RETURN);
 	write_instruction1(state, ENDFUNC, decl->func_no);
+
+	end_function(state);
 }
 
 static void compile_declaration(struct compiler_state *state, struct jaf_block_item *decl)

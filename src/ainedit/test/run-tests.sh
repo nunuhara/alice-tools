@@ -114,3 +114,5 @@ cd $(dirname "$0")
 
 ./test-runner.sh const-local.jaf
 ./test-runner.sh const-global.jaf
+
+./test-runner.sh goto.jaf

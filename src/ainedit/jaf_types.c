@@ -386,7 +386,7 @@ static void jaf_check_types_identifier(struct jaf_env *env, struct jaf_expressio
 		expr->valuetype.data = AIN_FUNCTION;
 		expr->valuetype.struc = no;
 	} else {
-		JAF_ERROR(expr, "Undefined variable: %s", expr->s->text);
+		JAF_ERROR(expr, "Undefined variable: %s", expr->ident.name->text);
 	}
 	free(u);
 }

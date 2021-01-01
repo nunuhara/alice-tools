@@ -1,0 +1,8 @@
+int main()
+{
+	int one = 1;
+	goto skip;
+	one = 5;
+skip:
+	return !(one + 1 == 2);
+}
