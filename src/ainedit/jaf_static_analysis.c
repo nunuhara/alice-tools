@@ -681,8 +681,13 @@ static void override_function(struct ain *ain, struct jaf_block_item *item, int 
 static void add_function(struct ain *ain, struct jaf_block_item *item)
 {
 	struct jaf_fundecl *decl = &item->fun;
-	int no = ain_get_function(ain, decl->name->text);
-	if (no > 0 && (decl->type->qualifiers & JAF_QUAL_OVERRIDE)) {
+	char *name = conv_output(decl->name->text);
+	int no = ain_get_function(ain, name);
+	free(name);
+	if (decl->type->qualifiers & JAF_QUAL_OVERRIDE) {
+		if (no <= 0) {
+			JAF_ERROR(item, "Function '%s' can't be overridden because it doesn't exist", decl->name->text);
+		}
 		override_function(ain, item, no);
 	} else if (no > 0) {
 		JAF_ERROR(item, "Function '%s' already exists", decl->name->text);
