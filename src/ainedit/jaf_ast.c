@@ -564,8 +564,10 @@ void jaf_free_expr(struct jaf_expression *expr)
 		break;
 	case JAF_EXP_STRING:
 	case JAF_EXP_CHAR:
-	case JAF_EXP_IDENTIFIER:
 		free_string(expr->s);
+		break;
+	case JAF_EXP_IDENTIFIER:
+		free_string(expr->ident.name);
 		break;
 	case JAF_EXP_UNARY:
 		jaf_free_expr(expr->expr);

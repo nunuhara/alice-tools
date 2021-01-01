@@ -1,0 +1,7 @@
+const int two = 2;
+
+int main()
+{
+	int three = 3;
+	return !(two + three == 5);
+}

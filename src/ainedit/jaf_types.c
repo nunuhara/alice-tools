@@ -325,46 +325,60 @@ static void jaf_check_types_ternary(struct jaf_env *env, struct jaf_expression *
 static struct jaf_env_local *jaf_scope_lookup(struct jaf_env *env, const char *name)
 {
 	for (size_t i = 0; i < env->nr_locals; i++) {
-		if (!strcmp(env->locals[i].var->name, name)) {
+		if (!strcmp(env->locals[i].name, name)) {
 			return &env->locals[i];
 		}
 	}
 	return NULL;
 }
 
-struct ain_variable *jaf_env_lookup(struct jaf_env *env, const char *name, int *var_no)
+struct jaf_env_local *jaf_env_lookup(struct jaf_env *env, const char *name)
 {
 	struct jaf_env *scope = env;
         while (scope) {
 		struct jaf_env_local *v = jaf_scope_lookup(scope, name);
 		if (v) {
-			*var_no = v->no;
-			return v->var;
+			return v;
 		}
 		scope = scope->parent;
 	}
-
-	int no = ain_get_global(env->ain, name);
-	if (no >= 0) {
-		*var_no = no;
-		return &env->ain->globals[no];
-	}
-
 	return NULL;
+}
+
+static struct ain_variable *jaf_global_lookup(struct jaf_env *env, const char *name, int *var_no)
+{
+	int no = ain_get_global(env->ain, name);
+	if (no < 0)
+		return NULL;
+	*var_no = no;
+	return &env->ain->globals[no];
 }
 
 static void jaf_check_types_identifier(struct jaf_env *env, struct jaf_expression *expr)
 {
 	int no;
 	struct ain_variable *v;
-	char *u = conv_output(expr->s->text);
+	struct jaf_env_local *local;
+	char *u = conv_output(expr->ident.name->text);
 	if (!strcmp(u, "super")) {
 		if (!env->fundecl || env->fundecl->super_no <= 0) {
 			JAF_ERROR(expr, "'super' used outside of a function override");
 		}
 		expr->valuetype.data = AIN_FUNCTION;
 		expr->valuetype.struc = env->fundecl->super_no;
-	} else if ((v = jaf_env_lookup(env, u, &no))) {
+	} else if ((local = jaf_env_lookup(env, u))) {
+		if (local->is_const) {
+			expr->valuetype.data = local->val.data_type;
+			expr->valuetype.struc = 0;
+			expr->valuetype.rank = 0;
+			expr->ident.is_const = true;
+			expr->ident.val = local->val;
+		} else {
+			expr->valuetype = local->var->type;
+			expr->ident.var_type = local->var->var_type;
+			expr->ident.var_no = local->no;
+		}
+	} else if ((v = jaf_global_lookup(env, u, &no))) {
 		expr->valuetype = v->type;
 		expr->ident.var_type = v->var_type;
 		expr->ident.var_no = no;
@@ -582,7 +596,7 @@ static bool jaf_check_types_special_call(struct jaf_env *env, struct jaf_express
 
 	struct jaf_expression *obj = expr->call.fun->member.struc;
 	if (obj->type == JAF_EXP_IDENTIFIER) {
-		char *obj_name = conv_output(obj->s->text);
+		char *obj_name = conv_output(obj->ident.name->text);
 		int lib = ain_get_library(env->ain, obj_name);
 
 		// HLL call

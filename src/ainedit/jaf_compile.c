@@ -67,9 +67,9 @@ static void end_loop(struct compiler_state *state)
 	free(loop->breaks);
 }
 
-static int get_string_no(struct compiler_state *state, struct string *s)
+static int get_string_no(struct compiler_state *state, const char *s)
 {
-	char *u = conv_output(s->text);
+	char *u = conv_output(s);
 	int i = ain_add_string(state->ain, u);
 	free(u);
 	return i;
@@ -229,6 +229,21 @@ static void compile_block(struct compiler_state *state, struct jaf_block *block)
 static void compile_statement(struct compiler_state *state, struct jaf_block_item *item);
 static void compile_expression(struct compiler_state *state, struct jaf_expression *expr);
 
+static void compile_int(struct compiler_state *state, int i)
+{
+	write_instruction1(state, PUSH, i);
+}
+
+static void compile_float(struct compiler_state *state, float f)
+{
+	write_instruction1(state, F_PUSH, flo2int(f));
+}
+
+static void compile_string(struct compiler_state *state, const char *str)
+{
+	write_instruction1(state, S_PUSH, get_string_no(state, str));
+}
+
 static struct ain_variable *get_identifier_variable(struct compiler_state *state, enum ain_variable_type type, int var_no)
 {
 	if (type == AIN_VAR_LOCAL)
@@ -343,6 +358,23 @@ static void compile_dereference(struct compiler_state *state, struct ain_type *t
 		break;
 	default:
 		_COMPILER_ERROR(NULL, -1, "Unsupported type");
+	}
+}
+
+static void compile_constant_identifier(struct compiler_state *state, struct jaf_expression *expr)
+{
+	switch (expr->ident.val.data_type) {
+	case AIN_INT:
+		compile_int(state, expr->ident.val.int_value);
+		break;
+	case AIN_FLOAT:
+		compile_float(state, expr->ident.val.float_value);
+		break;
+	case AIN_STRING:
+		compile_string(state, expr->ident.val.string_value);
+		break;
+	default:
+		COMPILER_ERROR(expr, "Unhandled constant type");
 	}
 }
 
@@ -707,16 +739,20 @@ static void compile_expression(struct compiler_state *state, struct jaf_expressi
 	case JAF_EXP_VOID:
 		break;
 	case JAF_EXP_INT:
-		write_instruction1(state, PUSH, expr->i);
+		compile_int(state, expr->i);
 		break;
 	case JAF_EXP_FLOAT:
-		write_instruction1(state, F_PUSH, flo2int(expr->f));
+		compile_float(state, expr->f);
 		break;
 	case JAF_EXP_STRING:
-		write_instruction1(state, S_PUSH, get_string_no(state, expr->s));
+		compile_string(state, expr->s->text);
 		break;
 	case JAF_EXP_IDENTIFIER:
-		compile_identifier(state, expr);
+		if (expr->ident.is_const) {
+			compile_constant_identifier(state, expr);
+		} else {
+			compile_identifier(state, expr);
+		}
 		break;
 	case JAF_EXP_UNARY:
 		compile_unary(state, expr);
@@ -793,6 +829,9 @@ static void compile_nullexpr(struct compiler_state *state, enum ain_data_type ty
 static void compile_vardecl(struct compiler_state *state, struct jaf_block_item *item)
 {
 	struct jaf_vardecl *decl = &item->var;
+	if (decl->type->qualifiers & JAF_QUAL_CONST) {
+		return;
+	}
 	switch (decl->valuetype.data) {
 	case AIN_VOID:
 		COMPILER_ERROR(item, "void variable declaration");

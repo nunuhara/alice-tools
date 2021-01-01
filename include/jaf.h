@@ -167,9 +167,15 @@ struct jaf_expression {
 		float f;
 		struct string *s;
 		struct {
+			bool is_const;
 			struct string *name;
-			enum ain_variable_type var_type;
-			int var_no;
+			union {
+				struct {
+					enum ain_variable_type var_type;
+					int var_no;
+				};
+				struct ain_initval val;
+			};
 		} ident;
 		// unary operators
 		struct jaf_expression *expr;
@@ -335,8 +341,17 @@ struct jaf_block {
 };
 
 struct jaf_env_local {
-	int no;
-	struct ain_variable *var;
+	bool is_const;
+	char *name;
+	union {
+		// not const: variable
+		struct {
+			int no;
+			struct ain_variable *var;
+		};
+		// const: (constant) expression
+		struct ain_initval val;
+	};
 };
 
 struct jaf_env {

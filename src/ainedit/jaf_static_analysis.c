@@ -226,13 +226,29 @@ static void analyze_array_allocation(struct jaf_env *env, struct jaf_block_item 
 	}
 }
 
+static void analyze_const_declaration(struct jaf_env *env, struct jaf_block_item *item)
+{
+	struct jaf_vardecl *decl = &item->var;
+	if (!decl->init) {
+		JAF_ERROR(item, "const declaration without an initializer");
+	}
+	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
+	analyze_expression(env, &decl->init);
+
+	env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+2,
+				     sizeof(struct jaf_env_local));
+	env->locals[env->nr_locals].name = decl->name->text;
+	env->locals[env->nr_locals].is_const = true;
+	jaf_to_initval(&env->locals[env->nr_locals].val, decl->init);
+	env->nr_locals++;
+}
+
 static void analyze_global_declaration(struct jaf_env *env, struct jaf_block_item *item)
 {
 	struct jaf_vardecl *decl = &item->var;
 	if (!decl->init)
 		return;
 	analyze_expression(env, &decl->init);
-	assert(decl->type);
 	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
 	jaf_check_type(decl->init, &decl->valuetype);
 	// add initval to ain object
@@ -249,31 +265,32 @@ static void analyze_local_declaration(struct jaf_env *env, struct jaf_block_item
 	struct jaf_vardecl *decl = &item->var;
 	assert(env->func_no >= 0 && env->func_no < env->ain->nr_functions);
 	assert(decl->var_no >= 0 && decl->var_no < env->ain->functions[env->func_no].nr_vars);
-	assert(decl->type);
 	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
+	analyze_array_allocation(env, item);
+	if (decl->init)
+		analyze_expression(env, &decl->init);
+
 	// add local to environment
+	env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+2,
+				     sizeof(struct jaf_env_local));
+	env->locals[env->nr_locals].name = decl->name->text;
+
 	switch (env->ain->functions[env->func_no].vars[decl->var_no].type.data) {
 	case AIN_REF_INT:
 	case AIN_REF_FLOAT:
 	case AIN_REF_BOOL:
 	case AIN_REF_LONG_INT:
-		env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+2,
-					     sizeof(struct jaf_env_local));
 		env->locals[env->nr_locals].no = decl->var_no;
 		env->locals[env->nr_locals++].var = &env->ain->functions[env->func_no].vars[decl->var_no];
+		env->locals[env->nr_locals].name = "";
 		env->locals[env->nr_locals].no = decl->var_no+1;
 		env->locals[env->nr_locals++].var = &env->ain->functions[env->func_no].vars[decl->var_no+1];
 		break;
 	default:
-		env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+1,
-					     sizeof(struct jaf_env_local));
 		env->locals[env->nr_locals].no = decl->var_no;
 		env->locals[env->nr_locals++].var = &env->ain->functions[env->func_no].vars[decl->var_no];
 		break;
 	}
-	analyze_array_allocation(env, item);
-	if (decl->init)
-		analyze_expression(env, &decl->init);
 }
 
 static void analyze_function(struct jaf_env *env, struct jaf_fundecl *decl)
@@ -290,6 +307,7 @@ static void analyze_function(struct jaf_env *env, struct jaf_fundecl *decl)
 	funenv->nr_locals = fun->nr_args;
 	funenv->locals = xcalloc(funenv->nr_locals, sizeof(struct jaf_env_local));
 	for (size_t i = 0; i < funenv->nr_locals; i++) {
+		funenv->locals[i].name = fun->vars[i].name;
 		funenv->locals[i].no = i;
 		funenv->locals[i].var = &fun->vars[i];
 	}
@@ -337,10 +355,14 @@ static void analyze_statement(struct jaf_env *env, struct jaf_block_item *item)
 		return;
 	switch (item->kind) {
 	case JAF_DECL_VAR:
-		if (env->parent)
+		assert(item->var.type);
+		if (item->var.type->qualifiers & JAF_QUAL_CONST) {
+			analyze_const_declaration(env, item);
+		} else if (env->parent) {
 			analyze_local_declaration(env, item);
-		else
+		} else {
 			analyze_global_declaration(env, item);
+		}
 		break;
 	case JAF_DECL_FUN:
 		analyze_function(env, &item->fun);
@@ -529,8 +551,10 @@ static struct ain_variable *block_item_get_vars(struct ain *ain, struct jaf_bloc
 		return vars;
 	switch (item->kind) {
 	case JAF_DECL_VAR:
-		vars = xrealloc_array(vars, *nr_vars, *nr_vars + 2, sizeof(struct ain_variable));
-		init_variable(ain, vars, nr_vars, &item->var);
+		if (!(item->var.type->qualifiers & JAF_QUAL_CONST)) {
+			vars = xrealloc_array(vars, *nr_vars, *nr_vars + 2, sizeof(struct ain_variable));
+			init_variable(ain, vars, nr_vars, &item->var);
+		}
 		break;
 	case JAF_STMT_LABELED:
 		vars = block_item_get_vars(ain, item->label.stmt, vars, nr_vars);
@@ -808,11 +832,13 @@ struct jaf_block *jaf_static_analyze(struct ain *ain, struct jaf_block *block)
 {
 	struct jaf_env env = {
 		.ain = ain,
-		.parent = NULL
+		.parent = NULL,
+		.locals = NULL
 	};
 
 	// pass 3: type analysis & simplification & global initvals
 	jaf_analyze_block(&env, block);
+	free(env.locals);
 
 	return block;
 }
