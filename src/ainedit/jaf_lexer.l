@@ -65,7 +65,7 @@ unsigned long jaf_line = 1;
 
 %%
 "/*"                                    { comment(); }
-"//".*                                    { /* consume //-comment */ }
+"//".*                                  { /* consume //-comment */ }
 
 "break"					{ return(BREAK); }
 "case"					{ return(CASE); }
@@ -189,8 +189,9 @@ static void comment(void)
     int c;
 
     while ((c = input()) != 0)
-        if (c == '*')
-        {
+        if (c == '\n') {
+            jaf_line++;
+        } else if (c == '*') {
             while ((c = input()) == '*')
                 ;
 
