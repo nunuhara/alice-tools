@@ -68,17 +68,37 @@ static bool parse_version(const char *str, int *major, int *minor)
 	return true;
 }
 
+enum input_type {
+	IN_CODE,
+	IN_JAF,
+	IN_TEXT,
+	IN_DECL
+};
+
+struct input {
+	enum input_type type;
+	const char *filename;
+};
+
+static struct input inputs[256];
+static int nr_inputs = 0;
+
+static void push_input(enum input_type type, const char *filename)
+{
+	if (nr_inputs >= 256)
+		ALICE_ERROR("Too many inputs");
+	inputs[nr_inputs++] = (struct input) {
+		.type = type,
+		.filename = filename
+	};
+}
+
 int command_ain_edit(int argc, char *argv[])
 {
 	initialize_instructions();
 	struct ain *ain;
 	int err = AIN_SUCCESS;
 	const char *project_file = NULL;
-	const char *code_file = NULL;
-	unsigned nr_jaf_files = 0;
-	const char **jaf_files = NULL;
-	const char *decl_file = NULL;
-	const char *text_file = NULL;
 	const char *output_file = NULL;
 	int major_version = 4;
 	int minor_version = 0;
@@ -100,19 +120,18 @@ int command_ain_edit(int argc, char *argv[])
 			break;
 		case 'c':
 		case LOPT_CODE:
-			code_file = optarg;
+			push_input(IN_CODE, optarg);
 			break;
 		case LOPT_JAF:
-			jaf_files = xrealloc_array(jaf_files, nr_jaf_files, nr_jaf_files+1, sizeof(char*));
-			jaf_files[nr_jaf_files++] = optarg;
+			push_input(IN_JAF, optarg);
 			break;
 		case 'j':
 		case LOPT_JSON:
-			decl_file = optarg;
+			push_input(IN_DECL, optarg);
 			break;
 		case 't':
 		case LOPT_TEXT:
-			text_file = optarg;
+			push_input(IN_TEXT, optarg);
 			break;
 		case LOPT_TRANSCODE:
 			transcode = true;
@@ -147,6 +166,10 @@ int command_ain_edit(int argc, char *argv[])
 	}
 
 	if (project_file) {
+		// FIXME: this should be a separate command
+		if (nr_inputs > 0) {
+			WARNING("Input files specified on the command line are ignored in --project mode");
+		}
 		pje_build(project_file, major_version, minor_version);
 		return 0;
 	}
@@ -165,31 +188,34 @@ int command_ain_edit(int argc, char *argv[])
 	ain_init_member_functions(ain, conv_output_utf8);
 
 	if (transcode) {
+		// FIXME: this should be a separate command
+		if (nr_inputs > 0) {
+			WARNING("Input files specified on the command line are ignored in --transcode mode");
+		}
 		ain_transcode(ain);
 		goto write_ain_file;
 	}
 
-	if (decl_file) {
-		read_declarations(decl_file, ain);
-	}
-
-	if (jaf_files) {
-		jaf_build(ain, jaf_files, nr_jaf_files, NULL, 0);
-	}
-
-	if (code_file) {
-		asm_assemble_jam(code_file, ain, flags);
-	}
-
-	if (text_file) {
-		read_text(text_file, ain);
+	for (int i = 0; i < nr_inputs; i++) {
+		switch (inputs[i].type) {
+		case IN_CODE:
+			asm_assemble_jam(inputs[i].filename, ain, flags);
+			break;
+		case IN_JAF:
+			jaf_build(ain, &inputs[i].filename, 1, NULL, 0);
+			break;
+		case IN_TEXT:
+			read_text(inputs[i].filename, ain);
+			break;
+		case IN_DECL:
+			read_declarations(inputs[i].filename, ain);
+			break;
+		}
 	}
 
 write_ain_file:
 	NOTICE("Writing AIN file...");
 	ain_write(output_file, ain);
-
-	free(jaf_files);
 	ain_free(ain);
 	return 0;
 }
