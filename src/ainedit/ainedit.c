@@ -32,6 +32,7 @@ extern int text_parse(void);
 enum {
 	LOPT_PROJECT = 256,
 	LOPT_CODE,
+	LOPT_JAM,
 	LOPT_JAF,
 	LOPT_JSON,
 	LOPT_TEXT,
@@ -70,6 +71,7 @@ static bool parse_version(const char *str, int *major, int *minor)
 
 enum input_type {
 	IN_CODE,
+	IN_JAM,
 	IN_JAF,
 	IN_TEXT,
 	IN_DECL
@@ -121,6 +123,9 @@ int command_ain_edit(int argc, char *argv[])
 		case 'c':
 		case LOPT_CODE:
 			push_input(IN_CODE, optarg);
+			break;
+		case LOPT_JAM:
+			push_input(IN_JAM, optarg);
 			break;
 		case LOPT_JAF:
 			push_input(IN_JAF, optarg);
@@ -201,6 +206,9 @@ int command_ain_edit(int argc, char *argv[])
 		case IN_CODE:
 			asm_assemble_jam(inputs[i].filename, ain, flags);
 			break;
+		case IN_JAM:
+			asm_append_jam(inputs[i].filename, ain, flags);
+			break;
 		case IN_JAF:
 			jaf_build(ain, &inputs[i].filename, 1, NULL, 0);
 			break;
@@ -229,6 +237,7 @@ struct command cmd_ain_edit = {
 	.options = {
 		{ "output",      'o', "Set the output file path",                     required_argument, LOPT_OUTPUT },
 		{ "code",        'c', "Update the CODE section (assemble .jam file)", required_argument, LOPT_CODE },
+		{ "jam",         0,   "Append to the CODE section",                   required_argument, LOPT_JAM },
 		{ "jaf",         0,   "Update .ain file from .jaf source code",       required_argument, LOPT_JAF },
 		{ "json",        'j', "Update .ain file from json data",              required_argument, LOPT_JSON },
 		{ "project",     'p', "Build .ain from project file",                 required_argument, LOPT_PROJECT },

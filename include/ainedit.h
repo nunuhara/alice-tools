@@ -20,6 +20,8 @@
 #include <stdint.h>
 #include "system4/ain.h"
 #include "system4/instructions.h"
+#include "khash.h"
+#include "kvec.h"
 
 enum {
 	ASM_RAW        = 1,
@@ -68,11 +70,29 @@ enum asm_pseudo_opcode {
 
 extern struct instruction asm_pseudo_ops[NR_PSEUDO_OPS - PSEUDO_OP_OFFSET];
 
+kv_decl(parse_instruction_list, struct parse_instruction*);
+kv_decl(parse_argument_list, struct string*);
+kv_decl(pointer_list, uint32_t*);
+
+struct parse_instruction {
+	uint16_t opcode;
+	parse_argument_list *args;
+};
+
+extern parse_instruction_list *parsed_code;
+
+KHASH_MAP_INIT_STR(label_table, uint32_t);
+extern khash_t(label_table) *label_table;
+extern uint32_t asm_instr_ptr;
+
+int asm_parse(void);
+
 // pje.c
 void pje_build(const char *path, int major_version, int minor_version);
 
 // asm.c
 void asm_assemble_jam(const char *filename, struct ain *ain, uint32_t flags);
+void asm_append_jam(const char *filename, struct ain *ain, int32_t flags);
 const struct instruction *asm_get_instruction(const char *name);
 const_pure int32_t asm_instruction_width(int opcode);
 

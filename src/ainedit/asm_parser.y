@@ -9,23 +9,7 @@
 }
 
 %code requires {
-    #include <stdint.h>
-    #include "khash.h"
-    #include "kvec.h"
-
-    kv_decl(parse_instruction_list, struct parse_instruction*);
-    kv_decl(parse_argument_list, struct string*);
-    kv_decl(pointer_list, uint32_t*);
-
-    struct parse_instruction {
-	uint16_t opcode;
-        parse_argument_list *args;
-    };
-
-    extern parse_instruction_list *parsed_code;
-
-    KHASH_MAP_INIT_STR(label_table, uint32_t);
-    extern khash_t(label_table) *label_table;
+    #include "ainedit.h"
 }
 
 %{
@@ -51,20 +35,19 @@ void asm_error(const char *s)
     sys_error("ERROR: At line %d: %s\n", asm_line, s);
 }
 
-static uint32_t instr_ptr;
+uint32_t asm_instr_ptr = 0;
 
 static parse_instruction_list *make_program(void)
 {
     parse_instruction_list *program = xmalloc(sizeof(parse_instruction_list));
     kv_init(*program);
-    instr_ptr = 0;
     return program;
 }
 
 static void push_instruction(parse_instruction_list *program, struct parse_instruction *instr)
 {
     kv_push(struct parse_instruction*, *program, instr);
-    instr_ptr += asm_instruction_width(instr->opcode);
+    asm_instr_ptr += asm_instruction_width(instr->opcode);
 }
 
 static struct parse_instruction *make_instruction(struct string *name, parse_argument_list *args)
@@ -114,11 +97,11 @@ static void push_label(char *name)
     int ret;
     khiter_t k = kh_put(label_table, label_table, name, &ret);
     if (!ret) {
-        if (kh_value(label_table, k) != instr_ptr)
+        if (kh_value(label_table, k) != asm_instr_ptr)
             ERROR("Duplicate label: %s", name);
         return;
     }
-    kh_value(label_table, k) = instr_ptr;
+    kh_value(label_table, k) = asm_instr_ptr;
 }
 
 %}

@@ -27,7 +27,6 @@
 #include "system4/instructions.h"
 #include "system4/string.h"
 #include "alice.h"
-#include "asm_parser.tab.h"
 
 extern FILE *asm_in;
 extern unsigned long asm_line;
@@ -39,7 +38,7 @@ KHASH_MAP_INIT_STR(string_ht, size_t);
 
 #define MACRO(code, _name, nargs, _ip_inc, ...)	\
 	[code - PSEUDO_OP_OFFSET] = {			\
-		.opcode = code,				\
+		.opcode = (enum opcode)code,		\
 		.name = _name,				\
 		.nr_args = nargs,			\
 		.ip_inc = _ip_inc,			\
@@ -49,7 +48,7 @@ KHASH_MAP_INIT_STR(string_ht, size_t);
 
 #define PSEUDO_OP(code, _name, nargs, ...)	\
 	[code - PSEUDO_OP_OFFSET] = {		\
-		.opcode = code,			\
+		.opcode = (enum opcode)code,	\
 		.name = _name,			\
 		.nr_args = nargs,		\
 		.ip_inc = 0,			\
@@ -124,6 +123,21 @@ const_pure int32_t asm_instruction_width(int opcode)
 
 static void init_asm_state(struct asm_state *state, struct ain *ain, uint32_t flags)
 {
+	// update offsets for version-dependent macro expansion
+	if (AIN_VERSION_GTE(ain, 14, 0)) {
+		asm_pseudo_ops[PO_LOCALREF      - PSEUDO_OP_OFFSET].ip_inc = 14;
+		asm_pseudo_ops[PO_GLOBALREF     - PSEUDO_OP_OFFSET].ip_inc = 14;
+		asm_pseudo_ops[PO_STRUCTREF     - PSEUDO_OP_OFFSET].ip_inc = 14;
+		asm_pseudo_ops[PO_LOCALASSIGN   - PSEUDO_OP_OFFSET].ip_inc = 22;
+		asm_pseudo_ops[PO_S_LOCALASSIGN - PSEUDO_OP_OFFSET].ip_inc = 36;
+		asm_pseudo_ops[PO_GLOBALASSIGN  - PSEUDO_OP_OFFSET].ip_inc = 22;
+		asm_pseudo_ops[PO_STRUCTASSIGN  - PSEUDO_OP_OFFSET].ip_inc = 22;
+		asm_pseudo_ops[PO_LOCALCREATE   - PSEUDO_OP_OFFSET].ip_inc = 40;
+		asm_pseudo_ops[PO_LOCALDELETE   - PSEUDO_OP_OFFSET].ip_inc = 36;
+		asm_pseudo_ops[PO_LOCALINC2     - PSEUDO_OP_OFFSET].ip_inc = 34;
+		asm_pseudo_ops[PO_LOCALDEC2     - PSEUDO_OP_OFFSET].ip_inc = 34;
+	}
+
 	memset(state, 0, sizeof(*state));
 	state->ain = ain;
 	state->flags = flags;
@@ -955,26 +969,8 @@ static void asm_leave_function(struct asm_state *state)
 	}
 }
 
-void asm_assemble_jam(const char *filename, struct ain *ain, uint32_t flags)
+static parse_instruction_list *jam_parse(const char *filename, uint32_t instr_ptr)
 {
-	// update offsets for version-dependent macro expansion
-	if (AIN_VERSION_GTE(ain, 14, 0)) {
-		asm_pseudo_ops[PO_LOCALREF      - PSEUDO_OP_OFFSET].ip_inc = 14;
-		asm_pseudo_ops[PO_GLOBALREF     - PSEUDO_OP_OFFSET].ip_inc = 14;
-		asm_pseudo_ops[PO_STRUCTREF     - PSEUDO_OP_OFFSET].ip_inc = 14;
-		asm_pseudo_ops[PO_LOCALASSIGN   - PSEUDO_OP_OFFSET].ip_inc = 22;
-		asm_pseudo_ops[PO_S_LOCALASSIGN - PSEUDO_OP_OFFSET].ip_inc = 36;
-		asm_pseudo_ops[PO_GLOBALASSIGN  - PSEUDO_OP_OFFSET].ip_inc = 22;
-		asm_pseudo_ops[PO_STRUCTASSIGN  - PSEUDO_OP_OFFSET].ip_inc = 22;
-		asm_pseudo_ops[PO_LOCALCREATE   - PSEUDO_OP_OFFSET].ip_inc = 40;
-		asm_pseudo_ops[PO_LOCALDELETE   - PSEUDO_OP_OFFSET].ip_inc = 36;
-		asm_pseudo_ops[PO_LOCALINC2     - PSEUDO_OP_OFFSET].ip_inc = 34;
-		asm_pseudo_ops[PO_LOCALDEC2     - PSEUDO_OP_OFFSET].ip_inc = 34;
-	}
-
-	struct asm_state state;
-	init_asm_state(&state, ain, flags);
-
 	current_line_nr = &asm_line;
 	current_file_name = &filename;
 
@@ -986,14 +982,21 @@ void asm_assemble_jam(const char *filename, struct ain *ain, uint32_t flags)
 		ERROR("Opening input file '%s': %s", filename, strerror(errno));
 
 	label_table = kh_init(label_table);
-	NOTICE("Parsing...");
+	asm_instr_ptr = instr_ptr;
 	asm_parse();
+	return parsed_code;
+}
+
+static void jam_assemble(struct asm_state *state, const char *filename)
+{
+	NOTICE("Parsing...");
+	parse_instruction_list *code = jam_parse(filename, state->buf_ptr);
 
 	NOTICE("Encoding...");
-	for (size_t i = 0; i < kv_size(*parsed_code); i++) {
-		struct parse_instruction *instr = kv_A(*parsed_code, i);
+	for (size_t i = 0; i < kv_size(*code); i++) {
+		struct parse_instruction *instr = kv_A(*code, i);
 		if (instr->opcode >= PSEUDO_OP_OFFSET) {
-			handle_pseudo_op(&state, instr);
+			handle_pseudo_op(state, instr);
 			continue;
 		}
 
@@ -1001,37 +1004,59 @@ void asm_assemble_jam(const char *filename, struct ain *ain, uint32_t flags)
 
 		// NOTE: special case: we need to record the new function address in the ain structure
 		if (idef->opcode == FUNC) {
-			asm_enter_function(&state, asm_resolve_arg(&state, FUNC, T_INT, kv_A(*instr->args, 0)->text));
+			asm_enter_function(state, asm_resolve_arg(state, FUNC, T_INT, kv_A(*instr->args, 0)->text));
 			continue;
 		} else if (idef->opcode == ENDFUNC) {
-			asm_leave_function(&state);
+			asm_leave_function(state);
 		}
 
-		asm_write_opcode(&state, instr->opcode);
+		asm_write_opcode(state, instr->opcode);
 		for (int a = 0; a < idef->nr_args; a++) {
-			asm_write_argument(&state, asm_resolve_arg(&state, idef->opcode, idef->args[a], kv_A(*instr->args, a)->text));
+			asm_write_argument(state, asm_resolve_arg(state, idef->opcode, idef->args[a], kv_A(*instr->args, a)->text));
 		}
 	}
 
-	for (size_t i = 0; i < kv_size(*parsed_code); i++) {
-		struct parse_instruction *instr = kv_A(*parsed_code, i);
+	for (size_t i = 0; i < kv_size(*code); i++) {
+		struct parse_instruction *instr = kv_A(*code, i);
 		if (!instr->args)
 			continue;
 		for (size_t a = 0; a < kv_size(*instr->args); a++) {
 			free_string(kv_A(*instr->args, a));
 		}
 	}
+}
 
-	/*
-	if (state.buf_ptr != ain->code_size)
-		WARNING("CODE SIZE CHANGED");
-	if (state.strings.size != (size_t)ain->nr_strings)
-		WARNING("NR STRINGS CHANGED (%d -> %lu)", ain->nr_strings, state.strings.size);
-	if (state.messages.size != (size_t)ain->nr_messages)
-		WARNING("NR MESSAGES CHANGED (%d -> %lu)", ain->nr_messages, state.messages.size);
-	*/
+/*
+ * Assemble .jam file to replace entire code section.
+ */
+void asm_assemble_jam(const char *filename, struct ain *ain, uint32_t flags)
+{
+	// assemble .jam
+	struct asm_state state;
+	init_asm_state(&state, ain, flags);
+	jam_assemble(&state, filename);
 
+	// replace code section
 	free(ain->code);
+	ain->code = state.buf;
+	ain->code_size = state.buf_ptr;
+
+	validate_ain(ain);
+}
+
+/*
+ * Assemble .jam file as a patch (can be used to modify specific functions, etc).
+ */
+void asm_append_jam(const char *filename, struct ain *ain, int32_t flags)
+{
+	// assemble .jam
+	struct asm_state state;
+	init_asm_state(&state, ain, flags);
+	state.buf = ain->code;
+	state.buf_len = ain->code_size;
+	state.buf_ptr = ain->code_size;
+	jam_assemble(&state, filename);
+
 	ain->code = state.buf;
 	ain->code_size = state.buf_ptr;
 
