@@ -92,6 +92,17 @@ nunuhara@haniwa.technology, or find me on /haniho/.
 Version History
 ---------------
 
+### [Version 0.9.0](https://haniwa.technology/alice-tools/alice-tools-0.9.0.zip)
+
+* Change naming of ain v12+ instructions/types to better reflect their semantics
+* Implement ain v14+ versions of various macros
+* Automatically dump .ex/.pactex files when extracting archives
+* An archive's table-of-contents can now be overridden when extracting
+* The ain edit command now processes files in the order given on the command line
+* The ain edit command now accepts a --jam option for patching the code section
+* Many improvements/fixes to the (experimental) .jaf compiler
+* Various bug fixes
+
 ### [Version 0.8.0](https://haniwa.technology/alice-tools/alice-tools-0.8.0.zip)
 
 * Add `ar pack` command for creating AFAv2 archives
