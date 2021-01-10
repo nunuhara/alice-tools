@@ -92,6 +92,10 @@ nunuhara@haniwa.technology, or find me on /haniho/.
 Version History
 ---------------
 
+### [Version 0.9.1](https://haniwa.technology/alice-tools/alice-tools-0.9.1.zip)
+
+* Fix encoding issue when using the `ar pack` command on Windows
+
 ### [Version 0.9.0](https://haniwa.technology/alice-tools/alice-tools-0.9.0.zip)
 
 * Change naming of ain v12+ instructions/types to better reflect their semantics
