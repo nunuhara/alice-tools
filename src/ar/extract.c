@@ -107,7 +107,7 @@ static bool is_ex_file(struct archive_data *data)
 static bool is_flat_file(struct archive_data *data)
 {
 	if (!memcmp(data->data, "ELNA", 4))
-		data += 8;
+		return !memcmp(data->data+8, "FLAT", 4);
 	return !memcmp(data->data, "FLAT", 4);
 }
 
@@ -172,7 +172,7 @@ static bool write_file(struct archive_data *data, const char *output_file, enum 
 	bool output_img = !raw && is_image;
 	bool output_ex = !raw && is_ex_file(data);
 
-	if (images_only && is_image)
+	if (images_only && !is_image)
 		return true;
 
 	if (!output_file) {
