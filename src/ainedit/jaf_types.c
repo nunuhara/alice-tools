@@ -67,6 +67,7 @@ static enum ain_data_type strip_ref(struct ain_type *type)
 	case AIN_REF_ARRAY_BOOL:      return AIN_ARRAY_BOOL;
 	case AIN_REF_LONG_INT:        return AIN_LONG_INT;
 	case AIN_REF_ARRAY_LONG_INT:  return AIN_ARRAY_LONG_INT;
+	case AIN_REF_ARRAY:           return AIN_ARRAY;
 	case AIN_WRAP:
 		assert(type->array_type);
 		return type->array_type->data;
@@ -465,6 +466,7 @@ static int get_builtin_lib(struct ain *ain, enum ain_data_type type, struct jaf_
 	int lib = -1;
 	switch (type) {
 	case AIN_ARRAY:
+	case AIN_REF_ARRAY:
 		lib = ain_get_library(ain, "Array");
 		break;
 	case AIN_STRING:
@@ -505,6 +507,7 @@ static int array_type_param(struct jaf_env *env, struct ain_type *type)
 			// XXX: Not totally sure if this is right... maybe always 2 here?
 			return array_type_param(env, type->array_type);
 		case AIN_ARRAY:
+		case AIN_REF_ARRAY:
 			return array_type_param(env, type->array_type);
 		case AIN_INT:
 		case AIN_FLOAT:
@@ -542,7 +545,7 @@ static void jaf_check_types_builtin_hll_call(struct jaf_env *env, struct ain_typ
 	expr->type = JAF_EXP_BUILTIN_CALL;
 	expr->call.lib_no = lib;
 	expr->call.func_no = fun;
-	if (type->data == AIN_ARRAY) {
+	if (type->data == AIN_ARRAY || type->data == AIN_REF_ARRAY) {
 		expr->call.type_param = array_type_param(env, type->array_type);
 	} else {
 		expr->call.type_param = 0;
@@ -739,7 +742,7 @@ static enum ain_data_type array_data_type(struct ain_type *type)
 	case AIN_ARRAY_BOOL:      case AIN_REF_ARRAY_BOOL:      return AIN_BOOL;
 	case AIN_ARRAY_LONG_INT:  case AIN_REF_ARRAY_LONG_INT:  return AIN_LONG_INT;
 	case AIN_ARRAY_DELEGATE:  case AIN_REF_ARRAY_DELEGATE:  return AIN_DELEGATE;
-	case AIN_ARRAY: return type->array_type->data;
+	case AIN_ARRAY:           case AIN_REF_ARRAY:           return type->array_type->data;
 	default:
 		return AIN_VOID;
 	}
@@ -749,6 +752,7 @@ static void jaf_type_check_array(struct jaf_expression *expr)
 {
 	switch (expr->valuetype.data) {
 	case AIN_ARRAY:
+	case AIN_REF_ARRAY:
 	case AIN_ARRAY_TYPE:
 	case AIN_REF_ARRAY_TYPE:
 		return;

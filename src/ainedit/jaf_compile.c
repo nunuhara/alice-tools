@@ -328,6 +328,7 @@ static void compile_lvalue_after(struct compiler_state *state, enum ain_data_typ
 	case AIN_STRUCT:
 	case AIN_REF_STRUCT:
 	case AIN_ARRAY:
+	case AIN_REF_ARRAY:
 		write_instruction0(state, REF);
 		break;
 	default:
@@ -1200,7 +1201,9 @@ static void compile_break(struct compiler_state *state, struct jaf_block_item *i
 
 static void compile_message(struct compiler_state *state, struct jaf_block_item *item)
 {
-	int no = ain_add_message(state->ain, item->msg.text->text);
+	char *msg = conv_output(item->msg.text->text);
+	int no = ain_add_message(state->ain, msg);
+	free(msg);
 	write_instruction1(state, MSG, no);
 	if (item->msg.func)
 		write_instruction1(state, CALLFUNC, item->msg.func_no);
