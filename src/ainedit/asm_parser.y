@@ -125,7 +125,7 @@ lines   :	line { $$ = make_program(); if ($1) { push_instruction($$, $1); } }
 	;
 
 line    :	NEWLINE { $$ = NULL; }
-	|	LABEL { push_label($1->text); $$ = NULL; }
+	|	LABEL { push_label(strdup($1->text)); free_string($1); $$ = NULL; }
 	|	IDENTIFIER NEWLINE { $$ = make_instruction($1, NULL); }
 	|	IDENTIFIER args NEWLINE { $$ = make_instruction($1, $2); }
 

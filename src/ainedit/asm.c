@@ -1018,12 +1018,24 @@ static void jam_assemble(struct asm_state *state, const char *filename)
 
 	for (size_t i = 0; i < kv_size(*code); i++) {
 		struct parse_instruction *instr = kv_A(*code, i);
-		if (!instr->args)
+		if (!instr->args) {
+			free(instr);
 			continue;
+		}
 		for (size_t a = 0; a < kv_size(*instr->args); a++) {
 			free_string(kv_A(*instr->args, a));
 		}
+		kv_destroy(*instr->args);
+		free(instr->args);
+		free(instr);
 	}
+	kv_destroy(*code);
+	free(code);
+
+	const char *key;
+	possibly_unused uint32_t val;
+	kh_foreach(label_table, key, val, { free((char*)key); });
+	kh_destroy(label_table, label_table);
 }
 
 /*
