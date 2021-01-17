@@ -851,6 +851,8 @@ static bool is_numeric(enum ain_data_type type)
 
 void jaf_check_type(struct jaf_expression *expr, struct ain_type *type)
 {
+	if (type->data == AIN_VOID && !expr)
+		return;
 	if (!jaf_type_equal(&expr->valuetype, type)) {
 		// numeric types are compatible (implicit cast)
 		if (is_numeric(expr->valuetype.data) && is_numeric(type->data))
