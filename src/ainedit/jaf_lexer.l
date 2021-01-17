@@ -114,7 +114,7 @@ unsigned long jaf_line = 1;
 {HP}{H}+{IS}?				{ RETURN_STRING(I_CONSTANT); }
 {NZ}{D}*{IS}?				{ RETURN_STRING(I_CONSTANT); }
 "0"{O}*{IS}?				{ RETURN_STRING(I_CONSTANT); }
-"'"([^'\\\n]|{ES})+"'"			{ yylval.string = make_string(yytext+1, yyleng-2); return C_CONSTANT; }
+"'"([^'\\\n]|{ES})*"'"			{ yylval.string = make_string(yytext+1, yyleng-2); return C_CONSTANT; }
 
 {D}+{E}{FS}?				{ RETURN_STRING(F_CONSTANT); }
 {D}*"."{D}+{E}?{FS}?			{ RETURN_STRING(F_CONSTANT); }
