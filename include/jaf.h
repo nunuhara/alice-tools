@@ -80,12 +80,14 @@ enum jaf_expression_type {
 	JAF_EXP_FLOAT,
 	JAF_EXP_STRING,
 	JAF_EXP_IDENTIFIER,
+	JAF_EXP_THIS,
 	JAF_EXP_UNARY,
 	JAF_EXP_BINARY,
 	JAF_EXP_TERNARY,
 	JAF_EXP_FUNCALL,
 	JAF_EXP_SYSCALL,
 	JAF_EXP_HLLCALL,
+	JAF_EXP_METHOD_CALL,
 	JAF_EXP_BUILTIN_CALL,
 	JAF_EXP_CAST,
 	JAF_EXP_MEMBER,
@@ -375,6 +377,7 @@ struct string *jaf_process_string(struct string *text);
 struct jaf_expression *jaf_string(struct string *text);
 struct jaf_expression *jaf_char(struct string *text);
 struct jaf_expression *jaf_identifier(struct string *name);
+struct jaf_expression *jaf_this(void);
 struct jaf_expression *jaf_unary_expr(enum jaf_operator op, struct jaf_expression *expr);
 struct jaf_expression *jaf_binary_expr(enum jaf_operator op, struct jaf_expression *lhs, struct jaf_expression *rhs);
 struct jaf_expression *jaf_ternary_expr(struct jaf_expression *test, struct jaf_expression *cons, struct jaf_expression *alt);

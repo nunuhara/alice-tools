@@ -122,6 +122,9 @@ void jaf_print_expression(FILE *out, struct jaf_expression *expr)
 		// FIXME: handle escapes
 		fprintf(out, "\"%s\"", expr->s->text);
 		break;
+	case JAF_EXP_THIS:
+		fprintf(out, "this");
+		break;
 	case JAF_EXP_IDENTIFIER:
 		fprintf(out, "%s", expr->ident.name->text);
 		break;
@@ -160,6 +163,7 @@ void jaf_print_expression(FILE *out, struct jaf_expression *expr)
 	case JAF_EXP_FUNCALL:
 	case JAF_EXP_HLLCALL:
 	case JAF_EXP_BUILTIN_CALL:
+	case JAF_EXP_METHOD_CALL:
 		jaf_print_expression(out, expr->call.fun);
 		print_arglist(out, expr->call.args);
 		break;

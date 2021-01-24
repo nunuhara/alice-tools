@@ -185,9 +185,24 @@ static uint32_t flo2int(float f)
 	return v.i;
 }
 
+static bool is_integer_type(enum ain_data_type type)
+{
+	switch (type) {
+	case AIN_INT:
+	case AIN_REF_INT:
+	case AIN_BOOL:
+	case AIN_REF_BOOL:
+	case AIN_ENUM:
+	case AIN_REF_ENUM:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static void write_instruction_for_op(struct compiler_state *state, enum jaf_operator op, enum ain_data_type lhs_type, enum ain_data_type rhs_type)
 {
-		if (lhs_type == AIN_FLOAT || lhs_type == AIN_REF_FLOAT) {
+	if (lhs_type == AIN_FLOAT || lhs_type == AIN_REF_FLOAT) {
 		switch (op) {
 		case JAF_MULTIPLY:      write_instruction0(state, F_MUL); break;
 		case JAF_DIVIDE:        write_instruction0(state, F_DIV); break;
@@ -207,7 +222,7 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		case JAF_REF_ASSIGN:    // TODO
 		default:                _COMPILER_ERROR(NULL, -1, "Invalid floating point operator");
 		}
-	} else if (lhs_type == AIN_INT || lhs_type == AIN_REF_INT) {
+	} else if (is_integer_type(lhs_type)) {
 		switch (op) {
 		case JAF_MULTIPLY:      write_instruction0(state, MUL); break;
 		case JAF_DIVIDE:        write_instruction0(state, DIV); break;
@@ -253,7 +268,9 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		case JAF_ASSIGN:     write_instruction0(state, S_ASSIGN); break;
 		case JAF_REMAINDER:
 			switch (rhs_type) {
-			case AIN_INT: write_instruction1(state, S_MOD, 2); break;
+			case AIN_INT:
+			case AIN_ENUM:
+				write_instruction1(state, S_MOD, 2); break;
 			case AIN_FLOAT:  write_instruction1(state, S_MOD, 3); break;
 			case AIN_STRING: write_instruction1(state, S_MOD, 4); break;
 			default:         _COMPILER_ERROR(NULL, -1, "Invalid type for string formatting");
@@ -350,6 +367,8 @@ static void compile_lvalue(struct compiler_state *state, struct jaf_expression *
 		compile_lvalue(state, expr->subscript.expr);  // page
 		compile_expression(state, expr->subscript.index); // page-index
 		compile_lvalue_after(state, expr->valuetype.data);
+	} else if (expr->type == JAF_EXP_THIS) {
+		compile_expression(state, expr);
 	} else {
 		COMPILER_ERROR(expr, "Invalid lvalue (expression type %d)", expr->type);
 	}
@@ -656,13 +675,8 @@ static void jaf_compile_functype_call(struct compiler_state *state, struct jaf_e
 	write_instruction0(state, CALLFUNC2);
 }
 
-static void compile_funcall(struct compiler_state *state, struct jaf_expression *expr)
+static void compile_function_arguments(struct compiler_state *state, struct jaf_expression *expr)
 {
-	if (expr->call.fun->valuetype.data == AIN_FUNC_TYPE) {
-		jaf_compile_functype_call(state, expr);
-		return;
-	}
-
 	for (size_t i = 0; i < expr->call.args->nr_items; i++) {
 		struct ain_function *f = &state->ain->functions[expr->call.func_no];
 		if (ain_ref_type(f->vars[expr->call.args->var_nos[i]].type.data)) {
@@ -671,7 +685,32 @@ static void compile_funcall(struct compiler_state *state, struct jaf_expression 
 			compile_expression(state, expr->call.args->items[i]);
 		}
 	}
+}
+
+static void compile_funcall(struct compiler_state *state, struct jaf_expression *expr)
+{
+	if (expr->call.fun->valuetype.data == AIN_FUNC_TYPE) {
+		jaf_compile_functype_call(state, expr);
+		return;
+	}
+	compile_function_arguments(state, expr);
 	write_instruction1(state, CALLFUNC, expr->call.func_no);
+}
+
+static void compile_method_call(struct compiler_state *state, struct jaf_expression *expr)
+{
+	assert(expr->call.fun->type == JAF_EXP_MEMBER);
+	compile_lvalue(state, expr->call.fun->member.struc);
+
+	if (AIN_VERSION_GTE(state->ain, 11, 0)) {
+		write_instruction1(state, PUSH, expr->call.func_no);
+		compile_function_arguments(state, expr);
+		// TODO: should this be f->nr_args or args->nr_items?
+		write_instruction1(state, CALLMETHOD, expr->call.args->nr_items);
+	} else {
+		compile_function_arguments(state, expr);
+		write_instruction1(state, CALLMETHOD, expr->call.func_no);
+	}
 }
 
 static void compile_syscall(struct compiler_state *state, struct jaf_expression *expr)
@@ -748,6 +787,8 @@ static void compile_cast(struct compiler_state *state, struct jaf_expression *ex
 		} else {
 			goto invalid_cast;
 		}
+	} else {
+		goto invalid_cast;
 	}
 	return;
 invalid_cast:
@@ -796,6 +837,9 @@ static void compile_expression(struct compiler_state *state, struct jaf_expressi
 			compile_identifier(state, expr);
 		}
 		break;
+	case JAF_EXP_THIS:
+		write_instruction0(state, PUSHSTRUCTPAGE);
+		break;
 	case JAF_EXP_UNARY:
 		compile_unary(state, expr);
 		break;
@@ -813,6 +857,9 @@ static void compile_expression(struct compiler_state *state, struct jaf_expressi
 		break;
 	case JAF_EXP_HLLCALL:
 		compile_hllcall(state, expr, 0);
+		break;
+	case JAF_EXP_METHOD_CALL:
+		compile_method_call(state, expr);
 		break;
 	case JAF_EXP_BUILTIN_CALL:
 		compile_builtin_call(state, expr);
@@ -843,6 +890,7 @@ static void compile_nullexpr(struct compiler_state *state, enum ain_data_type ty
 	case AIN_INT:
 	case AIN_BOOL:
 	case AIN_LONG_INT:
+	case AIN_ENUM:
 		write_instruction1(state, PUSH, 0);
 		break;
 	case AIN_FLOAT:
@@ -854,6 +902,8 @@ static void compile_nullexpr(struct compiler_state *state, enum ain_data_type ty
 	case AIN_STRUCT:
 	case AIN_REF_STRUCT:
 	case AIN_REF_STRING:
+	case AIN_ARRAY:
+	case AIN_REF_ARRAY:
 		write_instruction1(state, PUSH, -1);
 		break;
 	case AIN_REF_INT:

@@ -96,12 +96,12 @@ DIR *checked_opendir(const char *path)
 {
 	DIR *d = opendir(path);
 	if (!d)
-		ALICE_ERROR("opendir(\"%s\"): %s", strerror(errno));
+		ALICE_ERROR("opendir(\"%s\"): %s", path, strerror(errno));
 	return d;
 }
 
 void checked_stat(const char *path, struct stat *s)
 {
 	if (stat(path, s))
-		ALICE_ERROR("stat(\"%s\"): %s", strerror(errno));
+		ALICE_ERROR("stat(\"%s\"): %s", path, strerror(errno));
 }

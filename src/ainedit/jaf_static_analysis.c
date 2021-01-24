@@ -63,7 +63,7 @@ enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type)
 	case JAF_FLOAT:     return AIN_FLOAT;
 	case JAF_STRING:    return AIN_STRING;
 	case JAF_STRUCT:    return AIN_STRUCT;
-	case JAF_ENUM:      _COMPILER_ERROR(NULL, -1, "Enums not supported");
+	case JAF_ENUM:      return AIN_ENUM;
 	case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 	case JAF_WRAP:      return AIN_WRAP;
 	case JAF_HLL_PARAM: return AIN_HLL_PARAM;
@@ -105,7 +105,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_FLOAT:     return AIN_REF_FLOAT;
 		case JAF_STRING:    return AIN_REF_STRING;
 		case JAF_STRUCT:    return AIN_REF_STRUCT;
-		case JAF_ENUM:      _COMPILER_ERROR(NULL, -1, "Enums not supported");
+		case JAF_ENUM:      return AIN_REF_ENUM;
 		case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 		case JAF_WRAP:      _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
 		case JAF_HLL_PARAM: return AIN_REF_HLL_PARAM;
@@ -143,7 +143,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 static void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_specifier *in)
 {
 	out->data = jaf_to_ain_data_type(ain, in);
-	if (in->type == JAF_STRUCT || in->type == JAF_FUNCTYPE) {
+	if (in->type == JAF_STRUCT || in->type == JAF_FUNCTYPE || in->type == JAF_ENUM) {
 		out->struc = in->struct_no;
 	} else {
 		out->struc = -1;
@@ -169,19 +169,25 @@ static void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_ty
 
 static void resolve_typedef(struct ain *ain, struct jaf_block_item *item, struct jaf_type_specifier *type)
 {
-	int no;
-	char *u = conv_output(type->name->text);
-	if ((no = ain_get_struct(ain, u)) >= 0) {
-		type->type = JAF_STRUCT;
-		type->struct_no = no;
-	} else if ((no = ain_get_functype(ain, u)) >= 0) {
-		type->type = JAF_FUNCTYPE;
-		type->func_no = no;
-	} else {
-		COMPILER_ERROR(item, "Failed to resolve typedef \"%s\"", type->name->text);
+	if (type->type == JAF_TYPEDEF) {
+		int no;
+		char *u = conv_output(type->name->text);
+		if ((no = ain_get_struct(ain, u)) >= 0) {
+			type->type = JAF_STRUCT;
+			type->struct_no = no;
+		} else if ((no = ain_get_functype(ain, u)) >= 0) {
+			type->type = JAF_FUNCTYPE;
+			type->func_no = no;
+		} else if ((no = ain_get_enum(ain, u)) >= 0) {
+			type->type = JAF_ENUM;
+			type->struct_no = no;
+		} else {
+			COMPILER_ERROR(item, "Failed to resolve typedef \"%s\"", type->name->text);
+		}
+		free(u);
+	} else if (type->type == JAF_ARRAY) {
+		resolve_typedef(ain, item, type->array_type);
 	}
-
-	free(u);
 }
 
 static void jaf_to_initval(struct ain_initval *dst, struct jaf_expression *expr)
@@ -458,14 +464,14 @@ static void resolve_statement_types(struct ain *ain, struct jaf_block_item *item
 		return;
 	switch (item->kind) {
 	case JAF_DECL_VAR:
-		if (item->var.type->type == JAF_TYPEDEF)
-			resolve_typedef(ain, item, item->var.type);
+		resolve_typedef(ain, item, item->var.type);
 		break;
 	case JAF_DECL_FUNCTYPE:
 		if (item->fun.params)
 			jaf_resolve_types(ain, item->fun.params);
 		break;
 	case JAF_DECL_FUN:
+		resolve_typedef(ain, item, item->fun.type);
 		if (item->fun.params)
 			jaf_resolve_types(ain, item->fun.params);
 		jaf_resolve_types(ain, item->fun.body);
@@ -626,7 +632,7 @@ static void function_init_vars(struct ain *ain, struct jaf_fundecl *decl, int32_
 static int _add_function(struct ain *ain, struct jaf_fundecl *decl)
 {
 	struct ain_function f = {0};
-	f.name = strdup(decl->name->text);
+	f.name = conv_output(decl->name->text);
 	jaf_to_ain_type(ain, &f.return_type, decl->type);
 	function_init_vars(ain, decl, &f.nr_args, &f.nr_vars, &f.vars);
 	return ain_add_function(ain, &f);

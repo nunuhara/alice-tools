@@ -132,6 +132,11 @@ struct jaf_expression *jaf_identifier(struct string *name)
 	return e;
 }
 
+struct jaf_expression *jaf_this(void)
+{
+	return jaf_expr(JAF_EXP_THIS, 0);
+}
+
 struct jaf_expression *jaf_unary_expr(enum jaf_operator op, struct jaf_expression *expr)
 {
 	struct jaf_expression *e = jaf_expr(JAF_EXP_UNARY, op);
@@ -561,6 +566,7 @@ void jaf_free_expr(struct jaf_expression *expr)
 	case JAF_EXP_VOID:
 	case JAF_EXP_INT:
 	case JAF_EXP_FLOAT:
+	case JAF_EXP_THIS:
 		break;
 	case JAF_EXP_STRING:
 	case JAF_EXP_CHAR:
@@ -584,6 +590,7 @@ void jaf_free_expr(struct jaf_expression *expr)
 	case JAF_EXP_FUNCALL:
 	case JAF_EXP_SYSCALL:
 	case JAF_EXP_HLLCALL:
+	case JAF_EXP_METHOD_CALL:
 	case JAF_EXP_BUILTIN_CALL:
 		jaf_free_expr(expr->call.fun);
 		for (size_t i = 0; i < expr->call.args->nr_items; i++) {

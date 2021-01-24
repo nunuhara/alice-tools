@@ -104,6 +104,10 @@ int sym_type(char *name)
 	free(u);
 	return TYPEDEF_NAME;
     }
+    if (ain_get_enum(jaf_ain_out, u) >= 0) {
+        free(u);
+        return TYPEDEF_NAME;
+    }
     free(u);
     return IDENTIFIER;
 }
@@ -177,7 +181,7 @@ static struct jaf_block *jaf_functype(struct jaf_type_specifier *type, struct ja
 %token	<token>		SYM_REF REF_ASSIGN ARRAY WRAP FUNCTYPE DELEGATE
 %token	<token>		FILE_MACRO LINE_MACRO FUNC_MACRO DATE_MACRO TIME_MACRO
 
-%token	<token>		CONST OVERRIDE
+%token	<token>		CONST OVERRIDE THIS
 %token	<token>		BOOL CHAR INT LINT FLOAT VOID STRING INTP FLOATP HLL_PARAM HLL_FUNC
 %token	<token>		STRUCT UNION ENUM ELLIPSIS SYM_TRUE SYM_FALSE
 
@@ -218,6 +222,7 @@ static struct jaf_block *jaf_functype(struct jaf_type_specifier *type, struct ja
 
 primary_expression
 	: IDENTIFIER         { $$ = jaf_identifier($1); }
+	| THIS               { $$ = jaf_this(); }
 	| constant           { $$ = $1; }
 	| string             { $$ = jaf_string($1); }
 	| '(' expression ')' { $$ = $2; }

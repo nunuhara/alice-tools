@@ -107,6 +107,7 @@ unsigned long jaf_line = 1;
 "functype"                              { return FUNCTYPE; }
 "delegate"                              { return DELEGATE; }
 "override"                              { return OVERRIDE; }
+"this"                                  { return THIS; }
 
 {L}                                     { return check_type(); }
 {L}{A}*{AT}                             { return check_type(); }

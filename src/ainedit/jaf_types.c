@@ -57,6 +57,7 @@ static enum ain_data_type strip_ref(struct ain_type *type)
 	case AIN_REF_FLOAT:           return AIN_FLOAT;
 	case AIN_REF_STRING:          return AIN_STRING;
 	case AIN_REF_STRUCT:          return AIN_STRUCT;
+	case AIN_REF_ENUM:            return AIN_ENUM;
 	case AIN_REF_ARRAY_INT:       return AIN_ARRAY_INT;
 	case AIN_REF_ARRAY_FLOAT:     return AIN_ARRAY_FLOAT;
 	case AIN_REF_ARRAY_STRING:    return AIN_ARRAY_STRING;
@@ -96,6 +97,7 @@ static enum ain_data_type jaf_type_check_numeric(struct jaf_expression *expr)
 	case AIN_FLOAT:
 	case AIN_BOOL:
 	case AIN_LONG_INT:
+	case AIN_ENUM:
 		return expr->valuetype.data;
 	case AIN_REF_INT:
 		return AIN_INT;
@@ -105,6 +107,8 @@ static enum ain_data_type jaf_type_check_numeric(struct jaf_expression *expr)
 		return AIN_BOOL;
 	case AIN_REF_LONG_INT:
 		return AIN_LONG_INT;
+	case AIN_REF_ENUM:
+		return AIN_ENUM;
 	default:
 		TYPE_ERROR(expr, AIN_INT);
 	}
@@ -116,6 +120,7 @@ static enum ain_data_type jaf_type_check_int(struct jaf_expression *expr)
 	case AIN_INT:
 	case AIN_LONG_INT:
 	case AIN_BOOL:
+	case AIN_ENUM:
 		return expr->valuetype.data;
 	case AIN_REF_INT:
 		return AIN_INT;
@@ -123,6 +128,8 @@ static enum ain_data_type jaf_type_check_int(struct jaf_expression *expr)
 		return AIN_LONG_INT;
 	case AIN_REF_BOOL:
 		return AIN_BOOL;
+	case AIN_REF_ENUM:
+		return AIN_ENUM;
 	default:
 		TYPE_ERROR(expr, AIN_INT);
 	}
@@ -134,21 +141,15 @@ static enum ain_data_type jaf_merge_types(enum ain_data_type a, enum ain_data_ty
 {
 	if (a == b)
 		return a;
-	if (a == AIN_INT) {
-		if (b == AIN_LONG_INT)
-			return AIN_LONG_INT;
-		if (b == AIN_FLOAT)
-			return AIN_FLOAT;
-	} else if (a == AIN_LONG_INT) {
-		if (b == AIN_INT)
-			return AIN_LONG_INT;
-		if (b == AIN_FLOAT)
-			return AIN_FLOAT;
-	} else if (a == AIN_FLOAT) {
-		if (a == AIN_INT || a == AIN_LONG_INT)
-			return AIN_FLOAT;
+	if (a == AIN_FLOAT || b == AIN_FLOAT)
+		return AIN_FLOAT;
+	if (a == AIN_LONG_INT || b == AIN_LONG_INT) {
+		return AIN_LONG_INT;
 	}
-	_COMPILER_ERROR(NULL, -1, "Incompatible types");
+	// bool + enum = int
+	// int + bool = int
+	// int + enum = int
+	return AIN_INT;
 }
 
 static void jaf_check_types_lvalue(possibly_unused struct jaf_env *env, struct jaf_expression *e)
@@ -162,11 +163,13 @@ static void jaf_check_types_lvalue(possibly_unused struct jaf_env *env, struct j
 	case AIN_BOOL:
 	case AIN_LONG_INT:
 	case AIN_STRING:
+	case AIN_ENUM:
 	case AIN_REF_INT:
 	case AIN_REF_FLOAT:
 	case AIN_REF_BOOL:
 	case AIN_REF_LONG_INT:
 	case AIN_REF_STRING:
+	case AIN_REF_ENUM:
 		break;
 	default:
 		JAF_ERROR(e, "Invalid type as lvalue: %s", ain_strtype(NULL, e->valuetype.data, -1));
@@ -240,11 +243,13 @@ static void jaf_check_types_binary(struct jaf_env *env, struct jaf_expression *e
 			case AIN_BOOL:
 			case AIN_LONG_INT:
 			case AIN_STRING:
+			case AIN_ENUM:
 			case AIN_REF_INT:
 			case AIN_REF_FLOAT:
 			case AIN_REF_BOOL:
 			case AIN_REF_LONG_INT:
 			case AIN_REF_STRING:
+			case AIN_REF_ENUM:
 				break;
 			default:
 				TYPE_ERROR(expr->rhs, AIN_STRING); // FIXME: many types ok...
@@ -392,6 +397,18 @@ static void jaf_check_types_identifier(struct jaf_env *env, struct jaf_expressio
 	free(u);
 }
 
+static void jaf_check_types_this(struct jaf_env *env, struct jaf_expression *expr)
+{
+	if (env->func_no < 0) {
+		JAF_ERROR(expr, "'this' outside of method body");
+	}
+	if (env->ain->functions[env->func_no].struct_type < 0) {
+		JAF_ERROR(expr, "'this' outside of method body");
+	}
+	expr->valuetype.data = AIN_STRUCT;
+	expr->valuetype.struc = env->ain->functions[env->func_no].struct_type;
+}
+
 static bool ain_wide_type(enum ain_data_type type) {
 	switch (type) {
 	case AIN_REF_INT:
@@ -521,7 +538,7 @@ static int array_type_param(struct jaf_env *env, struct ain_type *type)
 			return 2;
 		}
 	}
-	return type->array_type->data;
+	return type->data;
 }
 
 /*
@@ -546,6 +563,7 @@ static void jaf_check_types_builtin_hll_call(struct jaf_env *env, struct ain_typ
 	expr->call.lib_no = lib;
 	expr->call.func_no = fun;
 	if (type->data == AIN_ARRAY || type->data == AIN_REF_ARRAY) {
+		assert(type->array_type);
 		expr->call.type_param = array_type_param(env, type->array_type);
 	} else {
 		expr->call.type_param = 0;
@@ -592,6 +610,52 @@ static void jaf_check_types_sys_call(struct jaf_expression *expr)
 	expr->valuetype = syscalls[expr->call.func_no].return_type;
 }
 
+static void jaf_check_function_arguments(struct jaf_expression *expr, struct ain_function *f)
+{
+	unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
+	int arg = 0;
+
+	expr->call.args->var_nos = xcalloc(nr_args, sizeof(int));
+	for (unsigned i = 0; i < nr_args; i++, arg++) {
+		if (arg >= f->nr_args)
+			JAF_ERROR(expr, "Too many arguments to function %s", conv_utf8(f->name));
+
+		jaf_check_type(expr->call.args->items[i], &f->vars[arg].type);
+
+		expr->call.args->var_nos[i] = arg;
+		if (ain_wide_type(f->vars[arg].type.data))
+			arg++;
+	}
+	if (arg != f->nr_args)
+		JAF_ERROR(expr, "Too few arguments to function");
+}
+
+static void jaf_check_types_method_call(struct jaf_env *env, struct jaf_expression *expr)
+{
+	struct jaf_expression *obj = expr->call.fun->member.struc;
+	assert(obj->valuetype.data == AIN_STRUCT || obj->valuetype.data == AIN_REF_STRUCT);
+	assert(obj->valuetype.struc >= 0);
+
+	// FIXME: this could also be a callable struct member being called, need to check for that too
+
+	// build function name of method (struct@method)
+	const char *struct_name = env->ain->structures[obj->valuetype.struc].name;
+	struct string *method_name = make_string(struct_name, strlen(struct_name));
+	string_push_back(&method_name, '@');
+	string_append(&method_name, expr->call.fun->member.name);
+
+	// look up method function in ain file
+	expr->call.func_no = ain_get_function(env->ain, method_name->text);
+	if (expr->call.func_no < 0) {
+		JAF_ERROR(expr, "Method '%s' does not exist", method_name->text);
+	}
+	free_string(method_name);
+	expr->type = JAF_EXP_METHOD_CALL;
+
+	jaf_check_function_arguments(expr, &env->ain->functions[expr->call.func_no]);
+	expr->valuetype = env->ain->functions[expr->call.func_no].return_type;
+}
+
 static bool jaf_check_types_special_call(struct jaf_env *env, struct jaf_expression *expr)
 {
 	if (expr->call.fun->type != JAF_EXP_MEMBER)
@@ -615,6 +679,7 @@ static bool jaf_check_types_special_call(struct jaf_env *env, struct jaf_express
 			return true;
 		}
 		free(obj_name);
+
 	}
 
 	jaf_derive_types(env, obj);
@@ -630,7 +695,10 @@ static bool jaf_check_types_special_call(struct jaf_env *env, struct jaf_express
 		case AIN_REF_ARRAY:
 			jaf_check_types_builtin_hll_call(env, &obj->valuetype, expr);
 			return true;
-			break;
+		case AIN_STRUCT:
+		case AIN_REF_STRUCT:
+			jaf_check_types_method_call(env, expr);
+			return true;
 		default:
 			break;
 		}
@@ -647,6 +715,10 @@ static bool jaf_check_types_special_call(struct jaf_env *env, struct jaf_express
 			JAF_ERROR(expr, "Methods not supported on built-in type: %s",
 				  ain_strtype(env->ain, obj->valuetype.data, -1));
 			break;
+		case AIN_STRUCT:
+		case AIN_REF_STRUCT:
+			jaf_check_types_method_call(env, expr);
+			return true;
 		default:
 			break;
 		}
@@ -761,7 +833,7 @@ static void jaf_type_check_array(struct jaf_expression *expr)
 	}
 }
 
-static void array_deref_type(struct ain_type *dst, struct ain_type *src)
+static void array_deref_type(struct jaf_env *env, struct ain_type *dst, struct ain_type *src)
 {
 	if (src->rank > 1) {
 		dst->data = src->data;
@@ -771,6 +843,9 @@ static void array_deref_type(struct ain_type *dst, struct ain_type *src)
 		assert(src->rank == 1);
 		dst->data = array_data_type(src);
 		dst->struc = src->struc;
+		if (dst->data == AIN_STRUCT && AIN_VERSION_GTE(env->ain, 11, 0)) {
+			dst->struc = src->array_type->struc;
+		}
 		dst->rank = 0;
 	}
 }
@@ -782,7 +857,7 @@ static void jaf_check_types_subscript(struct jaf_env *env, struct jaf_expression
 	jaf_type_check_array(expr->subscript.expr);
 	jaf_type_check_int(expr->subscript.index);
 
-	array_deref_type(&expr->valuetype, &expr->subscript.expr->valuetype);
+	array_deref_type(env, &expr->valuetype, &expr->subscript.expr->valuetype);
 }
 
 void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr)
@@ -804,6 +879,9 @@ void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr)
 	case JAF_EXP_IDENTIFIER:
 		jaf_check_types_identifier(env, expr);
 		break;
+	case JAF_EXP_THIS:
+		jaf_check_types_this(env, expr);
+		break;
 	case JAF_EXP_UNARY:
 		jaf_check_types_unary(env, expr);
 		break;
@@ -817,6 +895,7 @@ void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr)
 		jaf_check_types_funcall(env, expr);
 		break;
 	case JAF_EXP_CAST:
+		jaf_derive_types(env, expr->cast.expr);
 		expr->valuetype.data = jaf_to_ain_simple_type(expr->cast.type);
 		break;
 	case JAF_EXP_MEMBER:
@@ -830,6 +909,7 @@ void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr)
 		break;
 	case JAF_EXP_SYSCALL:
 	case JAF_EXP_HLLCALL:
+	case JAF_EXP_METHOD_CALL:
 	case JAF_EXP_BUILTIN_CALL:
 		// these should be JAF_EXP_FUNCALLs initially
 		JAF_ERROR(expr, "Unexpected expression type");
@@ -843,6 +923,7 @@ static bool is_numeric(enum ain_data_type type)
 	case AIN_FLOAT:
 	case AIN_LONG_INT:
 	case AIN_BOOL:
+	case AIN_ENUM:
 		return true;
 	default:
 		return false;
