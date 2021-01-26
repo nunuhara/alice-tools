@@ -89,6 +89,7 @@ enum jaf_expression_type {
 	JAF_EXP_HLLCALL,
 	JAF_EXP_METHOD_CALL,
 	JAF_EXP_BUILTIN_CALL,
+	JAF_EXP_NEW,
 	JAF_EXP_CAST,
 	JAF_EXP_MEMBER,
 	JAF_EXP_SEQ,
@@ -205,6 +206,11 @@ struct jaf_expression {
 			int lib_no;
 			int type_param;
 		} call;
+		struct {
+			struct jaf_type_specifier *type;
+			struct jaf_argument_list *args;
+			int func_no;
+		} new;
 		// struct member
 		struct {
 			struct jaf_expression *struc;
@@ -384,6 +390,7 @@ struct jaf_expression *jaf_ternary_expr(struct jaf_expression *test, struct jaf_
 struct jaf_expression *jaf_seq_expr(struct jaf_expression *head, struct jaf_expression *tail);
 struct jaf_expression *jaf_function_call(struct jaf_expression *fun, struct jaf_argument_list *args);
 struct jaf_expression *jaf_system_call(struct string *name, struct jaf_argument_list *args);
+struct jaf_expression *jaf_new(struct jaf_type_specifier *type, struct jaf_argument_list *args);
 struct jaf_expression *jaf_cast_expression(enum jaf_type type, struct jaf_expression *expr);
 struct jaf_expression *jaf_member_expr(struct jaf_expression *struc, struct string *name);
 struct jaf_expression *jaf_subscript_expr(struct jaf_expression *expr, struct jaf_expression *index);
@@ -452,5 +459,7 @@ struct jaf_block *jaf_static_analyze(struct ain *ain, struct jaf_block *block);
 enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type);
 void jaf_define_struct(struct ain *ain, struct jaf_block_item *type);
 void jaf_define_functype(struct ain *ain, struct jaf_block_item *item);
+
+void jaf_print_expression(FILE *out, struct jaf_expression *expr);
 
 #endif /* AINEDIT_JAF_H */

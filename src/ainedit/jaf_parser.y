@@ -181,7 +181,7 @@ static struct jaf_block *jaf_functype(struct jaf_type_specifier *type, struct ja
 %token	<token>		SYM_REF REF_ASSIGN ARRAY WRAP FUNCTYPE DELEGATE
 %token	<token>		FILE_MACRO LINE_MACRO FUNC_MACRO DATE_MACRO TIME_MACRO
 
-%token	<token>		CONST OVERRIDE THIS
+%token	<token>		CONST OVERRIDE THIS SYM_NEW
 %token	<token>		BOOL CHAR INT LINT FLOAT VOID STRING INTP FLOATP HLL_PARAM HLL_FUNC
 %token	<token>		STRUCT UNION ENUM ELLIPSIS SYM_TRUE SYM_FALSE
 
@@ -256,6 +256,7 @@ postfix_expression
 	| postfix_expression '(' ')'                             { $$ = jaf_function_call($1, NULL); }
 	| atomic_type_specifier '(' expression ')'               { $$ = jaf_cast_expression($1, $3); }
 	| postfix_expression '(' argument_expression_list ')'    { $$ = jaf_function_call($1, $3); }
+	| SYM_NEW TYPEDEF_NAME '(' argument_expression_list ')'  { $$ = jaf_new(jaf_typedef($2), $4); }
 	| postfix_expression '.' IDENTIFIER                      { $$ = jaf_member_expr($1, $3); }
 	| postfix_expression INC_OP                              { $$ = jaf_unary_expr(JAF_POST_INC, $1); }
 	| postfix_expression DEC_OP                              { $$ = jaf_unary_expr(JAF_POST_DEC, $1); }

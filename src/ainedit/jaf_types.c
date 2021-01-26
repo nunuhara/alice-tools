@@ -610,19 +610,18 @@ static void jaf_check_types_sys_call(struct jaf_expression *expr)
 	expr->valuetype = syscalls[expr->call.func_no].return_type;
 }
 
-static void jaf_check_function_arguments(struct jaf_expression *expr, struct ain_function *f)
+static void jaf_check_function_arguments(struct jaf_expression *expr, struct jaf_argument_list *args, struct ain_function *f)
 {
-	unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
 	int arg = 0;
 
-	expr->call.args->var_nos = xcalloc(nr_args, sizeof(int));
-	for (unsigned i = 0; i < nr_args; i++, arg++) {
+	args->var_nos = xcalloc(args->nr_items, sizeof(int));
+	for (unsigned i = 0; i < args->nr_items; i++, arg++) {
 		if (arg >= f->nr_args)
 			JAF_ERROR(expr, "Too many arguments to function %s", conv_utf8(f->name));
 
-		jaf_check_type(expr->call.args->items[i], &f->vars[arg].type);
+		jaf_check_type(args->items[i], &f->vars[arg].type);
 
-		expr->call.args->var_nos[i] = arg;
+		args->var_nos[i] = arg;
 		if (ain_wide_type(f->vars[arg].type.data))
 			arg++;
 	}
@@ -630,19 +629,23 @@ static void jaf_check_function_arguments(struct jaf_expression *expr, struct ain
 		JAF_ERROR(expr, "Too few arguments to function");
 }
 
+static struct string *make_method_name(struct ain *ain, int struct_type, const char *name)
+{
+	const char *struct_name = ain->structures[struct_type].name;
+	struct string *method_name = make_string(struct_name, strlen(struct_name));
+	string_push_back(&method_name, '@');
+	string_append_cstr(&method_name, name, strlen(name));
+	return method_name;
+}
+
 static void jaf_check_types_method_call(struct jaf_env *env, struct jaf_expression *expr)
 {
+	// FIXME: this could also be a callable struct member being called, need to check for that too
 	struct jaf_expression *obj = expr->call.fun->member.struc;
 	assert(obj->valuetype.data == AIN_STRUCT || obj->valuetype.data == AIN_REF_STRUCT);
 	assert(obj->valuetype.struc >= 0);
 
-	// FIXME: this could also be a callable struct member being called, need to check for that too
-
-	// build function name of method (struct@method)
-	const char *struct_name = env->ain->structures[obj->valuetype.struc].name;
-	struct string *method_name = make_string(struct_name, strlen(struct_name));
-	string_push_back(&method_name, '@');
-	string_append(&method_name, expr->call.fun->member.name);
+	struct string *method_name = make_method_name(env->ain, obj->valuetype.struc, expr->call.fun->member.name->text);
 
 	// look up method function in ain file
 	expr->call.func_no = ain_get_function(env->ain, method_name->text);
@@ -652,7 +655,7 @@ static void jaf_check_types_method_call(struct jaf_env *env, struct jaf_expressi
 	free_string(method_name);
 	expr->type = JAF_EXP_METHOD_CALL;
 
-	jaf_check_function_arguments(expr, &env->ain->functions[expr->call.func_no]);
+	jaf_check_function_arguments(expr, expr->call.args, &env->ain->functions[expr->call.func_no]);
 	expr->valuetype = env->ain->functions[expr->call.func_no].return_type;
 }
 
@@ -768,6 +771,35 @@ static void jaf_check_types_funcall(struct jaf_env *env, struct jaf_expression *
 	}
 	if (arg != f->nr_args)
 		JAF_ERROR(expr, "Too few arguments to function");
+}
+
+static void jaf_check_types_new(struct jaf_env *env, struct jaf_expression *expr)
+{
+	if (expr->new.type->type != JAF_STRUCT)
+		TYPE_ERROR(expr, AIN_STRUCT);
+
+	// FIXME: polymorphism
+	int struct_no = expr->new.type->struct_no;
+	assert(struct_no >= 0 && struct_no < env->ain->nr_structures);
+	expr->new.func_no = env->ain->structures[struct_no].constructor;
+	if (expr->new.func_no <= 0) {
+		// Some constructors are not listed in the struct definition, so
+		// we have to look them up by function name
+		struct string *method_name = make_method_name(env->ain, struct_no, "0");
+		expr->new.func_no = ain_get_function(env->ain, method_name->text);
+		free_string(method_name);
+	}
+
+	if (expr->new.func_no < 0) {
+		if (expr->new.args->nr_items > 0) {
+			JAF_ERROR(expr, "Too many arguments to (default) constructor");
+		}
+	} else {
+		jaf_check_function_arguments(expr, expr->new.args, &env->ain->functions[expr->new.func_no]);
+	}
+
+	expr->valuetype.data = AIN_STRUCT;
+	expr->valuetype.struc = struct_no;
 }
 
 static bool is_struct_type(struct jaf_expression *e)
@@ -893,6 +925,9 @@ void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr)
 		break;
 	case JAF_EXP_FUNCALL:
 		jaf_check_types_funcall(env, expr);
+		break;
+	case JAF_EXP_NEW:
+		jaf_check_types_new(env, expr);
 		break;
 	case JAF_EXP_CAST:
 		jaf_derive_types(env, expr->cast.expr);

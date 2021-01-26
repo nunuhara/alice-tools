@@ -105,6 +105,34 @@ static void print_arglist(FILE *out, struct jaf_argument_list *list)
 	fputc(')', out);
 }
 
+static void print_type_specifier(FILE *out, struct jaf_type_specifier *type)
+{
+	if (type->qualifiers & JAF_QUAL_OVERRIDE) {
+		fprintf(out, "override ");
+	}
+	if (type->qualifiers & JAF_QUAL_CONST) {
+		fprintf(out, "const ");
+	}
+	if (type->qualifiers & JAF_QUAL_REF) {
+		fprintf(out, "ref ");
+	}
+	if (type->type == JAF_STRUCT || type->type == JAF_FUNCTYPE || type->type == JAF_ENUM) {
+		fprintf(out, "%s", type->name->text);
+	} else {
+		fprintf(out, "%s", jaf_type_to_string(type->type));
+	}
+
+	if (type->type == JAF_ARRAY) {
+		fputc('<', out);
+		print_type_specifier(out, type->array_type);
+		fprintf(out, ">@%u", type->rank);
+	} else if (type->type == JAF_WRAP) {
+		fputc('<', out);
+		print_type_specifier(out, type->array_type);
+		fputc('>', out);
+	}
+}
+
 void jaf_print_expression(FILE *out, struct jaf_expression *expr)
 {
 	// TODO: eliminate parentheses when possible
@@ -171,6 +199,12 @@ void jaf_print_expression(FILE *out, struct jaf_expression *expr)
 		fprintf(out, "%s", syscalls[expr->call.func_no].name);
 		print_arglist(out, expr->call.args);
 		break;
+	case JAF_EXP_NEW:
+		fprintf(out, "(new ");
+		print_type_specifier(out, expr->new.type);
+		print_arglist(out, expr->new.args);
+		fprintf(out, ")");
+		break;
 	case JAF_EXP_CAST:
 		fprintf(out, "((%s) ", jaf_type_to_string(expr->cast.type));
 		jaf_print_expression(out, expr->cast.expr);
@@ -199,34 +233,6 @@ void jaf_print_expression(FILE *out, struct jaf_expression *expr)
 		break;
 	default:
 		ERROR("Unhandled expression type: %d", expr->type);
-	}
-}
-
-static void print_type_specifier(FILE *out, struct jaf_type_specifier *type)
-{
-	if (type->qualifiers & JAF_QUAL_OVERRIDE) {
-		fprintf(out, "override ");
-	}
-	if (type->qualifiers & JAF_QUAL_CONST) {
-		fprintf(out, "const ");
-	}
-	if (type->qualifiers & JAF_QUAL_REF) {
-		fprintf(out, "ref ");
-	}
-	if (type->type == JAF_STRUCT || type->type == JAF_FUNCTYPE || type->type == JAF_ENUM) {
-		fprintf(out, "%s", type->name->text);
-	} else {
-		fprintf(out, "%s", jaf_type_to_string(type->type));
-	}
-
-	if (type->type == JAF_ARRAY) {
-		fputc('<', out);
-		print_type_specifier(out, type->array_type);
-		fprintf(out, ">@%u", type->rank);
-	} else if (type->type == JAF_WRAP) {
-		fputc('<', out);
-		print_type_specifier(out, type->array_type);
-		fputc('>', out);
 	}
 }
 

@@ -757,6 +757,15 @@ static void compile_builtin_call(struct compiler_state *state, struct jaf_expres
 	compile_hllcall(state, expr, 1);
 }
 
+static void compile_new(struct compiler_state *state, struct jaf_expression *expr)
+{
+	if (AIN_VERSION_GTE(state->ain, 11, 0)) {
+		write_instruction2(state, NEW, expr->valuetype.struc, expr->new.type->func_no);
+	} else {
+		write_instruction1(state, NEW, expr->valuetype.struc);
+	}
+}
+
 static void compile_cast(struct compiler_state *state, struct jaf_expression *expr)
 {
 	enum ain_data_type src_type = expr->cast.expr->valuetype.data;
@@ -863,6 +872,9 @@ static void compile_expression(struct compiler_state *state, struct jaf_expressi
 		break;
 	case JAF_EXP_BUILTIN_CALL:
 		compile_builtin_call(state, expr);
+		break;
+	case JAF_EXP_NEW:
+		compile_new(state, expr);
 		break;
 	case JAF_EXP_CAST:
 		compile_cast(state, expr);

@@ -438,6 +438,64 @@ static void analyze_block(struct jaf_env *env, struct jaf_block *block)
 	pop_env(blockenv);
 }
 
+static void resolve_expression_types(struct ain *ain, struct jaf_expression *e)
+{
+	if (!e)
+		return;
+	switch (e->type) {
+	case JAF_EXP_VOID:
+	case JAF_EXP_INT:
+	case JAF_EXP_CHAR:
+	case JAF_EXP_FLOAT:
+	case JAF_EXP_STRING:
+	case JAF_EXP_IDENTIFIER:
+	case JAF_EXP_THIS:
+	case JAF_EXP_SYSCALL:
+	case JAF_EXP_HLLCALL:
+	case JAF_EXP_METHOD_CALL:
+	case JAF_EXP_BUILTIN_CALL:
+		break;
+	case JAF_EXP_UNARY:
+		resolve_expression_types(ain, e->expr);
+		break;
+	case JAF_EXP_BINARY:
+		resolve_expression_types(ain, e->lhs);
+		resolve_expression_types(ain, e->rhs);
+		break;
+	case JAF_EXP_TERNARY:
+		resolve_expression_types(ain, e->condition);
+		resolve_expression_types(ain, e->consequent);
+		resolve_expression_types(ain, e->alternative);
+		break;
+	case JAF_EXP_FUNCALL:
+		resolve_expression_types(ain, e->call.fun);
+		for (size_t i = 0; i < e->call.args->nr_items; i++) {
+			resolve_expression_types(ain, e->call.args->items[i]);
+		}
+		break;
+	case JAF_EXP_NEW:
+		resolve_typedef(ain, NULL, e->new.type);
+		for (size_t i = 0; i < e->new.args->nr_items; i++) {
+			resolve_expression_types(ain, e->new.args->items[i]);
+		}
+		break;
+	case JAF_EXP_CAST:
+		resolve_expression_types(ain, e->cast.expr);
+		break;
+	case JAF_EXP_MEMBER:
+		resolve_expression_types(ain, e->member.struc);
+		break;
+	case JAF_EXP_SEQ:
+		resolve_expression_types(ain, e->seq.head);
+		resolve_expression_types(ain, e->seq.tail);
+		break;
+	case JAF_EXP_SUBSCRIPT:
+		resolve_expression_types(ain, e->subscript.expr);
+		resolve_expression_types(ain, e->subscript.index);
+		break;
+	}
+}
+
 static void resolve_structdef_types(struct ain *ain, struct jaf_block_item *item)
 {
 	assert(item->struc.struct_no >= 0);
@@ -455,7 +513,6 @@ static void resolve_structdef_types(struct ain *ain, struct jaf_block_item *item
 	struct ain_struct *s = &ain->structures[item->struc.struct_no];
 	s->nr_members = jaf_members->nr_items;
 	s->members = members;
-
 }
 
 static void resolve_statement_types(struct ain *ain, struct jaf_block_item *item)
@@ -465,6 +522,9 @@ static void resolve_statement_types(struct ain *ain, struct jaf_block_item *item
 	switch (item->kind) {
 	case JAF_DECL_VAR:
 		resolve_typedef(ain, item, item->var.type);
+		if (item->var.init) {
+			resolve_expression_types(ain, item->var.init);
+		}
 		break;
 	case JAF_DECL_FUNCTYPE:
 		if (item->fun.params)
@@ -505,6 +565,8 @@ static void resolve_statement_types(struct ain *ain, struct jaf_block_item *item
 		resolve_statement_types(ain, item->swi_case.stmt);
 		break;
 	case JAF_STMT_EXPRESSION:
+		resolve_expression_types(ain, item->expr);
+		break;
 	case JAF_STMT_GOTO:
 	case JAF_STMT_CONTINUE:
 	case JAF_STMT_BREAK:

@@ -260,6 +260,14 @@ static struct jaf_expression *jaf_simplify_funcall(struct jaf_expression *in)
 	return in;
 }
 
+static struct jaf_expression *jaf_simplify_new(struct jaf_expression *in)
+{
+	for (size_t i = 0; i < in->new.args->nr_items; i++) {
+		in->new.args->items[i] = jaf_simplify(in->new.args->items[i]);
+	}
+	return in;
+}
+
 static struct jaf_expression *jaf_simplify_cast(struct jaf_expression *in)
 {
 	in->cast.expr = jaf_simplify(in->cast.expr);
@@ -396,6 +404,8 @@ struct jaf_expression *jaf_simplify(struct jaf_expression *in)
 	case JAF_EXP_METHOD_CALL:
 	case JAF_EXP_BUILTIN_CALL:
 		return jaf_simplify_funcall(in);
+	case JAF_EXP_NEW:
+		return jaf_simplify_new(in);
 	case JAF_EXP_CAST:
 		return jaf_simplify_cast(in);
 	case JAF_EXP_MEMBER:

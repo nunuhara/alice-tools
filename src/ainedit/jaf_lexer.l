@@ -108,6 +108,7 @@ unsigned long jaf_line = 1;
 "delegate"                              { return DELEGATE; }
 "override"                              { return OVERRIDE; }
 "this"                                  { return THIS; }
+"new"                                   { return SYM_NEW; }
 
 {L}                                     { return check_type(); }
 {L}{A}*{AT}                             { return check_type(); }

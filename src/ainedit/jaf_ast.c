@@ -177,6 +177,14 @@ struct jaf_expression *jaf_function_call(struct jaf_expression *fun, struct jaf_
 	return e;
 }
 
+struct jaf_expression *jaf_new(struct jaf_type_specifier *type, struct jaf_argument_list *args)
+{
+	struct jaf_expression *e = jaf_expr(JAF_EXP_NEW, 0);
+	e->new.type = type;
+	e->new.args = args ? args : xcalloc(1, sizeof(struct jaf_argument_list));
+	return e;
+}
+
 struct jaf_argument_list *jaf_args(struct jaf_argument_list *head, struct jaf_expression *tail)
 {
 	if (!head) {
@@ -558,6 +566,26 @@ struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields)
 	return p;
 }
 
+static void jaf_free_argument_list(struct jaf_argument_list *list)
+{
+	for (size_t i = 0; i < list->nr_items; i++) {
+		jaf_free_expr(list->items[i]);
+	}
+	free(list->items);
+	free(list->var_nos);
+	free(list);
+}
+
+void jaf_free_type_specifier(struct jaf_type_specifier *type)
+{
+	if (!type)
+		return;
+	if (type->name)
+		free_string(type->name);
+	jaf_free_type_specifier(type->array_type);
+	free(type);
+}
+
 void jaf_free_expr(struct jaf_expression *expr)
 {
 	if (!expr)
@@ -593,12 +621,11 @@ void jaf_free_expr(struct jaf_expression *expr)
 	case JAF_EXP_METHOD_CALL:
 	case JAF_EXP_BUILTIN_CALL:
 		jaf_free_expr(expr->call.fun);
-		for (size_t i = 0; i < expr->call.args->nr_items; i++) {
-			jaf_free_expr(expr->call.args->items[i]);
-		}
-		free(expr->call.args->items);
-		free(expr->call.args->var_nos);
-		free(expr->call.args);
+		jaf_free_argument_list(expr->call.args);
+		break;
+	case JAF_EXP_NEW:
+		jaf_free_type_specifier(expr->new.type);
+		jaf_free_argument_list(expr->new.args);
 		break;
 	case JAF_EXP_CAST:
 		jaf_free_expr(expr->cast.expr);
@@ -617,16 +644,6 @@ void jaf_free_expr(struct jaf_expression *expr)
 		break;
 	}
 	free(expr);
-}
-
-void jaf_free_type_specifier(struct jaf_type_specifier *type)
-{
-	if (!type)
-		return;
-	if (type->name)
-		free_string(type->name);
-	jaf_free_type_specifier(type->array_type);
-	free(type);
 }
 
 void jaf_free_block_item(struct jaf_block_item *item)
