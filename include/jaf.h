@@ -40,8 +40,6 @@
 		 struct jaf_block_item*: jaf_block_item_error)		\
 	(obj, msgf, ##__VA_ARGS__)
 
-struct string;
-
 enum jaf_type {
 	JAF_VOID,
 	JAF_INT,
@@ -64,6 +62,27 @@ enum _jaf_type {
 	JAF_INTP,
 	JAF_FLOATP,
 };
+
+/*
+ * Intermediate types. These are applied to certain AST nodes but should never
+ * be written to the .ain file.
+ */
+enum _ain_type {
+	_AIN_FUNCTION = 1000, // identifier: function
+	_AIN_LIBRARY  = 1001, // identifier: HLL library
+	_AIN_SYSTEM   = 1002, // identifier: system library
+	_AIN_SYSCALL  = 1003, // member: system call reference (e.g. system.Output)
+	_AIN_HLLCALL  = 1004, // member: hll call (e.g. Library.Function)
+	_AIN_METHOD   = 1005, // member: method reference (e.g. obj.method)
+	_AIN_BUILTIN  = 1006, // member: builtin method reference (e.g. "string".Split)
+};
+#define AIN_FUNCTION ((enum ain_data_type)_AIN_FUNCTION)
+#define AIN_LIBRARY  ((enum ain_data_type)_AIN_LIBRARY)
+#define AIN_SYSTEM   ((enum ain_data_type)_AIN_SYSTEM)
+#define AIN_SYSCALL  ((enum ain_data_type)_AIN_SYSCALL)
+#define AIN_HLLCALL  ((enum ain_data_type)_AIN_HLLCALL)
+#define AIN_METHOD   ((enum ain_data_type)_AIN_METHOD)
+#define AIN_BUILTIN  ((enum ain_data_type)_AIN_BUILTIN)
 
 enum jaf_type_qualifier {
 	JAF_QUAL_CONST       = 1,
@@ -141,6 +160,10 @@ enum jaf_operator {
 	JAF_REF_ASSIGN,
 };
 
+struct string;
+struct jaf_expression;
+struct jaf_block_item;
+
 struct jaf_argument_list {
 	size_t nr_items;
 	struct jaf_expression **items;
@@ -215,6 +238,7 @@ struct jaf_expression {
 		struct {
 			struct jaf_expression *struc;
 			struct string *name;
+			int object_no;
 			int member_no;
 		} member;
 		// sequence
@@ -375,6 +399,7 @@ noreturn void jaf_generic_error(const char *file, int line, const char *msgf, ..
 noreturn void jaf_expression_error(struct jaf_expression *expr, const char *msgf, ...);
 noreturn void jaf_block_item_error(struct jaf_block_item *item, const char *msgf, ...);
 
+// jaf_ast.c
 struct jaf_expression *jaf_integer(int i);
 struct jaf_expression *jaf_parse_integer(struct string *text);
 struct jaf_expression *jaf_float(float f);
@@ -394,28 +419,22 @@ struct jaf_expression *jaf_new(struct jaf_type_specifier *type, struct jaf_argum
 struct jaf_expression *jaf_cast_expression(enum jaf_type type, struct jaf_expression *expr);
 struct jaf_expression *jaf_member_expr(struct jaf_expression *struc, struct string *name);
 struct jaf_expression *jaf_subscript_expr(struct jaf_expression *expr, struct jaf_expression *index);
-
 struct jaf_argument_list *jaf_args(struct jaf_argument_list *head, struct jaf_expression *tail);
-
 struct jaf_type_specifier *jaf_type(enum jaf_type type);
 struct jaf_type_specifier *jaf_typedef(struct string *name);
 struct jaf_type_specifier *jaf_array_type(struct jaf_type_specifier *type, int rank);
 struct jaf_type_specifier *jaf_wrap(struct jaf_type_specifier *type);
-
 struct jaf_declarator *jaf_declarator(struct string *name);
 struct jaf_declarator *jaf_array_allocation(struct string *name, struct jaf_expression *dim);
 struct jaf_declarator *jaf_array_dimension(struct jaf_declarator *d, struct jaf_expression *dim);
 struct jaf_declarator_list *jaf_declarators(struct jaf_declarator_list *head, struct jaf_declarator *tail);
-
-struct jaf_block *jaf_parameter(struct jaf_type_specifier *type, struct jaf_declarator *declarator);
 struct jaf_function_declarator *jaf_function_declarator(struct string *name, struct jaf_block *params);
+struct jaf_block *jaf_parameter(struct jaf_type_specifier *type, struct jaf_declarator *declarator);
 struct jaf_block *jaf_function(struct jaf_type_specifier *type, struct jaf_function_declarator *decl, struct jaf_block *body);
 struct jaf_block *jaf_constructor(struct string *name, struct jaf_block *body);
 struct jaf_block *jaf_destructor(struct string *name, struct jaf_block *body);
-
 struct jaf_block *jaf_vardecl(struct jaf_type_specifier *type, struct jaf_declarator_list *declarators);
 struct jaf_block *jaf_merge_blocks(struct jaf_block *head, struct jaf_block *tail);
-
 struct jaf_block *jaf_block(struct jaf_block_item *item);
 struct jaf_block *jaf_block_append(struct jaf_block *head, struct jaf_block_item *tail);
 struct jaf_block_item *jaf_compound_statement(struct jaf_block *block);
@@ -433,7 +452,6 @@ struct jaf_block_item *jaf_break(void);
 struct jaf_block_item *jaf_return(struct jaf_expression *expr);
 struct jaf_block_item *jaf_message_statement(struct string *msg, struct string *func);
 struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields);
-
 void jaf_free_expr(struct jaf_expression *expr);
 void jaf_free_block(struct jaf_block *block);
 
@@ -444,22 +462,47 @@ struct jaf_block *jaf_parse(struct ain *ain, const char **files, unsigned nr_fil
 
 // jaf_compile.c
 void jaf_build(struct ain *out, const char **files, unsigned nr_files, const char **headers, unsigned nr_headers);
+
 // jaf_eval.c
 struct jaf_expression *jaf_simplify(struct jaf_expression *in);
 
 // jaf_types.c
-const char *jaf_typestr(enum jaf_type type);
 void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr);
 void jaf_check_type(struct jaf_expression *expr, struct ain_type *type);
 
 // jaf_static_analysis.c
-void jaf_resolve_declarations(struct ain *ain, struct jaf_block *block);
-void jaf_resolve_hll_declarations(struct ain *ain, struct jaf_block *block, const char *hll_name);
 struct jaf_block *jaf_static_analyze(struct ain *ain, struct jaf_block *block);
-enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type);
+
+// jaf_resolve.c
+void jaf_resolve_types(struct ain *ain, struct jaf_block *block);
+
+// jaf_declaration.c
+void jaf_process_declarations(struct ain *ain, struct jaf_block *block);
+void jaf_process_hll_declarations(struct ain *ain, struct jaf_block *block, const char *hll_name);
+
+#define warn_unused __attribute__((warn_unused_result))
+
+// jaf_visitor.c
+struct jaf_visitor {
+	void(*visit_stmt_pre)(struct jaf_block_item*,struct jaf_visitor*);
+	void(*visit_stmt_post)(struct jaf_block_item*,struct jaf_visitor*);
+	struct jaf_expression*(*visit_expr_pre)(struct jaf_expression*,struct jaf_visitor*);
+	struct jaf_expression*(*visit_expr_post)(struct jaf_expression*, struct jaf_visitor*);
+	void *data;
+};
+warn_unused struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr, struct jaf_visitor *visitor);
+void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor);
+void jaf_accept_block(struct jaf_block *block, struct jaf_visitor *visitor);
+
+// jaf_ain.c
 void jaf_define_struct(struct ain *ain, struct jaf_block_item *type);
 void jaf_define_functype(struct ain *ain, struct jaf_block_item *item);
+void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_specifier *in);
+enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type);
+void jaf_to_initval(struct ain_initval *dst, struct jaf_expression *expr);
 
+// jaf_error.c
+const char *jaf_type_to_string(enum jaf_type type);
 void jaf_print_expression(FILE *out, struct jaf_expression *expr);
 
 #endif /* AINEDIT_JAF_H */

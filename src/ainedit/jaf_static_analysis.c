@@ -24,209 +24,12 @@
 #include "ainedit.h"
 #include "jaf.h"
 
-static void jaf_resolve_types(struct ain *ain, struct jaf_block *block);
-static void jaf_process_declarations(struct ain *ain, struct jaf_block *block);
-static void jaf_analyze_block(struct jaf_env *env, struct jaf_block *block);
-
-void jaf_define_struct(struct ain *ain, struct jaf_block_item *def)
-{
-	assert(def->kind == JAF_DECL_STRUCT);
-	if (!def->struc.name)
-		JAF_ERROR(def, "Anonymous structs not supported");
-
-	struct ain_struct s = {
-		.name = conv_output(def->struc.name->text),
-		.constructor = -1,
-		.destructor = -1,
-	};
-	if (ain_get_struct(ain, s.name) >= 0)
-		JAF_ERROR(def, "Redefining structs not supported");
-	def->struc.struct_no = ain_add_struct(ain, &s);
-}
-
-void jaf_define_functype(struct ain *ain, struct jaf_block_item *item)
-{
-	struct jaf_fundecl *decl = &item->fun;
-	struct ain_function_type f = {0};
-	f.name = conv_output(decl->name->text);
-	if (ain_get_functype(ain, f.name) >= 0)
-		JAF_ERROR(item, "Multiple definitions of function type '%s'", decl->name->text);
-	decl->func_no = ain_add_functype(ain, &f);
-}
-
-enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type)
-{
-	switch (type) {
-	case JAF_VOID:      return AIN_VOID;
-	case JAF_INT:       return AIN_INT;
-	case JAF_BOOL:      return AIN_BOOL;
-	case JAF_FLOAT:     return AIN_FLOAT;
-	case JAF_STRING:    return AIN_STRING;
-	case JAF_STRUCT:    return AIN_STRUCT;
-	case JAF_ENUM:      return AIN_ENUM;
-	case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
-	case JAF_WRAP:      return AIN_WRAP;
-	case JAF_HLL_PARAM: return AIN_HLL_PARAM;
-	case JAF_HLL_FUNC:  return AIN_HLL_FUNC;
-	case JAF_DELEGATE:  return AIN_DELEGATE;
-	case JAF_TYPEDEF:   _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
-	case JAF_FUNCTYPE:  return AIN_FUNC_TYPE;
-	}
-	_COMPILER_ERROR(NULL, -1, "Unknown type: %d", type);
-}
-
-static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_specifier *type)
-{
-	if (type->qualifiers & JAF_QUAL_REF && type->type == JAF_ARRAY) {
-		if (AIN_VERSION_GTE(ain, 11, 0)) {
-			return AIN_REF_ARRAY;
-		}
-		switch (type->array_type->type) {
-		case JAF_VOID:      _COMPILER_ERROR(NULL, -1, "void ref array type");
-		case JAF_INT:       return AIN_REF_ARRAY_INT;
-		case JAF_BOOL:      return AIN_REF_ARRAY_BOOL;
-		case JAF_FLOAT:     return AIN_REF_ARRAY_FLOAT;
-		case JAF_STRING:    return AIN_REF_ARRAY_STRING;
-		case JAF_STRUCT:    return AIN_REF_ARRAY_STRUCT;
-		case JAF_ENUM:      _COMPILER_ERROR(NULL, -1, "Enums not supported");
-		case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
-		case JAF_WRAP:      _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
-		case JAF_HLL_PARAM: _COMPILER_ERROR(NULL, -1, "Invalid hll_param specifier");
-		case JAF_HLL_FUNC:  _COMPILER_ERROR(NULL, -1, "Invalid hll_func specifier");
-		case JAF_DELEGATE:  return AIN_REF_ARRAY_DELEGATE;
-		case JAF_TYPEDEF:   _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
-		case JAF_FUNCTYPE:  return AIN_REF_ARRAY_FUNC_TYPE;
-		}
-	} else if (type->qualifiers & JAF_QUAL_REF) {
-		switch (type->type) {
-		case JAF_VOID:      _COMPILER_ERROR(NULL, -1, "void ref type");
-		case JAF_INT:       return AIN_REF_INT;
-		case JAF_BOOL:      return AIN_REF_BOOL;
-		case JAF_FLOAT:     return AIN_REF_FLOAT;
-		case JAF_STRING:    return AIN_REF_STRING;
-		case JAF_STRUCT:    return AIN_REF_STRUCT;
-		case JAF_ENUM:      return AIN_REF_ENUM;
-		case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
-		case JAF_WRAP:      _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
-		case JAF_HLL_PARAM: return AIN_REF_HLL_PARAM;
-		case JAF_HLL_FUNC:  _COMPILER_ERROR(NULL, -1, "Invalid hll_func specifier");
-		case JAF_DELEGATE:  return AIN_REF_DELEGATE;
-		case JAF_TYPEDEF:   _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
-		case JAF_FUNCTYPE:  return AIN_REF_FUNC_TYPE;
-		}
-	} else if (type->type == JAF_ARRAY) {
-		if (AIN_VERSION_GTE(ain, 11, 0)) {
-			return AIN_ARRAY;
-		}
-		switch (type->array_type->type) {
-		case JAF_VOID:      _COMPILER_ERROR(NULL, -1, "void array type");
-		case JAF_INT:       return AIN_ARRAY_INT;
-		case JAF_BOOL:      return AIN_ARRAY_BOOL;
-		case JAF_FLOAT:     return AIN_ARRAY_FLOAT;
-		case JAF_STRING:    return AIN_ARRAY_STRING;
-		case JAF_STRUCT:    return AIN_ARRAY_STRUCT;
-		case JAF_ENUM:      _COMPILER_ERROR(NULL, -1, "Enums not supported");
-		case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
-		case JAF_WRAP:      _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
-		case JAF_HLL_PARAM: _COMPILER_ERROR(NULL, -1, "Invalid hll_param specifier");
-		case JAF_HLL_FUNC:  _COMPILER_ERROR(NULL, -1, "Invalid hll_func specifier");
-		case JAF_DELEGATE:  return AIN_ARRAY_DELEGATE;
-		case JAF_TYPEDEF:   _COMPILER_ERROR(NULL, -1, "Unresolved typedef");
-		case JAF_FUNCTYPE:  return AIN_ARRAY_FUNC_TYPE;
-		}
-	} else {
-		return jaf_to_ain_simple_type(type->type);
-	}
-	_COMPILER_ERROR(NULL, -1, "Unknown type: %d", type);
-}
-
-static void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_specifier *in)
-{
-	out->data = jaf_to_ain_data_type(ain, in);
-	if (in->type == JAF_STRUCT || in->type == JAF_FUNCTYPE || in->type == JAF_ENUM) {
-		out->struc = in->struct_no;
-	} else {
-		out->struc = -1;
-	}
-	if (in->type == JAF_ARRAY) {
-		out->rank = in->rank;
-		if (AIN_VERSION_GTE(ain, 11, 0)) {
-			if (in->rank != 1) {
-				_JAF_ERROR(NULL, -1, "Only rank-1 arrays supported for ain v11+");
-			}
-			out->array_type = xcalloc(1, sizeof(struct ain_type));
-			jaf_to_ain_type(ain, out->array_type, in->array_type);
-		}
-	} else if (in->type == JAF_WRAP) {
-		if (!AIN_VERSION_GTE(ain, 11, 0)) {
-			_JAF_ERROR(NULL, -1, "wrap<> type is ain v11+ only");
-		}
-		out->rank = 1;
-		out->array_type = xcalloc(1, sizeof(struct ain_type));
-		jaf_to_ain_type(ain, out->array_type, in->array_type);
-	}
-}
-
-static void resolve_typedef(struct ain *ain, struct jaf_block_item *item, struct jaf_type_specifier *type)
-{
-	if (type->type == JAF_TYPEDEF) {
-		int no;
-		char *u = conv_output(type->name->text);
-		if ((no = ain_get_struct(ain, u)) >= 0) {
-			type->type = JAF_STRUCT;
-			type->struct_no = no;
-		} else if ((no = ain_get_functype(ain, u)) >= 0) {
-			type->type = JAF_FUNCTYPE;
-			type->func_no = no;
-		} else if ((no = ain_get_enum(ain, u)) >= 0) {
-			type->type = JAF_ENUM;
-			type->struct_no = no;
-		} else {
-			COMPILER_ERROR(item, "Failed to resolve typedef \"%s\"", type->name->text);
-		}
-		free(u);
-	} else if (type->type == JAF_ARRAY) {
-		resolve_typedef(ain, item, type->array_type);
-	}
-}
-
-static void jaf_to_initval(struct ain_initval *dst, struct jaf_expression *expr)
-{
-	switch (expr->type) {
-	case JAF_EXP_INT:
-		dst->data_type = AIN_INT;
-		dst->int_value = expr->i;
-		break;
-	case JAF_EXP_FLOAT:
-		dst->data_type = AIN_FLOAT;
-		dst->float_value = expr->f;
-		break;
-	case JAF_EXP_STRING:
-		dst->data_type = AIN_STRING;
-		dst->string_value = strdup(expr->s->text);
-		break;
-	default:
-		JAF_ERROR(expr, "Initval is not constant");
-	}
-}
-
-static void analyze_expression(struct jaf_env *env, struct jaf_expression **expr)
-{
-	if (!*expr)
-		return;
-	jaf_derive_types(env, *expr);
-	*expr = jaf_simplify(*expr);
-}
-
-static void analyze_block(struct jaf_env *env, struct jaf_block *block);
-
-static void analyze_array_allocation(struct jaf_env *env, struct jaf_block_item *item)
+static void analyze_array_allocation(possibly_unused struct jaf_env *env, struct jaf_block_item *item)
 {
 	struct jaf_vardecl *decl = &item->var;
 	if (!decl->array_dims)
 		return;
 	for (size_t i = 0; i < decl->type->rank; i++) {
-		analyze_expression(env, &decl->array_dims[i]);
 		if (decl->array_dims[i]->type != JAF_EXP_INT)
 			JAF_ERROR(item, "Invalid expression as array size");
 	}
@@ -239,7 +42,6 @@ static void analyze_const_declaration(struct jaf_env *env, struct jaf_block_item
 		JAF_ERROR(item, "const declaration without an initializer");
 	}
 	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
-	analyze_expression(env, &decl->init);
 
 	env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+2,
 				     sizeof(struct jaf_env_local));
@@ -254,16 +56,15 @@ static void analyze_global_declaration(struct jaf_env *env, struct jaf_block_ite
 	struct jaf_vardecl *decl = &item->var;
 	if (!decl->init)
 		return;
-	analyze_expression(env, &decl->init);
+
 	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
 	jaf_check_type(decl->init, &decl->valuetype);
+
 	// add initval to ain object
 	struct ain_initval init = { .global_index = decl->var_no };
 	jaf_to_initval(&init, decl->init);
 	ain_add_initval(env->ain, &init);
 	analyze_array_allocation(env, item);
-	if (decl->init)
-		analyze_expression(env, &decl->init);
 }
 
 static void analyze_local_declaration(struct jaf_env *env, struct jaf_block_item *item)
@@ -273,8 +74,6 @@ static void analyze_local_declaration(struct jaf_env *env, struct jaf_block_item
 	assert(decl->var_no >= 0 && decl->var_no < env->ain->functions[env->func_no].nr_vars);
 	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
 	analyze_array_allocation(env, item);
-	if (decl->init)
-		analyze_expression(env, &decl->init);
 
 	// add local to environment
 	env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+2,
@@ -299,30 +98,6 @@ static void analyze_local_declaration(struct jaf_env *env, struct jaf_block_item
 	}
 }
 
-static void analyze_function(struct jaf_env *env, struct jaf_fundecl *decl)
-{
-	// create new scope with function arguments
-	assert(decl->func_no < env->ain->nr_functions);
-	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
-	struct ain_function *fun = &env->ain->functions[decl->func_no];
-	struct jaf_env *funenv = xcalloc(1, sizeof(struct jaf_env));
-	funenv->ain = env->ain;
-	funenv->parent = env;
-	funenv->func_no = decl->func_no;
-	funenv->fundecl = decl;
-	funenv->nr_locals = fun->nr_args;
-	funenv->locals = xcalloc(funenv->nr_locals, sizeof(struct jaf_env_local));
-	for (size_t i = 0; i < funenv->nr_locals; i++) {
-		funenv->locals[i].name = fun->vars[i].name;
-		funenv->locals[i].no = i;
-		funenv->locals[i].var = &fun->vars[i];
-	}
-
-	jaf_analyze_block(funenv, decl->body);
-	free(funenv->locals);
-	free(funenv);
-}
-
 static void analyze_message(struct jaf_env *env, struct jaf_block_item *item)
 {
 	if (!item->msg.func) {
@@ -336,6 +111,9 @@ static void analyze_message(struct jaf_env *env, struct jaf_block_item *item)
 	free(u);
 }
 
+/*
+ * Create a new empty scope.
+ */
 static struct jaf_env *push_env(struct jaf_env *parent)
 {
 	struct jaf_env *newenv = xcalloc(1, sizeof(struct jaf_env));
@@ -346,6 +124,9 @@ static struct jaf_env *push_env(struct jaf_env *parent)
 	return newenv;
 }
 
+/*
+ * Discard the current scope and return to the parent scope.
+ */
 static struct jaf_env *pop_env(struct jaf_env *env)
 {
 	struct jaf_env *parent = env->parent;
@@ -354,546 +135,91 @@ static struct jaf_env *pop_env(struct jaf_env *env)
 	return parent;
 }
 
-static void analyze_statement(struct jaf_env *env, struct jaf_block_item *item)
+/*
+ * Create a new scope for the body of a function call.
+ */
+static struct jaf_env *push_function_env(struct jaf_env *parent, struct jaf_fundecl *decl)
 {
-	struct jaf_env *blockenv;
-	if (!item)
-		return;
-	switch (item->kind) {
+	// create new scope with function arguments
+	assert(decl->func_no >= 0);
+	assert(decl->func_no < parent->ain->nr_functions);
+	struct ain_function *fun = &parent->ain->functions[decl->func_no];
+	struct jaf_env *funenv = push_env(parent);
+	funenv->func_no = decl->func_no;
+	funenv->fundecl = decl;
+	funenv->nr_locals = fun->nr_args;
+	funenv->locals = xcalloc(funenv->nr_locals, sizeof(struct jaf_env_local));
+	for (size_t i = 0; i < funenv->nr_locals; i++) {
+		funenv->locals[i].name = fun->vars[i].name;
+		funenv->locals[i].no = i;
+		funenv->locals[i].var = &fun->vars[i];
+	}
+
+	return funenv;
+}
+
+/*
+ * This function sets up a new scope before the child nodes are analyzed (as required).
+ */
+static void jaf_analyze_stmt_pre(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
+{
+	struct jaf_env *env;
+	// create a new scope
+	switch (stmt->kind) {
+	case JAF_DECL_FUN:
+		visitor->data = env = push_function_env(visitor->data, &stmt->fun);
+		jaf_to_ain_type(env->ain, &stmt->fun.valuetype, stmt->fun.type);
+		break;
+	case JAF_STMT_COMPOUND:
+	case JAF_STMT_SWITCH:
+	case JAF_STMT_FOR:
+		visitor->data = push_env(visitor->data);
+		break;
+	default:
+		break;
+	}
+}
+
+static void jaf_analyze_stmt_post(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
+{
+	struct jaf_env *env = visitor->data;
+
+	switch (stmt->kind) {
 	case JAF_DECL_VAR:
-		assert(item->var.type);
-		if (item->var.type->qualifiers & JAF_QUAL_CONST) {
-			analyze_const_declaration(env, item);
+		assert(stmt->var.type);
+		if (stmt->var.type->qualifiers & JAF_QUAL_CONST) {
+			analyze_const_declaration(env, stmt);
 		} else if (env->parent) {
-			analyze_local_declaration(env, item);
+			analyze_local_declaration(env, stmt);
 		} else {
-			analyze_global_declaration(env, item);
+			analyze_global_declaration(env, stmt);
 		}
-		break;
-	case JAF_DECL_FUN:
-		analyze_function(env, &item->fun);
-		break;
-	case JAF_STMT_LABELED:
-		analyze_statement(env, item->label.stmt);
-		break;
-	case JAF_STMT_COMPOUND:
-		analyze_block(env, item->block);
-		break;
-	case JAF_STMT_EXPRESSION:
-		analyze_expression(env, &item->expr);
-		break;
-	case JAF_STMT_IF:
-		analyze_expression(env, &item->cond.test);
-		analyze_statement(env, item->cond.consequent);
-		analyze_statement(env, item->cond.alternative);
-		break;
-	case JAF_STMT_SWITCH:
-		analyze_expression(env, &item->swi.expr);
-		analyze_block(env, item->swi.body);
-		break;
-	case JAF_STMT_WHILE:
-	case JAF_STMT_DO_WHILE:
-		analyze_expression(env, &item->while_loop.test);
-		analyze_statement(env, item->while_loop.body);
-		break;
-	case JAF_STMT_FOR:
-		blockenv = push_env(env);
-		jaf_analyze_block(env, item->for_loop.init);
-		analyze_expression(env, &item->for_loop.test);
-		analyze_expression(env, &item->for_loop.after);
-		analyze_statement(env, item->for_loop.body);
-		pop_env(blockenv);
-		break;
-	case JAF_STMT_RETURN:
-		analyze_expression(env, &item->expr);
-		jaf_check_type(item->expr, &env->fundecl->valuetype);
-		break;
-	case JAF_STMT_CASE:
-	case JAF_STMT_DEFAULT:
-		analyze_statement(env, item->swi_case.stmt);
 		break;
 	case JAF_STMT_MESSAGE:
-		analyze_message(env, item);
-	case JAF_DECL_FUNCTYPE:
-	case JAF_DECL_STRUCT:
-	case JAF_STMT_GOTO:
-	case JAF_STMT_CONTINUE:
-	case JAF_STMT_BREAK:
-	case JAF_EOF:
-		break;
-	}
-}
-
-static void jaf_analyze_block(struct jaf_env *env, struct jaf_block *block)
-{
-	for (size_t i = 0; i < block->nr_items; i++) {
-		analyze_statement(env, block->items[i]);
-	}
-}
-
-static void analyze_block(struct jaf_env *env, struct jaf_block *block)
-{
-	struct jaf_env *blockenv = push_env(env);
-	jaf_analyze_block(blockenv, block);
-	pop_env(blockenv);
-}
-
-static void resolve_expression_types(struct ain *ain, struct jaf_expression *e)
-{
-	if (!e)
-		return;
-	switch (e->type) {
-	case JAF_EXP_VOID:
-	case JAF_EXP_INT:
-	case JAF_EXP_CHAR:
-	case JAF_EXP_FLOAT:
-	case JAF_EXP_STRING:
-	case JAF_EXP_IDENTIFIER:
-	case JAF_EXP_THIS:
-	case JAF_EXP_SYSCALL:
-	case JAF_EXP_HLLCALL:
-	case JAF_EXP_METHOD_CALL:
-	case JAF_EXP_BUILTIN_CALL:
-		break;
-	case JAF_EXP_UNARY:
-		resolve_expression_types(ain, e->expr);
-		break;
-	case JAF_EXP_BINARY:
-		resolve_expression_types(ain, e->lhs);
-		resolve_expression_types(ain, e->rhs);
-		break;
-	case JAF_EXP_TERNARY:
-		resolve_expression_types(ain, e->condition);
-		resolve_expression_types(ain, e->consequent);
-		resolve_expression_types(ain, e->alternative);
-		break;
-	case JAF_EXP_FUNCALL:
-		resolve_expression_types(ain, e->call.fun);
-		for (size_t i = 0; i < e->call.args->nr_items; i++) {
-			resolve_expression_types(ain, e->call.args->items[i]);
-		}
-		break;
-	case JAF_EXP_NEW:
-		resolve_typedef(ain, NULL, e->new.type);
-		for (size_t i = 0; i < e->new.args->nr_items; i++) {
-			resolve_expression_types(ain, e->new.args->items[i]);
-		}
-		break;
-	case JAF_EXP_CAST:
-		resolve_expression_types(ain, e->cast.expr);
-		break;
-	case JAF_EXP_MEMBER:
-		resolve_expression_types(ain, e->member.struc);
-		break;
-	case JAF_EXP_SEQ:
-		resolve_expression_types(ain, e->seq.head);
-		resolve_expression_types(ain, e->seq.tail);
-		break;
-	case JAF_EXP_SUBSCRIPT:
-		resolve_expression_types(ain, e->subscript.expr);
-		resolve_expression_types(ain, e->subscript.index);
-		break;
-	}
-}
-
-static void resolve_structdef_types(struct ain *ain, struct jaf_block_item *item)
-{
-	assert(item->struc.struct_no >= 0);
-	assert(item->struc.struct_no < ain->nr_structures);
-	struct jaf_block *jaf_members = item->struc.members;
-	struct ain_variable *members = xcalloc(jaf_members->nr_items, sizeof(struct ain_variable));
-	for (size_t i = 0; i < item->struc.members->nr_items; i++) {
-		if (jaf_members->items[i]->kind != JAF_DECL_VAR)
-			continue;
-		members[i].name = conv_output(jaf_members->items[i]->var.name->text);
-		if (ain->version >= 12)
-			members[i].name2 = strdup("");
-		jaf_to_ain_type(ain, &members[i].type, jaf_members->items[i]->var.type);
-	}
-	struct ain_struct *s = &ain->structures[item->struc.struct_no];
-	s->nr_members = jaf_members->nr_items;
-	s->members = members;
-}
-
-static void resolve_statement_types(struct ain *ain, struct jaf_block_item *item)
-{
-	if (!item)
-		return;
-	switch (item->kind) {
-	case JAF_DECL_VAR:
-		resolve_typedef(ain, item, item->var.type);
-		if (item->var.init) {
-			resolve_expression_types(ain, item->var.init);
-		}
-		break;
-	case JAF_DECL_FUNCTYPE:
-		if (item->fun.params)
-			jaf_resolve_types(ain, item->fun.params);
-		break;
-	case JAF_DECL_FUN:
-		resolve_typedef(ain, item, item->fun.type);
-		if (item->fun.params)
-			jaf_resolve_types(ain, item->fun.params);
-		jaf_resolve_types(ain, item->fun.body);
-		break;
-	case JAF_DECL_STRUCT:
-		resolve_structdef_types(ain, item);
-		break;
-	case JAF_STMT_LABELED:
-		resolve_statement_types(ain, item->label.stmt);
-		break;
-	case JAF_STMT_COMPOUND:
-		jaf_resolve_types(ain, item->block);
-		break;
-	case JAF_STMT_IF:
-		resolve_statement_types(ain, item->cond.consequent);
-		resolve_statement_types(ain, item->cond.alternative);
-		break;
-	case JAF_STMT_SWITCH:
-		jaf_resolve_types(ain, item->swi.body);
-		break;
-	case JAF_STMT_WHILE:
-	case JAF_STMT_DO_WHILE:
-		resolve_statement_types(ain, item->while_loop.body);
-		break;
-	case JAF_STMT_FOR:
-		jaf_resolve_types(ain, item->for_loop.init);
-		resolve_statement_types(ain, item->for_loop.body);
-		break;
-	case JAF_STMT_CASE:
-	case JAF_STMT_DEFAULT:
-		resolve_statement_types(ain, item->swi_case.stmt);
-		break;
-	case JAF_STMT_EXPRESSION:
-		resolve_expression_types(ain, item->expr);
-		break;
-	case JAF_STMT_GOTO:
-	case JAF_STMT_CONTINUE:
-	case JAF_STMT_BREAK:
-	case JAF_STMT_RETURN:
-	case JAF_STMT_MESSAGE:
-	case JAF_EOF:
-		break;
-	}
-}
-
-static void jaf_resolve_types(struct ain *ain, struct jaf_block *block)
-{
-	for (size_t i = 0; i < block->nr_items; i++) {
-		resolve_statement_types(ain, block->items[i]);
-	}
-}
-
-static void init_variable(struct ain *ain, struct ain_variable *vars, int *var_no, struct jaf_vardecl *decl)
-{
-	vars[*var_no].name = conv_output(decl->name->text);
-	if (ain->version >= 12)
-		vars[*var_no].name2 = strdup("");
-	jaf_to_ain_type(ain, &vars[*var_no].type, decl->type);
-	decl->var_no = *var_no;
-
-	// immediate reference types need extra slot (page+index)
-	switch (vars[*var_no].type.data) {
-	case AIN_REF_INT:
-	case AIN_REF_FLOAT:
-	case AIN_REF_BOOL:
-	case AIN_REF_LONG_INT:
-		(*var_no)++;
-		vars[*var_no].name = strdup("<void>");
-		if (ain->version >= 12)
-			vars[*var_no].name2 = strdup("");
-		vars[*var_no].type.data = AIN_VOID;
+		analyze_message(env, stmt);
 		break;
 	default:
 		break;
 	}
 
-	(*var_no)++;
-}
-
-static struct ain_variable *block_get_vars(struct ain *ain, struct jaf_block *block, struct ain_variable *vars, int *nr_vars);
-
-static struct ain_variable *block_item_get_vars(struct ain *ain, struct jaf_block_item *item, struct ain_variable *vars, int *nr_vars)
-{
-	if (!item)
-		return vars;
-	switch (item->kind) {
-	case JAF_DECL_VAR:
-		if (!(item->var.type->qualifiers & JAF_QUAL_CONST)) {
-			vars = xrealloc_array(vars, *nr_vars, *nr_vars + 2, sizeof(struct ain_variable));
-			init_variable(ain, vars, nr_vars, &item->var);
-		}
-		break;
-	case JAF_STMT_LABELED:
-		vars = block_item_get_vars(ain, item->label.stmt, vars, nr_vars);
-		break;
-	case JAF_STMT_COMPOUND:
-		vars = block_get_vars(ain, item->block, vars, nr_vars);
-		break;
-	case JAF_STMT_IF:
-		vars = block_item_get_vars(ain, item->cond.consequent, vars, nr_vars);
-		vars = block_item_get_vars(ain, item->cond.alternative, vars, nr_vars);
-		break;
-	case JAF_STMT_SWITCH:
-		vars = block_get_vars(ain, item->swi.body, vars, nr_vars);
-		break;
-	case JAF_STMT_WHILE:
-	case JAF_STMT_DO_WHILE:
-		vars = block_item_get_vars(ain, item->while_loop.body, vars, nr_vars);
-		break;
-	case JAF_STMT_FOR:
-		vars = block_get_vars(ain, item->for_loop.init, vars, nr_vars);
-		vars = block_item_get_vars(ain, item->for_loop.body, vars, nr_vars);
-		break;
-	case JAF_STMT_CASE:
-	case JAF_STMT_DEFAULT:
-		vars = block_item_get_vars(ain, item->swi_case.stmt, vars, nr_vars);
-		break;
-
-	case JAF_DECL_FUNCTYPE:
-	case JAF_DECL_STRUCT:
-	case JAF_STMT_EXPRESSION:
-	case JAF_STMT_GOTO:
-	case JAF_STMT_CONTINUE:
-	case JAF_STMT_BREAK:
-	case JAF_STMT_RETURN:
-	case JAF_STMT_MESSAGE:
-	case JAF_EOF:
-		break;
-
+	// restore previous scope
+	switch (stmt->kind) {
 	case JAF_DECL_FUN:
-		JAF_ERROR(item, "Nested functions not supported");
-	}
-	return vars;
-}
-
-static struct ain_variable *block_get_vars(struct ain *ain, struct jaf_block *block, struct ain_variable *vars, int *nr_vars)
-{
-	for (size_t i = 0; i < block->nr_items; i++) {
-		vars = block_item_get_vars(ain, block->items[i], vars, nr_vars);
-	}
-	return vars;
-}
-
-static void function_init_vars(struct ain *ain, struct jaf_fundecl *decl, int32_t *nr_args, int32_t *nr_vars, struct ain_variable **vars)
-{
-	int nr_params = decl->params ? decl->params->nr_items : 0;
-	*nr_args = 0;
-	*vars = xcalloc(nr_params * 2, sizeof(struct ain_variable));
-	for (int i = 0; i < nr_params; i++) {
-		assert(decl->params->items[i]->kind == JAF_DECL_VAR);
-		assert(decl->params->items[i]->var.name);
-		struct jaf_vardecl *param = &decl->params->items[i]->var;
-		init_variable(ain, *vars, nr_args, param);
-	}
-	*nr_vars = *nr_args;
-	if (decl->body)
-		*vars = block_get_vars(ain, decl->body, *vars, nr_vars);
-}
-
-static int _add_function(struct ain *ain, struct jaf_fundecl *decl)
-{
-	struct ain_function f = {0};
-	f.name = conv_output(decl->name->text);
-	jaf_to_ain_type(ain, &f.return_type, decl->type);
-	function_init_vars(ain, decl, &f.nr_args, &f.nr_vars, &f.vars);
-	return ain_add_function(ain, &f);
-}
-
-static void copy_type(struct ain_type *dst, struct ain_type *src)
-{
-	*dst = *src;
-	if (ain_is_array_data_type(src->data)) {
-		dst->array_type = xcalloc(src->rank, sizeof(struct ain_type));
-		for (int i = 0; i < src->rank; i++) {
-			copy_type(dst->array_type + i, src->array_type + i);
-		}
+	case JAF_STMT_COMPOUND:
+	case JAF_STMT_SWITCH:
+	case JAF_STMT_FOR:
+		visitor->data = pop_env(env);
+		break;
+	default:
+		break;
 	}
 }
 
-static int copy_function(struct ain *ain, int no)
+static struct jaf_expression *jaf_analyze_expr(struct jaf_expression *expr, struct jaf_visitor *visitor)
 {
-	struct ain_function *src = &ain->functions[no];
-	struct ain_function dst = *src;
-	dst.name = strdup(src->name);
-	copy_type(&dst.return_type, &src->return_type);
-	dst.vars = xcalloc(src->nr_vars, sizeof(struct ain_variable));
-	for (int i = 0; i < src->nr_vars; i++) {
-		dst.vars[i] = src->vars[i];
-		dst.vars[i].name = strdup(src->vars[i].name);
-		if (src->vars[i].name2) {
-			dst.vars[i].name2 = strdup(src->vars[i].name2);
-		}
-		copy_type(&dst.vars[i].type, &src->vars[i].type);
-	}
-	return ain_add_function(ain, &dst);
-}
-
-static bool types_equal(struct ain_type *a, struct ain_type *b)
-{
-	if (a->data != b->data)
-		return false;
-	if (a->data == AIN_STRUCT)
-		return a->struc == b->struc;
-	return true;
-}
-
-static bool function_signatures_equal(struct ain *ain, int _a, int _b)
-{
-	struct ain_function *a = &ain->functions[_a];
-	struct ain_function *b = &ain->functions[_b];
-	if (!types_equal(&a->return_type, &b->return_type))
-		return false;
-	if (a->nr_args != b->nr_args)
-		return false;
-	for (int i = 0; i < a->nr_args; i++) {
-		if (!types_equal(&a->vars[i].type, &b->vars[i].type))
-			return false;
-	}
-	return true;
-}
-
-static void override_function(struct ain *ain, struct jaf_block_item *item, int no)
-{
-	struct jaf_fundecl *decl = &item->fun;
-	decl->func_no = no;
-	decl->super_no = copy_function(ain, no);
-	if (!function_signatures_equal(ain, decl->func_no, decl->super_no))
-		JAF_ERROR(item, "Invalid function signature in override of function '%s'", decl->name->text);
-	ain->functions[decl->super_no].address = ain->functions[no].address;
-
-	// reinitialize variables of overriden function
-	struct ain_function *fun = &ain->functions[no];
-	ain_free_variables(fun->vars, fun->nr_vars);
-	fun->nr_args = 0;
-	fun->nr_vars = 0;
-	function_init_vars(ain, decl, &fun->nr_args, &fun->nr_vars, &fun->vars);
-}
-
-static void add_function(struct ain *ain, struct jaf_block_item *item)
-{
-	struct jaf_fundecl *decl = &item->fun;
-	char *name = conv_output(decl->name->text);
-	int no = ain_get_function(ain, name);
-	free(name);
-	if (decl->type->qualifiers & JAF_QUAL_OVERRIDE) {
-		if (no <= 0) {
-			JAF_ERROR(item, "Function '%s' can't be overridden because it doesn't exist", decl->name->text);
-		}
-		override_function(ain, item, no);
-	} else if (no > 0) {
-		JAF_ERROR(item, "Function '%s' already exists", decl->name->text);
-	} else {
-		decl->func_no = _add_function(ain, decl);
-		decl->super_no = 0;
-	}
-
-	if (!strcmp(decl->name->text, "main")) {
-		if (decl->params || decl->type->type != JAF_INT)
-			JAF_ERROR(item, "Invalid signature for main function");
-		if (ain->main > 0)
-			WARNING("Overriding main function");
-		ain->main = decl->func_no;
-	} else if (!strcmp(decl->name->text, "message")) {
-		if (!decl->params ||
-		    decl->params->nr_items != 3 ||
-		    decl->params->items[0]->fun.type->type != JAF_INT ||
-		    decl->params->items[0]->fun.type->qualifiers ||
-		    decl->params->items[1]->fun.type->type != JAF_INT ||
-		    decl->params->items[1]->fun.type->qualifiers ||
-		    decl->params->items[2]->fun.type->type != JAF_STRING ||
-		    decl->params->items[2]->fun.type->qualifiers ||
-		    decl->type->type != JAF_VOID) {
-			JAF_ERROR(item, "Invalid signature for message function");
-		}
-		if (ain->msgf > 0)
-			WARNING("Overriding message function");
-		ain->msgf = decl->func_no;
-	}
-}
-
-static void add_functype(struct ain *ain, struct jaf_fundecl *decl)
-{
-	assert(decl->func_no >= 0 && decl->func_no <= ain->nr_function_types);
-	struct ain_function_type *f = &ain->function_types[decl->func_no];
-	jaf_to_ain_type(ain, &f->return_type, decl->type);
-	function_init_vars(ain, decl, &f->nr_arguments, &f->nr_variables, &f->variables);
-}
-
-static void add_global(struct ain *ain, struct jaf_vardecl *decl)
-{
-	struct ain_variable v = {0};
-	v.name = conv_output(decl->name->text);
-	jaf_to_ain_type(ain, &v.type, decl->type);
-	ain_add_global(ain, &v);
-}
-
-static void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
-{
-	for (size_t i = 0; i < block->nr_items; i++) {
-		switch (block->items[i]->kind) {
-		case JAF_DECL_VAR:
-			add_global(ain, &block->items[i]->var);
-			break;
-		case JAF_DECL_FUN:
-			add_function(ain, block->items[i]);
-			break;
-		case JAF_DECL_FUNCTYPE:
-			add_functype(ain, &block->items[i]->fun);
-			break;
-		case JAF_DECL_STRUCT:
-		case JAF_EOF:
-			break;
-		default:
-			JAF_ERROR(block->items[i], "Unhandled declaration at top-level: %d",
-				  block->items[i]->kind);
-		}
-	}
-}
-
-/*
- * This function is responsible for registering names/definitions into the ain file.
- * It should be called before the static analysis phase.
- */
-void jaf_resolve_declarations(struct ain *ain, struct jaf_block *block)
-{
-	// pass 1: typedefs && struct definitions
-	jaf_resolve_types(ain, block);
-	// pass 2: register globals (names, types)
-	jaf_process_declarations(ain, block);
-}
-
-static void jaf_process_hll_declaration(struct ain *ain, struct jaf_fundecl *decl, struct ain_hll_function *f)
-{
-	f->name = xstrdup(decl->name->text);
-	jaf_to_ain_type(ain, &f->return_type, decl->type);
-
-	f->nr_arguments = decl->params ? decl->params->nr_items : 0;
-	f->arguments = xcalloc(f->nr_arguments, sizeof(struct ain_hll_argument));
-	for (int i = 0; i < f->nr_arguments; i++) {
-		assert(decl->params->items[i]->kind == JAF_DECL_VAR);
-		assert(decl->params->items[i]->var.name);
-		f->arguments[i].name = xstrdup(decl->params->items[i]->var.name->text);
-		jaf_to_ain_type(ain, &f->arguments[i].type, decl->params->items[i]->var.type);
-	}
-}
-
-void jaf_resolve_hll_declarations(struct ain *ain, struct jaf_block *block, const char *hll_name)
-{
-	struct ain_library lib = {0};
-	lib.name = xstrdup(hll_name);
-	lib.nr_functions = block->nr_items - 1; // -1 for EOF
-	lib.functions = xcalloc(lib.nr_functions, sizeof(struct ain_hll_function));
-	for (int i = 0; i < lib.nr_functions; i++) {
-		if (block->items[i]->kind != JAF_DECL_FUN)
-			JAF_ERROR(block->items[i],
-				  "Only function declarations are allowed in HLL files: %d",
-				  block->items[i]->kind);
-		if (block->items[i]->fun.body)
-			JAF_ERROR(block->items[i], "Function definitions not allowed in HLL files");
-		jaf_process_hll_declaration(ain, &block->items[i]->fun, &lib.functions[i]);
-	}
-	ain_add_library(ain, &lib);
+	struct jaf_env *env = visitor->data;
+	jaf_derive_types(env, expr);
+	return jaf_simplify(expr);
 }
 
 struct jaf_block *jaf_static_analyze(struct ain *ain, struct jaf_block *block)
@@ -903,9 +229,14 @@ struct jaf_block *jaf_static_analyze(struct ain *ain, struct jaf_block *block)
 		.parent = NULL,
 		.locals = NULL
 	};
+	struct jaf_visitor visitor = {
+		.visit_stmt_pre = jaf_analyze_stmt_pre,
+		.visit_stmt_post = jaf_analyze_stmt_post,
+		.visit_expr_post = jaf_analyze_expr,
+		.data = &env,
+	};
 
-	// pass 3: type analysis & simplification & global initvals
-	jaf_analyze_block(&env, block);
+	jaf_accept_block(block, &visitor);
 	free(env.locals);
 
 	return block;

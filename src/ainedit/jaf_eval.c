@@ -20,8 +20,6 @@
 #include "system4/string.h"
 #include "jaf.h"
 
-struct jaf_expression *jaf_simplify(struct jaf_expression *in);
-
 static struct jaf_expression *jaf_simplify_negation(struct jaf_expression *in)
 {
 	struct jaf_expression *expr = in->expr;
@@ -65,9 +63,10 @@ static struct jaf_expression *jaf_simplify_lognot(struct jaf_expression *in)
 
 static struct jaf_expression *jaf_simplify_unary(struct jaf_expression *in)
 {
-	struct jaf_expression *r = in->expr = jaf_simplify(in->expr);
+	struct jaf_expression *r;
 	switch (in->op) {
 	case JAF_UNARY_PLUS:
+		r = in->expr;
 		free(in);
 		return r;
 	case JAF_UNARY_MINUS:
@@ -164,11 +163,7 @@ SIMPLIFY_INTEGER_FUN   (jaf_simplify_logor,     JAF_LOG_OR,    ||)
 
 static struct jaf_expression *jaf_simplify_binary(struct jaf_expression *e)
 {
-	enum jaf_operator op = e->op;
-	e->lhs = jaf_simplify(e->lhs);
-	e->rhs = jaf_simplify(e->rhs);
-
-	switch (op) {
+	switch (e->op) {
 	case JAF_MULTIPLY:
 		return jaf_simplify_multiply(e);
 	case JAF_DIVIDE:
@@ -225,10 +220,6 @@ static struct jaf_expression *jaf_simplify_binary(struct jaf_expression *e)
 
 static struct jaf_expression *jaf_simplify_ternary(struct jaf_expression *in)
 {
-	in->condition = jaf_simplify(in->condition);
-	in->consequent = jaf_simplify(in->consequent);
-	in->alternative = jaf_simplify(in->alternative);
-
 	if (in->condition->type == JAF_EXP_INT) {
 		if (in->condition->i) {
 			jaf_free_expr(in->condition);
@@ -248,30 +239,8 @@ static struct jaf_expression *jaf_simplify_ternary(struct jaf_expression *in)
 	return in;
 }
 
-static struct jaf_expression *jaf_simplify_funcall(struct jaf_expression *in)
-{
-	if (in->call.fun)
-		in->call.fun = jaf_simplify(in->call.fun);
-	if (in->call.args) {
-		for (size_t i = 0; i < in->call.args->nr_items; i++) {
-			in->call.args->items[i] = jaf_simplify(in->call.args->items[i]);
-		}
-	}
-	return in;
-}
-
-static struct jaf_expression *jaf_simplify_new(struct jaf_expression *in)
-{
-	for (size_t i = 0; i < in->new.args->nr_items; i++) {
-		in->new.args->items[i] = jaf_simplify(in->new.args->items[i]);
-	}
-	return in;
-}
-
 static struct jaf_expression *jaf_simplify_cast(struct jaf_expression *in)
 {
-	in->cast.expr = jaf_simplify(in->cast.expr);
-
 	if (in->cast.type == JAF_INT) {
 		if (in->cast.expr->type == JAF_EXP_INT) {
 			struct jaf_expression *r = in->cast.expr;
@@ -331,26 +300,6 @@ static struct jaf_expression *jaf_simplify_cast(struct jaf_expression *in)
 	return in;
 }
 
-static struct jaf_expression *jaf_simplify_member(struct jaf_expression *in)
-{
-	in->member.struc = jaf_simplify(in->member.struc);
-	return in;
-}
-
-static struct jaf_expression *jaf_simplify_seq(struct jaf_expression *in)
-{
-	in->seq.head = jaf_simplify(in->seq.head);
-	in->seq.tail = jaf_simplify(in->seq.tail);
-	return in;
-}
-
-static struct jaf_expression *jaf_simplify_subscript(struct jaf_expression *in)
-{
-	in->subscript.expr = jaf_simplify(in->subscript.expr);
-	in->subscript.index = jaf_simplify(in->subscript.index);
-	return in;
-}
-
 static struct jaf_expression *jaf_simplify_char(struct jaf_expression *in)
 {
 	int c = 0;
@@ -391,6 +340,15 @@ struct jaf_expression *jaf_simplify(struct jaf_expression *in)
 	case JAF_EXP_STRING:
 	case JAF_EXP_IDENTIFIER:
 	case JAF_EXP_THIS:
+	case JAF_EXP_FUNCALL:
+	case JAF_EXP_SYSCALL:
+	case JAF_EXP_HLLCALL:
+	case JAF_EXP_METHOD_CALL:
+	case JAF_EXP_BUILTIN_CALL:
+	case JAF_EXP_NEW:
+	case JAF_EXP_MEMBER:
+	case JAF_EXP_SEQ:
+	case JAF_EXP_SUBSCRIPT:
 		return in;
 	case JAF_EXP_UNARY:
 		return jaf_simplify_unary(in);
@@ -398,37 +356,10 @@ struct jaf_expression *jaf_simplify(struct jaf_expression *in)
 		return jaf_simplify_binary(in);
 	case JAF_EXP_TERNARY:
 		return jaf_simplify_ternary(in);
-	case JAF_EXP_FUNCALL:
-	case JAF_EXP_SYSCALL:
-	case JAF_EXP_HLLCALL:
-	case JAF_EXP_METHOD_CALL:
-	case JAF_EXP_BUILTIN_CALL:
-		return jaf_simplify_funcall(in);
-	case JAF_EXP_NEW:
-		return jaf_simplify_new(in);
 	case JAF_EXP_CAST:
 		return jaf_simplify_cast(in);
-	case JAF_EXP_MEMBER:
-		return jaf_simplify_member(in);
-	case JAF_EXP_SEQ:
-		return jaf_simplify_seq(in);
-	case JAF_EXP_SUBSCRIPT:
-		return jaf_simplify_subscript(in);
 	case JAF_EXP_CHAR:
 		return jaf_simplify_char(in);
 	}
 	COMPILER_ERROR(in, "Invalid expression type");
-}
-
-struct jaf_expression *jaf_compute_constexpr(struct jaf_expression *in)
-{
-	struct jaf_expression *out = jaf_simplify(in);
-	switch (out->type) {
-	case JAF_EXP_INT:
-	case JAF_EXP_FLOAT:
-	case JAF_EXP_STRING:
-		return out;
-	default:
-		return NULL;
-	}
 }

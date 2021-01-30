@@ -69,7 +69,7 @@ static const char *jaf_op_to_string(enum jaf_operator op)
 	}
 }
 
-static const char *jaf_type_to_string(enum jaf_type type)
+const char *jaf_type_to_string(enum jaf_type type)
 {
 	switch (type) {
 	case JAF_VOID: return "void";

@@ -749,12 +749,10 @@ static void compile_hllcall(struct compiler_state *state, struct jaf_expression 
 	}
 }
 
-static void compile_builtin_call(struct compiler_state *state, struct jaf_expression *expr)
+static void compile_builtin_call(possibly_unused struct compiler_state *state, struct jaf_expression *expr)
 {
-	assert(expr->call.fun->type == JAF_EXP_MEMBER);
-	// FIXME: assuming self arg is a ref type here...
-	compile_reference_argument(state, expr->call.fun->member.struc);
-	compile_hllcall(state, expr, 1);
+	// TODO: pre-v11 builtins (instruction based)
+	JAF_ERROR(expr, "built-in methods not supported");
 }
 
 static void compile_new(struct compiler_state *state, struct jaf_expression *expr)
@@ -801,7 +799,9 @@ static void compile_cast(struct compiler_state *state, struct jaf_expression *ex
 	}
 	return;
 invalid_cast:
-	JAF_ERROR(expr, "Unsupported cast: %s to %s", ain_strtype(state->ain, src_type, -1), jaf_typestr(expr->cast.type));
+	JAF_ERROR(expr, "Unsupported cast: %s to %s",
+		  ain_strtype(state->ain, src_type, -1),
+		  jaf_type_to_string(expr->cast.type));
 }
 
 static void compile_member(struct compiler_state *state, struct jaf_expression *expr)
@@ -1436,18 +1436,22 @@ void jaf_build(struct ain *out, const char **files, unsigned nr_files, const cha
 {
 	// First, we parse the source files and register type definitions in the ain file.
 	struct jaf_block *toplevel;
+	// pass 0: parse (type names registered in ain object here)
 	toplevel = jaf_parse(out, files, nr_files);
-	jaf_resolve_declarations(out, toplevel);
+	// pass 1: resolve typedefs
+	jaf_resolve_types(out, toplevel);
+	// pass 2: globals/functions
+	jaf_process_declarations(out, toplevel);
 
 	// Now that type definitions are available, we parse the HLL files.
 	assert(nr_hll % 2 == 0);
 	for (unsigned i = 0; i < nr_hll; i += 2) {
 		struct jaf_block *hll_decl = jaf_parse(out, hll+i, 1);
-		jaf_resolve_hll_declarations(out, hll_decl, hll[i+1]);
+		jaf_process_hll_declarations(out, hll_decl, hll[i+1]);
 		jaf_free_block(hll_decl);
 	}
 
-	// Now that HLL declarations are available, we can do static analysis.
+	// pass 3: static analysis (type analysis, simplification, global initvals)
 	toplevel = jaf_static_analyze(out, toplevel);
 	jaf_compile(out, toplevel);
 	jaf_free_block(toplevel);

@@ -665,15 +665,12 @@ void jaf_free_block_item(struct jaf_block_item *item)
 		ain_free_type(&item->var.valuetype);
 		break;
 	case JAF_DECL_FUNCTYPE:
-		free_string(item->fun.name);
-		jaf_free_type_specifier(item->fun.type);
-		jaf_free_block(item->fun.params);
-		break;
 	case JAF_DECL_FUN:
 		free_string(item->fun.name);
 		jaf_free_type_specifier(item->fun.type);
 		jaf_free_block(item->fun.params);
 		jaf_free_block(item->fun.body);
+		ain_free_type(&item->fun.valuetype);
 		break;
 	case JAF_DECL_STRUCT:
 		free_string(item->struc.name);
