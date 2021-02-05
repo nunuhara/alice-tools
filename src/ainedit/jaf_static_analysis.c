@@ -67,35 +67,45 @@ static void analyze_global_declaration(struct jaf_env *env, struct jaf_block_ite
 	analyze_array_allocation(env, item);
 }
 
-static void analyze_local_declaration(struct jaf_env *env, struct jaf_block_item *item)
+void jaf_env_add_local(struct jaf_env *env, char *name, int var_no)
 {
-	struct jaf_vardecl *decl = &item->var;
 	assert(env->func_no >= 0 && env->func_no < env->ain->nr_functions);
-	assert(decl->var_no >= 0 && decl->var_no < env->ain->functions[env->func_no].nr_vars);
-	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
-	analyze_array_allocation(env, item);
+	struct ain_function *f = &env->ain->functions[env->func_no];
+	assert(var_no >= 0 && var_no < f->nr_vars);
+	struct ain_variable *v = &f->vars[var_no];
 
-	// add local to environment
 	env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+2,
 				     sizeof(struct jaf_env_local));
-	env->locals[env->nr_locals].name = decl->name->text;
+	env->locals[env->nr_locals].name = name;
 
-	switch (env->ain->functions[env->func_no].vars[decl->var_no].type.data) {
+	switch (v->type.data) {
 	case AIN_REF_INT:
 	case AIN_REF_FLOAT:
 	case AIN_REF_BOOL:
 	case AIN_REF_LONG_INT:
-		env->locals[env->nr_locals].no = decl->var_no;
-		env->locals[env->nr_locals++].var = &env->ain->functions[env->func_no].vars[decl->var_no];
+		assert(var_no+1 < f->nr_vars);
+		env->locals[env->nr_locals].no = var_no;
+		env->locals[env->nr_locals++].var = v;
 		env->locals[env->nr_locals].name = "";
-		env->locals[env->nr_locals].no = decl->var_no+1;
-		env->locals[env->nr_locals++].var = &env->ain->functions[env->func_no].vars[decl->var_no+1];
+		env->locals[env->nr_locals].no = var_no + 1;
+		env->locals[env->nr_locals].var = v + 1;
 		break;
 	default:
-		env->locals[env->nr_locals].no = decl->var_no;
-		env->locals[env->nr_locals++].var = &env->ain->functions[env->func_no].vars[decl->var_no];
+		env->locals[env->nr_locals].no = var_no;
+		env->locals[env->nr_locals++].var = v;
 		break;
 	}
+}
+
+static void analyze_local_declaration(struct jaf_env *env, struct jaf_block_item *item)
+{
+	struct jaf_vardecl *decl = &item->var;
+	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
+	if (decl->init) {
+		jaf_check_type(decl->init, &decl->valuetype);
+	}
+	analyze_array_allocation(env, item);
+	jaf_env_add_local(env, decl->name->text, decl->var_no);
 }
 
 static void analyze_message(struct jaf_env *env, struct jaf_block_item *item)
@@ -198,6 +208,13 @@ static void jaf_analyze_stmt_post(struct jaf_block_item *stmt, struct jaf_visito
 	case JAF_STMT_MESSAGE:
 		analyze_message(env, stmt);
 		break;
+	case JAF_STMT_RASSIGN:
+		jaf_check_type_lvalue(env, stmt->rassign.lhs);
+		jaf_check_type_lvalue(env, stmt->rassign.rhs);
+		if (!ain_is_ref_data_type(stmt->rassign.lhs->valuetype.data))
+			JAF_ERROR(stmt, "LHS of reference assignment is not a reference type");
+		jaf_check_type(stmt->rassign.rhs, &stmt->rassign.lhs->valuetype);
+		break;
 	default:
 		break;
 	}
@@ -208,6 +225,7 @@ static void jaf_analyze_stmt_post(struct jaf_block_item *stmt, struct jaf_visito
 	case JAF_STMT_COMPOUND:
 	case JAF_STMT_SWITCH:
 	case JAF_STMT_FOR:
+		stmt->is_scope = true;
 		visitor->data = pop_env(env);
 		break;
 	default:
@@ -217,8 +235,10 @@ static void jaf_analyze_stmt_post(struct jaf_block_item *stmt, struct jaf_visito
 
 static struct jaf_expression *jaf_analyze_expr(struct jaf_expression *expr, struct jaf_visitor *visitor)
 {
-	struct jaf_env *env = visitor->data;
-	jaf_derive_types(env, expr);
+	if (expr->type == JAF_EXP_NEW) {
+		visitor->stmt->is_scope = true;
+	}
+	jaf_derive_types(visitor->data, expr);
 	return jaf_simplify(expr);
 }
 

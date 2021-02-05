@@ -32,8 +32,10 @@ struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr, struct jaf_v
 	if (!expr || (!visitor->visit_expr_pre && !visitor->visit_expr_post))
 		return expr;
 
-	if (visitor->visit_expr_pre)
+	if (visitor->visit_expr_pre) {
+		visitor->expr = expr;
 		expr = visitor->visit_expr_pre(expr, visitor);
+	}
 
 	switch (expr->type) {
 	case JAF_EXP_UNARY:
@@ -83,8 +85,10 @@ struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr, struct jaf_v
 		break;
 	}
 
-	if (visitor->visit_expr_post)
+	if (visitor->visit_expr_post) {
+		visitor->expr = expr;
 		expr = visitor->visit_expr_post(expr, visitor);
+	}
 
 	return expr;
 }
@@ -94,8 +98,10 @@ void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
 	if (!stmt)
 		return;
 
-	if (visitor->visit_stmt_pre)
+	if (visitor->visit_stmt_pre) {
+		visitor->stmt = stmt;
 		visitor->visit_stmt_pre(stmt, visitor);
+	}
 
 	switch (stmt->kind) {
 	case JAF_DECL_VAR:
@@ -155,6 +161,10 @@ void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
 	case JAF_STMT_DEFAULT:
 		jaf_accept_stmt(stmt->swi_case.stmt, visitor);
 		break;
+	case JAF_STMT_RASSIGN:
+		stmt->rassign.lhs = jaf_accept_expr(stmt->rassign.lhs, visitor);
+		stmt->rassign.rhs = jaf_accept_expr(stmt->rassign.rhs, visitor);
+		break;
 	case JAF_STMT_GOTO:
 	case JAF_STMT_CONTINUE:
 	case JAF_STMT_BREAK:
@@ -163,8 +173,10 @@ void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
 		break;
 	}
 
-	if (visitor->visit_stmt_post)
+	if (visitor->visit_stmt_post) {
+		visitor->stmt = stmt;
 		visitor->visit_stmt_post(stmt, visitor);
+	}
 }
 
 void jaf_accept_block(struct jaf_block *block, struct jaf_visitor *visitor)

@@ -157,7 +157,6 @@ enum jaf_operator {
 	JAF_AND_ASSIGN,
 	JAF_XOR_ASSIGN,
 	JAF_OR_ASSIGN,
-	JAF_REF_ASSIGN,
 };
 
 struct string;
@@ -233,6 +232,7 @@ struct jaf_expression {
 			struct jaf_type_specifier *type;
 			struct jaf_argument_list *args;
 			int func_no;
+			int var_no;
 		} new;
 		// struct member
 		struct {
@@ -292,6 +292,7 @@ enum block_item_kind {
 	JAF_STMT_CASE,
 	JAF_STMT_DEFAULT,
 	JAF_STMT_MESSAGE,
+	JAF_STMT_RASSIGN,
 	JAF_EOF
 };
 
@@ -318,6 +319,7 @@ struct jaf_fundecl {
 struct jaf_block_item {
 	unsigned line;
 	const char *file;
+	bool is_scope;
 	enum block_item_kind kind;
 	union {
 		struct jaf_vardecl var;
@@ -362,6 +364,10 @@ struct jaf_block_item {
 			struct string *func;
 			int func_no;
 		} msg;
+		struct {
+			struct jaf_expression *lhs;
+			struct jaf_expression *rhs;
+		} rassign;
 		struct string *target; // goto
 		unsigned file_no;      // eof
 	};
@@ -452,6 +458,7 @@ struct jaf_block_item *jaf_break(void);
 struct jaf_block_item *jaf_return(struct jaf_expression *expr);
 struct jaf_block_item *jaf_message_statement(struct string *msg, struct string *func);
 struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields);
+struct jaf_block_item *jaf_rassign(struct jaf_expression *lhs, struct jaf_expression *rhs);
 void jaf_free_expr(struct jaf_expression *expr);
 void jaf_free_block(struct jaf_block *block);
 
@@ -469,6 +476,7 @@ struct jaf_expression *jaf_simplify(struct jaf_expression *in);
 // jaf_types.c
 void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr);
 void jaf_check_type(struct jaf_expression *expr, struct ain_type *type);
+void jaf_check_type_lvalue(possibly_unused struct jaf_env *env, struct jaf_expression *e);
 
 // jaf_static_analysis.c
 struct jaf_block *jaf_static_analyze(struct ain *ain, struct jaf_block *block);
@@ -480,14 +488,14 @@ void jaf_resolve_types(struct ain *ain, struct jaf_block *block);
 void jaf_process_declarations(struct ain *ain, struct jaf_block *block);
 void jaf_process_hll_declarations(struct ain *ain, struct jaf_block *block, const char *hll_name);
 
-#define warn_unused __attribute__((warn_unused_result))
-
 // jaf_visitor.c
 struct jaf_visitor {
 	void(*visit_stmt_pre)(struct jaf_block_item*,struct jaf_visitor*);
 	void(*visit_stmt_post)(struct jaf_block_item*,struct jaf_visitor*);
 	struct jaf_expression*(*visit_expr_pre)(struct jaf_expression*,struct jaf_visitor*);
 	struct jaf_expression*(*visit_expr_post)(struct jaf_expression*, struct jaf_visitor*);
+	struct jaf_block_item *stmt;
+	struct jaf_expression *expr;
 	void *data;
 };
 warn_unused struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr, struct jaf_visitor *visitor);

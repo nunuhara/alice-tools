@@ -64,7 +64,6 @@ static const char *jaf_op_to_string(enum jaf_operator op)
 	case JAF_AND_ASSIGN: return "&=";
 	case JAF_XOR_ASSIGN: return "^=";
 	case JAF_OR_ASSIGN: return "|=";
-	case JAF_REF_ASSIGN: return "->";
 	default: ERROR("Unhandled operator: %d", op);
 	}
 }
@@ -355,6 +354,12 @@ void jaf_print_block_item(FILE *out, struct jaf_block_item *item)
 		if (item->msg.func) {
 			fprintf(out, "%s", item->msg.func->text);
 		}
+		fputc(';', out);
+		break;
+	case JAF_STMT_RASSIGN:
+		jaf_print_expression(out, item->rassign.lhs);
+		fprintf(out, " <- ");
+		jaf_print_expression(out, item->rassign.rhs);
 		fputc(';', out);
 		break;
 	case JAF_EOF:

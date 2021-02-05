@@ -211,7 +211,6 @@ static struct jaf_expression *jaf_simplify_binary(struct jaf_expression *e)
 	case JAF_AND_ASSIGN:
 	case JAF_XOR_ASSIGN:
 	case JAF_OR_ASSIGN:
-	case JAF_REF_ASSIGN:
 		return e;
 	default:
 		COMPILER_ERROR(e, "Invalid binary operator");

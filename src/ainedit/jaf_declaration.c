@@ -25,38 +25,39 @@
 // jaf_static_analysis.c
 void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_specifier *in);
 
-static void init_variable(struct ain *ain, struct ain_variable *vars, int *var_no, struct jaf_vardecl *decl)
-{
-	vars[*var_no].name = conv_output(decl->name->text);
-	if (ain->version >= 12)
-		vars[*var_no].name2 = strdup("");
-	jaf_to_ain_type(ain, &vars[*var_no].type, decl->type);
-	decl->var_no = *var_no;
-
-	// immediate reference types need extra slot (page+index)
-	switch (vars[*var_no].type.data) {
-	case AIN_REF_INT:
-	case AIN_REF_FLOAT:
-	case AIN_REF_BOOL:
-	case AIN_REF_LONG_INT:
-		(*var_no)++;
-		vars[*var_no].name = strdup("<void>");
-		if (ain->version >= 12)
-			vars[*var_no].name2 = strdup("");
-		vars[*var_no].type.data = AIN_VOID;
-		break;
-	default:
-		break;
-	}
-
-	(*var_no)++;
-}
-
 struct var_list {
 	struct ain *ain;
 	struct ain_variable *vars;
 	int nr_vars;
 };
+
+static warn_unused int init_variable(struct var_list *list, const char *name, struct jaf_type_specifier *type)
+{
+	int var = list->nr_vars;
+	list->vars[var].name = conv_output(name);
+	if (list->ain->version >= 12)
+		list->vars[var].name2 = strdup("");
+	jaf_to_ain_type(list->ain, &list->vars[var].type, type);
+
+	// immediate reference types need extra slot (page+index)
+	switch (list->vars[var].type.data) {
+	case AIN_REF_INT:
+	case AIN_REF_FLOAT:
+	case AIN_REF_BOOL:
+	case AIN_REF_LONG_INT:
+		list->nr_vars++;
+		list->vars[var+1].name = strdup("<void>");
+		if (list->ain->version >= 12)
+			list->vars[var+1].name2 = strdup("");
+		list->vars[var+1].type.data = AIN_VOID;
+		break;
+	default:
+		break;
+	}
+
+	list->nr_vars++;
+	return var;
+}
 
 static void stmt_get_vars(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
 {
@@ -66,7 +67,7 @@ static void stmt_get_vars(struct jaf_block_item *stmt, struct jaf_visitor *visit
 	case JAF_DECL_VAR:
 		if (!(stmt->var.type->qualifiers & JAF_QUAL_CONST)) {
 			vars->vars = xrealloc_array(vars->vars, vars->nr_vars, vars->nr_vars+2, sizeof(struct ain_variable));
-			init_variable(vars->ain, vars->vars, &vars->nr_vars, &stmt->var);
+			stmt->var.var_no = init_variable(vars, stmt->var.name->text, stmt->var.type);
 		}
 		break;
 	case JAF_DECL_FUN:
@@ -74,6 +75,38 @@ static void stmt_get_vars(struct jaf_block_item *stmt, struct jaf_visitor *visit
 	default:
 		break;
 	}
+}
+
+static int add_dummy_variable(struct var_list *vars, struct jaf_type_specifier *type, const char *fmt, ...)
+{
+	char name[1024];
+	char dfmt[1024];
+
+	snprintf(dfmt, 1023, "<dummy : %s>", fmt);
+
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(name, 1023, dfmt, ap);
+	va_end(ap);
+
+	vars->vars = xrealloc_array(vars->vars, vars->nr_vars, vars->nr_vars+2, sizeof(struct ain_variable));
+	return init_variable(vars, name, type);
+}
+
+static struct jaf_expression *expr_get_vars(struct jaf_expression *expr, struct jaf_visitor *visitor)
+{
+	struct var_list *vars = visitor->data;
+
+	switch (expr->type) {
+	case JAF_EXP_NEW:
+		assert(expr->new.type->name);
+		expr->new.var_no = add_dummy_variable(vars, expr->new.type, "new %s", expr->new.type->name->text);
+		break;
+	default:
+		break;
+	}
+
+	return expr;
 }
 
 static struct ain_variable *block_get_vars(struct ain *ain, struct jaf_block *block, struct ain_variable *vars, int *nr_vars)
@@ -85,6 +118,7 @@ static struct ain_variable *block_get_vars(struct ain *ain, struct jaf_block *bl
 	};
 	struct jaf_visitor visitor = {
 		.visit_stmt_post = stmt_get_vars,
+		.visit_expr_post = expr_get_vars,
 		.data = &var_list,
 	};
 
@@ -103,7 +137,13 @@ static void function_init_vars(struct ain *ain, struct jaf_fundecl *decl, int32_
 		assert(decl->params->items[i]->kind == JAF_DECL_VAR);
 		assert(decl->params->items[i]->var.name);
 		struct jaf_vardecl *param = &decl->params->items[i]->var;
-		init_variable(ain, *vars, nr_args, param);
+		struct var_list var_list = {
+			.ain = ain,
+			.vars = *vars,
+			.nr_vars = *nr_args
+		};
+		param->var_no = init_variable(&var_list, param->name->text, param->type);
+		*nr_args = var_list.nr_vars;
 	}
 	*nr_vars = *nr_args;
 	if (decl->body)

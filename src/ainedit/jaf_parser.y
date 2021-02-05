@@ -208,6 +208,7 @@ static struct jaf_block *jaf_functype(struct jaf_type_specifier *type, struct ja
 %type	<block>		compound_statement block_item_list block_item
 %type	<statement>	statement labeled_statement expression_statement selection_statement
 %type	<statement>	iteration_statement jump_statement message_statement struct_specifier
+%type	<statement>	rassign_statement
 %type	<fundecl>	function_declarator functype_declarator
 
 /*
@@ -369,7 +370,6 @@ assignment_operator
 	| AND_ASSIGN   { $$ = JAF_AND_ASSIGN; }
 	| XOR_ASSIGN   { $$ = JAF_XOR_ASSIGN; }
 	| OR_ASSIGN    { $$ = JAF_OR_ASSIGN; }
-	| REF_ASSIGN   { $$ = JAF_REF_ASSIGN; }
 	;
 
 expression
@@ -531,6 +531,7 @@ statement
 	| iteration_statement  { $$ = $1; }
 	| jump_statement       { $$ = $1; }
 	| message_statement    { $$ = $1; }
+	| rassign_statement    { $$ = $1; }
 	;
 
 labeled_statement
@@ -584,6 +585,10 @@ jump_statement
 
 message_statement
 	: C_CONSTANT IDENTIFIER ';' { $$ = jaf_message_statement($1, $2); }
+	;
+
+rassign_statement
+	: expression REF_ASSIGN expression ';' { $$ = jaf_rassign($1, $3); }
 	;
 
 toplevel

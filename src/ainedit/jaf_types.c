@@ -53,6 +53,30 @@ static enum ain_data_type strip_ref(struct ain_type *type)
 	}
 }
 
+static enum ain_data_type add_ref(struct ain_type *type)
+{
+	switch (type->data) {
+	case AIN_INT:             return AIN_REF_INT;
+	case AIN_FLOAT:           return AIN_REF_FLOAT;
+	case AIN_STRING:          return AIN_REF_STRING;
+	case AIN_STRUCT:          return AIN_REF_STRUCT;
+	case AIN_ENUM:            return AIN_REF_ENUM;
+	case AIN_ARRAY_INT:       return AIN_REF_ARRAY_INT;
+	case AIN_ARRAY_FLOAT:     return AIN_REF_ARRAY_FLOAT;
+	case AIN_ARRAY_STRING:    return AIN_REF_ARRAY_STRING;
+	case AIN_ARRAY_STRUCT:    return AIN_REF_ARRAY_STRUCT;
+	case AIN_FUNC_TYPE:       return AIN_REF_FUNC_TYPE;
+	case AIN_ARRAY_FUNC_TYPE: return AIN_REF_ARRAY_FUNC_TYPE;
+	case AIN_BOOL:            return AIN_REF_BOOL;
+	case AIN_ARRAY_BOOL:      return AIN_REF_ARRAY_BOOL;
+	case AIN_LONG_INT:        return AIN_REF_LONG_INT;
+	case AIN_ARRAY_LONG_INT:  return AIN_REF_ARRAY_LONG_INT;
+	case AIN_ARRAY:           return AIN_REF_ARRAY;
+	default:                  return type->data;
+	}
+
+}
+
 static bool jaf_type_equal(struct ain_type *a, struct ain_type *b)
 {
 	enum ain_data_type a_data = strip_ref(a), b_data = strip_ref(b);
@@ -129,11 +153,18 @@ static enum ain_data_type jaf_merge_types(enum ain_data_type a, enum ain_data_ty
 	return AIN_INT;
 }
 
-static void jaf_check_types_lvalue(possibly_unused struct jaf_env *env, struct jaf_expression *e)
+void jaf_check_type_lvalue(possibly_unused struct jaf_env *env, struct jaf_expression *e)
 {
-	// TODO: array subscripts
-	if (e->type != JAF_EXP_IDENTIFIER && e->type != JAF_EXP_MEMBER && e->type != JAF_EXP_SUBSCRIPT)
+	switch (e->type) {
+	case JAF_EXP_IDENTIFIER:
+	case JAF_EXP_MEMBER:
+	case JAF_EXP_SUBSCRIPT:
+	case JAF_EXP_NEW:
+		break;
+	default:
 		JAF_ERROR(e, "Invalid expression as lvalue");
+	}
+
 	switch (e->valuetype.data) {
 	case AIN_INT:
 	case AIN_FLOAT:
@@ -146,6 +177,7 @@ static void jaf_check_types_lvalue(possibly_unused struct jaf_env *env, struct j
 	case AIN_REF_BOOL:
 	case AIN_REF_LONG_INT:
 	case AIN_REF_STRING:
+	case AIN_REF_STRUCT:
 	case AIN_REF_ENUM:
 		break;
 	default:
@@ -164,7 +196,7 @@ static void jaf_check_types_unary(struct jaf_env *env, struct jaf_expression *ex
 	case JAF_PRE_DEC:
 	case JAF_POST_INC:
 	case JAF_POST_DEC:
-		jaf_check_types_lvalue(env, expr->expr);
+		jaf_check_type_lvalue(env, expr->expr);
 		expr->valuetype.data = jaf_type_check_numeric(expr->expr);
 		break;
 	case JAF_BIT_NOT:
@@ -275,12 +307,11 @@ static void jaf_check_types_binary(struct jaf_env *env, struct jaf_expression *e
 	case JAF_AND_ASSIGN:
 	case JAF_XOR_ASSIGN:
 	case JAF_OR_ASSIGN:
-		jaf_check_types_lvalue(env, expr->lhs);
+		jaf_check_type_lvalue(env, expr->lhs);
 		// FIXME: need to coerce types (?)
 		jaf_check_type(expr->rhs, &expr->lhs->valuetype);
 		expr->valuetype.data = expr->lhs->valuetype.data;
 		break;
-	case JAF_REF_ASSIGN: // TODO
 	default:
 		COMPILER_ERROR(expr, "Unhandled binary operator");
 	}
@@ -543,6 +574,17 @@ static void jaf_check_types_system_call(possibly_unused struct jaf_env *env, str
 	expr->valuetype = syscalls[expr->call.func_no].return_type;
 }
 
+static void jaf_check_hll_argument(struct jaf_expression *arg, struct ain_type *type, struct ain_type *type_param)
+{
+	if (type && (type->data == AIN_HLL_PARAM || type->data == AIN_REF_HLL_PARAM)) {
+		if (type_param->data != AIN_ARRAY && type_param->data != AIN_REF_ARRAY)
+			COMPILER_ERROR(arg, "Expected array as type param");
+		jaf_check_type(arg, type_param->array_type);
+	} else {
+		jaf_check_type(arg, type);
+	}
+}
+
 static void jaf_check_types_hll_call(struct jaf_env *env, struct jaf_expression *expr, struct ain_type *type)
 {
 	expr->type = JAF_EXP_HLLCALL;
@@ -566,9 +608,18 @@ static void jaf_check_types_hll_call(struct jaf_env *env, struct jaf_expression 
 		JAF_ERROR(expr, "Too many arguments to HLL function: %s.%s", obj_name, mbr_name);
 	// FIXME: multi-valued arguments?
 	for (unsigned i = 0; i < nr_args; i++) {
-		jaf_check_type(expr->call.args->items[i], &def->arguments[i].type);
+		jaf_check_hll_argument(expr->call.args->items[i], &def->arguments[i].type, type);
+		//jaf_check_type(expr->call.args->items[i], &def->arguments[i].type);
 	}
-	expr->valuetype = def->return_type;
+
+	if (def->return_type.data == AIN_HLL_PARAM) {
+		expr->valuetype = *type->array_type;
+	} else if (def->return_type.data == AIN_REF_HLL_PARAM) {
+		expr->valuetype = *type->array_type;
+		expr->valuetype.data = add_ref(&expr->valuetype);
+	} else {
+		expr->valuetype = def->return_type;
+	}
 }
 
 static void jaf_check_types_method_call(struct jaf_env *env, struct jaf_expression *expr)
@@ -584,13 +635,24 @@ static void jaf_check_types_method_call(struct jaf_env *env, struct jaf_expressi
 	expr->valuetype = env->ain->functions[method_no].return_type;
 }
 
+static struct string *builtin_type_name(enum ain_data_type type)
+{
+	switch (type) {
+	case AIN_INT:    return make_string("Int", 3);
+	case AIN_FLOAT:  return make_string("Float", 5);
+	case AIN_STRING: return make_string("String", 6);
+	case AIN_ARRAY:  return make_string("Array", 5);
+	default: _COMPILER_ERROR(NULL, -1, "Invalid type for builtin");
+	}
+}
+
 /*
  * NOTE: We rewrite the expression here into a regular HLL call to avoid duplicated code.
  */
 static void jaf_check_types_builtin_call(struct jaf_env *env, struct jaf_expression *expr)
 {
 	struct jaf_expression *obj = expr->call.fun->member.struc;
-	expr->call.fun->member.struc = jaf_integer(0); // dummy expression
+	expr->call.fun->member.struc = jaf_identifier(builtin_type_name(obj->valuetype.data)); // dummy expression
 
 	// put obj at head of argument list
 	struct jaf_argument_list *args = expr->call.args;
@@ -655,7 +717,7 @@ static void jaf_check_types_new(struct jaf_env *env, struct jaf_expression *expr
 		jaf_check_function_arguments(expr, expr->new.args, &env->ain->functions[expr->new.func_no]);
 	}
 
-	expr->valuetype.data = AIN_STRUCT;
+	expr->valuetype.data = AIN_REF_STRUCT;
 	expr->valuetype.struc = struct_no;
 }
 
@@ -915,6 +977,10 @@ void jaf_check_type(struct jaf_expression *expr, struct ain_type *type)
 		// numeric types are compatible (implicit cast)
 		if (is_numeric(expr->valuetype.data) && is_numeric(type->data))
 			return;
+		if (type->data == AIN_FUNC_TYPE && expr->valuetype.data == AIN_FUNCTION) {
+			// FIXME: check function signatures
+			return;
+		}
 		TYPE_ERROR(expr, type->data);
 	}
 }

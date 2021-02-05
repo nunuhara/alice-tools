@@ -181,6 +181,7 @@ struct jaf_expression *jaf_new(struct jaf_type_specifier *type, struct jaf_argum
 {
 	struct jaf_expression *e = jaf_expr(JAF_EXP_NEW, 0);
 	e->new.type = type;
+	e->new.type->qualifiers = JAF_QUAL_REF;
 	e->new.args = args ? args : xcalloc(1, sizeof(struct jaf_argument_list));
 	return e;
 }
@@ -566,6 +567,14 @@ struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields)
 	return p;
 }
 
+struct jaf_block_item *jaf_rassign(struct jaf_expression *lhs, struct jaf_expression *rhs)
+{
+	struct jaf_block_item *item = block_item(JAF_STMT_RASSIGN);
+	item->rassign.lhs = lhs;
+	item->rassign.rhs = rhs;
+	return item;
+}
+
 static void jaf_free_argument_list(struct jaf_argument_list *list)
 {
 	for (size_t i = 0; i < list->nr_items; i++) {
@@ -724,6 +733,10 @@ void jaf_free_block_item(struct jaf_block_item *item)
 		free_string(item->msg.text);
 		if (item->msg.func)
 			free_string(item->msg.func);
+		break;
+	case JAF_STMT_RASSIGN:
+		jaf_free_expr(item->rassign.lhs);
+		jaf_free_expr(item->rassign.rhs);
 		break;
 	}
 	free(item);
