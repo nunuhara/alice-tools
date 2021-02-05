@@ -152,6 +152,9 @@ void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_spec
 			}
 			out->array_type = xcalloc(1, sizeof(struct ain_type));
 			jaf_to_ain_type(ain, out->array_type, in->array_type);
+			if (out->array_type->data == AIN_STRUCT || out->array_type->data == AIN_REF_STRUCT) {
+				out->struc = out->array_type->data;
+			}
 		}
 	} else if (in->type == JAF_WRAP) {
 		if (!AIN_VERSION_GTE(ain, 11, 0)) {
