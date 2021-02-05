@@ -42,8 +42,7 @@ static cJSON *ain_type_to_json(struct ain *ain, struct ain_type *t)
 		return a;
 
 	cJSON *sub = cJSON_CreateArray();
-	int n = t->array_type[0].rank + 1;
-	for (int i = 0; i < n; i++) {
+	for (int i = 0; i < t->rank; i++) {
 		cJSON_AddItemToArray(sub, _ain_type_to_json(ain, &t->array_type[i]));
 	}
 	cJSON_AddItemToArray(a,  sub);
