@@ -74,7 +74,7 @@ static ar_row_list *make_row_list(ar_string_list *row)
 %}
 
 %token	<string>	STRING
-%token	<token>		NEWLINE COMMA INVALID_TOKEN
+%token	<token>		NEWLINE COMMA
 
 %type	<row>		row values
 %type	<rows>		rows
@@ -83,21 +83,23 @@ static ar_row_list *make_row_list(ar_string_list *row)
 
 %%
 
-file    :	STRING NEWLINE STRING NEWLINE rows end { ar_mf_output = ar_make_manifest($1, $3, $5); }
+file    :	STRING NEWLINE STRING rows end { ar_mf_output = ar_make_manifest($1, $3, $4); }
 	;
 
 rows	:	row      { $$ = make_row_list($1); }
 	|	rows row { $$ = push_row($1, $2); }
 	;
 
-row	:	values NEWLINE { $$ = $1; }
+row	:       NEWLINE values { $$ = $2; }
+	;
 
 values	:	STRING              { $$ = make_string_list($1); }
 	|	values COMMA STRING { $$ = push_string($1, $3); }
 	;
 
+
 end	:
-	| NEWLINE end
+	|	NEWLINE end
 	;
 
 %%
