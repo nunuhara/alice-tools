@@ -39,6 +39,8 @@ struct ex *ex_parse(FILE *in)
 {
 	yex_in = in;
 	yex_parse();
+	// reset lexer state for subsequent calls
+	yex_lex_destroy();
 	return ex_data;
 }
 
