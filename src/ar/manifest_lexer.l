@@ -36,9 +36,9 @@ extern void ar_mf_error(const char *s);
 
 %%
 
-[ \t\r]     ;
-\n          ar_mf_line++; return NEWLINE;
-,           return COMMA;
-[^,\r\n]*   ar_mf_lval.string = make_string(ar_mf_text, ar_mf_leng); return STRING;
+[ \t\r]        ;
+\n             ar_mf_line++; return NEWLINE;
+,              return COMMA;
+[^, \t\r\n]*   ar_mf_lval.string = make_string(ar_mf_text, ar_mf_leng); return STRING;
 
 %%
