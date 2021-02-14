@@ -80,29 +80,49 @@ static struct ar_file_spec **alicepack_to_file_list(struct ar_manifest *mf, size
 static struct string *mkpath(const struct string *dir, const char *file)
 {
 	struct string *path = string_dup(dir);
-	if (dir->text[dir->size-1] != '/')
+	if (dir->size > 0 && dir->text[dir->size-1] != '/')
 		string_push_back(&path, '/');
 	string_append_cstr(&path, file, strlen(file));
 	return path;
 }
 
-static struct string *replace_extension(const struct string *file, const char *ext)
+
+/*
+ * replace_extension("filename", "ext") -> "filename.ext"
+ * replace_extension("filename.oth", "ext") -> "filename.ext"
+ * replace_extension("filename.ext.oth", "ext") -> "filename.ext"
+ */
+struct string *replace_extension(const char *file, const char *ext)
 {
-	const char *src_ext = strrchr(file->text, '.');
+	const char *src_ext = strrchr(file, '.');
 	if (!src_ext) {
-		struct string *dst = string_dup(file);
+		struct string *dst = make_string(file, strlen(file));
 		string_push_back(&dst, '.');
 		string_append_cstr(&dst, ext, strlen(ext));
 		return dst;
 	}
-	size_t base_len = (src_ext+1) - file->text;
-	struct string *dst = make_string(file->text, base_len);
+
+	//size_t base_len = (src_ext+1) - file;
+	size_t base_len = src_ext - file;
+	struct string *dst = make_string(file, base_len);
+
+	// handle the case where stripping the extension produces a file name
+	// with the correct extension
+	src_ext = strrchr(dst->text, '.');
+	if (src_ext && !strcmp(src_ext+1, ext)) {
+		return dst;
+	}
+
+	string_append_cstr(&dst, ".", 1);
 	string_append_cstr(&dst, ext, strlen(ext));
 	return dst;
 }
 
 static void convert_file(struct string *src, enum ar_filetype src_fmt, struct string *dst, enum ar_filetype dst_fmt)
 {
+	// ensure directory exists for dst
+	mkdir_for_file(dst->text);
+
 	switch (src_fmt) {
 	case AR_FT_PNG:
 	case AR_FT_QNT: {
@@ -133,22 +153,25 @@ static void convert_file(struct string *src, enum ar_filetype src_fmt, struct st
 	}
 }
 
-static void batchpack_convert(struct batchpack_line *line)
+static void convert_dir(struct string *src_dir, enum ar_filetype src_fmt, struct string *dst_dir,
+			enum ar_filetype dst_fmt)
 {
 	struct dirent *dir;
-	DIR *d = checked_opendir(line->src->text);
-
+	DIR *d = checked_opendir(src_dir->text);
 	while ((dir = readdir(d)) != NULL) {
 		if (!strcmp(dir->d_name, ".") || !strcmp(dir->d_name, ".."))
 			continue;
 
 		struct stat src_s;
-		struct string *src_path = mkpath(line->src, dir->d_name);
-		struct string *dst_tmp = mkpath(line->dst, dir->d_name);
-		struct string *dst_path = replace_extension(dst_tmp, ar_ft_extensions[line->dst_fmt]);
-		free_string(dst_tmp);
+		struct string *src_path = mkpath(src_dir, dir->d_name);
+		struct string *dst_base = mkpath(dst_dir, dir->d_name);
+		struct string *dst_path = replace_extension(dst_base->text, ar_ft_extensions[dst_fmt]);
 		checked_stat(src_path->text, &src_s);
 
+		if (S_ISDIR(src_s.st_mode)) {
+			convert_dir(src_path, src_fmt, dst_base, dst_fmt);
+			goto loop_next;
+		}
 		if (!S_ISREG(src_s.st_mode)) {
 			WARNING("Skipping \"%s\": not a regular file", src_path->text);
 			goto loop_next;
@@ -166,25 +189,70 @@ static void batchpack_convert(struct batchpack_line *line)
 		NOTICE("%s -> %s", src_path->text, dst_path->text);
 
 		// skip transcode if src/dst formats match
-		if (line->src_fmt == line->dst_fmt) {
+		if (src_fmt == dst_fmt) {
 			if (!file_copy(src_path->text, dst_path->text)) {
 				ALICE_ERROR("failed to copy file \"%s\": %s", dst_path->text, strerror(errno));
 			}
 			goto loop_next;
 		}
 
-		convert_file(src_path, line->src_fmt, dst_path, line->dst_fmt);
+		convert_file(src_path, src_fmt, dst_path, dst_fmt);
+
 
 	loop_next:
 		free_string(src_path);
 		free_string(dst_path);
+		free_string(dst_base);
+	}
+	closedir(d);
+}
+
+static void batchpack_convert(struct batchpack_line *line)
+{
+	convert_dir(line->src, line->src_fmt, line->dst, line->dst_fmt);
+}
+
+kv_decl(filelist, struct ar_file_spec*);
+
+static void dir_to_file_list(struct string *dst, struct string *base_name, filelist *files)
+{
+	// add all files in dst to file list
+	// TODO: filter by file extension?
+	struct dirent *dir;
+	DIR *d = checked_opendir(dst->text);
+	while ((dir = readdir(d)) != NULL) {
+		if (!strcmp(dir->d_name, ".") || !strcmp(dir->d_name, ".."))
+			continue;
+
+		struct stat s;
+		struct string *path = mkpath(dst, dir->d_name);
+		struct string *name = mkpath(base_name, dir->d_name);
+		checked_stat(path->text, &s);
+
+		if (S_ISDIR(s.st_mode)) {
+			dir_to_file_list(path, name, files);
+			free_string(path);
+			free_string(name);
+			continue;
+		}
+		if (!S_ISREG(s.st_mode)) {
+			WARNING("Skipping \"%s\": not a regular file", path->text);
+			free_string(path);
+			free_string(name);
+			continue;
+		}
+
+		struct ar_file_spec *spec = xmalloc(sizeof(struct ar_file_spec));
+		spec->path = path;
+		spec->name = name;
+		kv_push(struct ar_file_spec*, *files, spec);
 	}
 	closedir(d);
 }
 
 static struct ar_file_spec **batchpack_to_file_list(struct ar_manifest *mf, size_t *size_out)
 {
-	kvec_t(struct ar_file_spec*)files;
+	filelist files;
 	kv_init(files);
 	for (size_t i = 0; i < mf->nr_rows; i++) {
 		struct string *src = mf->batchpack[i].src;
@@ -200,19 +268,7 @@ static struct ar_file_spec **batchpack_to_file_list(struct ar_manifest *mf, size
 			batchpack_convert(mf->batchpack+i);
 		}
 
-		// add all files in dst to file list
-		// TODO: filter by file extension?
-		struct dirent *dir;
-		DIR *d = checked_opendir(dst->text);
-		while ((dir = readdir(d)) != NULL) {
-			if (!strcmp(dir->d_name, ".") || !strcmp(dir->d_name, ".."))
-				continue;
-			struct ar_file_spec *spec = xmalloc(sizeof(struct ar_file_spec));
-			spec->path = mkpath(dst, dir->d_name);
-			spec->name = make_string(dir->d_name, strlen(dir->d_name));
-			kv_push(struct ar_file_spec*, files, spec);
-		}
-		closedir(d);
+		dir_to_file_list(dst, string_ref(&EMPTY_STRING), &files);
 	}
 	*size_out = files.n;
 	return files.a;

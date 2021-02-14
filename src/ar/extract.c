@@ -84,14 +84,6 @@ char *output_file_dir(const char *path)
 	return s;
 }
 
-static void mkdir_for_file(const char *filename)
-{
-	char *tmp = strdup(filename);
-	char *dir = dirname(tmp);
-	mkdir_p(dir);
-	free(tmp);
-}
-
 static enum cg_type imgenc = ALCG_PNG;
 
 static bool is_image_file(struct archive_data *data)

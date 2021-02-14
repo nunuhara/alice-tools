@@ -19,7 +19,10 @@
 #include <errno.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <libgen.h>
 #include "system4.h"
+#include "system4/file.h"
+#include "system4/string.h"
 #include "alice.h"
 
 static char *_escape_string(const char *str, const char *escape_chars, const char *replace_chars)
@@ -104,4 +107,12 @@ void checked_stat(const char *path, struct stat *s)
 {
 	if (stat(path, s))
 		ALICE_ERROR("stat(\"%s\"): %s", path, strerror(errno));
+}
+
+void mkdir_for_file(const char *filename)
+{
+	char *tmp = strdup(filename);
+	char *dir = dirname(tmp);
+	mkdir_p(dir);
+	free(tmp);
 }

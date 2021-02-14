@@ -66,6 +66,7 @@ void checked_fwrite(void *ptr, size_t size, FILE *stream);
 void checked_fread(void *ptr, size_t size, FILE *stream);
 DIR *checked_opendir(const char *path);
 void checked_stat(const char *path, struct stat *s);
+void mkdir_for_file(const char *filename);
 
 extern unsigned long *current_line_nr;
 extern const char **current_file_name;

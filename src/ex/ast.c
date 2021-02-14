@@ -35,6 +35,8 @@ extern FILE *yex_in;
 		free(list);						\
 	} while (0)
 
+int yex_lex_destroy(void);
+
 struct ex *ex_parse(FILE *in)
 {
 	yex_in = in;
