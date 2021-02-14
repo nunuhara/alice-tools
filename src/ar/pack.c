@@ -250,6 +250,13 @@ static void dir_to_file_list(struct string *dst, struct string *base_name, filel
 	closedir(d);
 }
 
+static int file_spec_compare(const void *_a, const void *_b)
+{
+	const struct ar_file_spec *a = *((const struct ar_file_spec**)_a);
+	const struct ar_file_spec *b = *((const struct ar_file_spec**)_b);
+	return strcmp(a->name->text, b->name->text);
+}
+
 static struct ar_file_spec **batchpack_to_file_list(struct ar_manifest *mf, size_t *size_out)
 {
 	filelist files;
@@ -270,6 +277,9 @@ static struct ar_file_spec **batchpack_to_file_list(struct ar_manifest *mf, size
 
 		dir_to_file_list(dst, string_ref(&EMPTY_STRING), &files);
 	}
+
+	qsort(files.a, files.n, sizeof(struct ar_file_spec*), file_spec_compare);
+
 	*size_out = files.n;
 	return files.a;
 }
