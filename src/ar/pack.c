@@ -26,12 +26,42 @@
 #include "system4.h"
 #include "system4/archive.h"
 #include "system4/cg.h"
+#include "system4/ex.h"
 #include "system4/file.h"
 #include "system4/string.h"
 #include "alice.h"
 #include "alice-ar.h"
 
 void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_files);
+struct ex *ex_parse(FILE *f);
+void ex_write(FILE *out, struct ex *ex);
+
+const char * const ar_ft_extensions[] = {
+	[AR_FT_UNKNOWN] = "dat",
+	[AR_FT_PNG] = "png",
+	[AR_FT_QNT] = "qnt",
+	[AR_FT_X] = "x",
+	[AR_FT_EX] = "ex",
+	[AR_FT_PACTEX] = "pactex",
+};
+
+static enum ar_filetype cg_type_to_ar_filetype(enum cg_type type)
+{
+	switch (type) {
+	case ALCG_PNG: return AR_FT_PNG;
+	case ALCG_QNT: return AR_FT_QNT;
+	default: ALICE_ERROR("Unsupported CG type");
+	}
+}
+
+static enum cg_type ar_filetype_to_cg_type(enum ar_filetype type)
+{
+	switch (type) {
+	case AR_FT_PNG: return ALCG_PNG;
+	case AR_FT_QNT: return ALCG_QNT;
+	default: ALICE_ERROR("Unsupported CG type");
+	}
+}
 
 static struct ar_file_spec **alicepack_to_file_list(struct ar_manifest *mf, size_t *size_out)
 {
@@ -71,7 +101,39 @@ static struct string *replace_extension(const struct string *file, const char *e
 	return dst;
 }
 
-static void convert_images(struct alicecg2_line *line)
+static void convert_file(struct string *src, enum ar_filetype src_fmt, struct string *dst, enum ar_filetype dst_fmt)
+{
+	switch (src_fmt) {
+	case AR_FT_PNG:
+	case AR_FT_QNT: {
+		struct cg *cg = cg_load_file(src->text);
+		if (!cg)
+			return;
+		FILE *f = checked_fopen(dst->text, "wb");
+		if (!cg_write(cg, ar_filetype_to_cg_type(dst_fmt), f)) {
+			ALICE_ERROR("failed to encode file \"%s\"", dst->text);
+		}
+		fclose(f);
+		cg_free(cg);
+		break;
+	}
+	case AR_FT_X: {
+		if (dst_fmt != AR_FT_EX && dst_fmt != AR_FT_PACTEX) {
+			ALICE_ERROR("Invalid output format for .x files");
+		}
+		FILE *in = checked_fopen(src->text, "rb");
+		FILE *out = checked_fopen(dst->text, "wb");
+		struct ex *ex = ex_parse(in);
+		ex_write(out, ex);
+		ex_free(ex);
+		break;
+	}
+	default:
+		ALICE_ERROR("Filetype not supported as source format");
+	}
+}
+
+static void batchpack_convert(struct batchpack_line *line)
 {
 	struct dirent *dir;
 	DIR *d = checked_opendir(line->src->text);
@@ -83,7 +145,7 @@ static void convert_images(struct alicecg2_line *line)
 		struct stat src_s;
 		struct string *src_path = mkpath(line->src, dir->d_name);
 		struct string *dst_tmp = mkpath(line->dst, dir->d_name);
-		struct string *dst_path = replace_extension(dst_tmp, cg_file_extensions[line->dst_fmt]);
+		struct string *dst_path = replace_extension(dst_tmp, ar_ft_extensions[line->dst_fmt]);
 		free_string(dst_tmp);
 		checked_stat(src_path->text, &src_s);
 
@@ -105,21 +167,14 @@ static void convert_images(struct alicecg2_line *line)
 
 		// skip transcode if src/dst formats match
 		if (line->src_fmt == line->dst_fmt) {
-			if (!file_copy(src_path->text, dst_path->text))
+			if (!file_copy(src_path->text, dst_path->text)) {
 				ALICE_ERROR("failed to copy file \"%s\": %s", dst_path->text, strerror(errno));
+			}
 			goto loop_next;
 		}
 
-		// transcode image
-		struct cg *cg = cg_load_file(src_path->text);
-		if (!cg) {
-			goto loop_next;
-		}
-		FILE *f = checked_fopen(dst_path->text, "wb");
-		if (!cg_write(cg, line->dst_fmt, f))
-			ALICE_ERROR("failed to encode file \"%s\"", dst_path->text);
-		fclose(f);
-		cg_free(cg);
+		convert_file(src_path, line->src_fmt, dst_path, line->dst_fmt);
+
 	loop_next:
 		free_string(src_path);
 		free_string(dst_path);
@@ -127,18 +182,23 @@ static void convert_images(struct alicecg2_line *line)
 	closedir(d);
 }
 
-static struct ar_file_spec **alicecg2_to_file_list(struct ar_manifest *mf, size_t *size_out)
+static struct ar_file_spec **batchpack_to_file_list(struct ar_manifest *mf, size_t *size_out)
 {
-	kvec_t(struct ar_file_spec*) files;
+	kvec_t(struct ar_file_spec*)files;
 	kv_init(files);
 	for (size_t i = 0; i < mf->nr_rows; i++) {
-		struct string *src = mf->alicecg2[i].src;
-		struct string *dst = mf->alicecg2[i].dst;
-		if (!is_directory(src->text))
-			ALICE_ERROR("line %d: \"%s\" is not a directory", (int)i+2, src->text);
+		struct string *src = mf->batchpack[i].src;
+		struct string *dst = mf->batchpack[i].dst;
+
 		if (!is_directory(dst->text))
 			ALICE_ERROR("line %d: \"%s\" is not a directory", (int)i+2, dst->text);
-		convert_images(mf->alicecg2+i);
+
+		// don't convert if src and dst directories are the same
+		if (strcmp(src->text, dst->text)) {
+			if (!is_directory(src->text))
+				ALICE_ERROR("line %d: \"%s\" is not a directory", (int)i+2, src->text);
+			batchpack_convert(mf->batchpack+i);
+		}
 
 		// add all files in dst to file list
 		// TODO: filter by file extension?
@@ -154,9 +214,22 @@ static struct ar_file_spec **alicecg2_to_file_list(struct ar_manifest *mf, size_
 		}
 		closedir(d);
 	}
-
 	*size_out = files.n;
 	return files.a;
+}
+
+static void alicecg2_to_batchpack(struct ar_manifest *mf)
+{
+	struct batchpack_line *lines = xcalloc(mf->nr_rows, sizeof(struct batchpack_line));
+	for (size_t i = 0; i < mf->nr_rows; i++) {
+		lines[i].src = mf->alicecg2[i].src;
+		lines[i].dst = mf->alicecg2[i].dst;
+		lines[i].src_fmt = cg_type_to_ar_filetype(mf->alicecg2[i].src_fmt);
+		lines[i].dst_fmt = cg_type_to_ar_filetype(mf->alicecg2[i].dst_fmt);
+	}
+	free(mf->alicecg2);
+	mf->batchpack = lines;
+	mf->type = AR_MF_BATCHPACK;
 }
 
 static struct ar_file_spec **manifest_to_file_list(struct ar_manifest *mf, size_t *size_out)
@@ -165,13 +238,16 @@ static struct ar_file_spec **manifest_to_file_list(struct ar_manifest *mf, size_
 	case AR_MF_ALICEPACK:
 		return alicepack_to_file_list(mf, size_out);
 	case AR_MF_ALICECG2:
-		return alicecg2_to_file_list(mf, size_out);
+		alicecg2_to_batchpack(mf);
+		return batchpack_to_file_list(mf, size_out);
+	case AR_MF_BATCHPACK:
+		return batchpack_to_file_list(mf, size_out);
 	case AR_MF_NL5:
 	case AR_MF_WAVLINKER:
 	case AR_MF_INVALID:
-	default:
-		ALICE_ERROR("Invalid manifest type");
+		break;
 	}
+	ALICE_ERROR("Invalid manifest type");
 }
 
 static void free_manifest(struct ar_manifest *mf)
@@ -190,6 +266,13 @@ static void free_manifest(struct ar_manifest *mf)
 		}
 		free(mf->alicecg2);
 		break;
+	case AR_MF_BATCHPACK:
+		for (size_t i = 0; i < mf->nr_rows; i++) {
+			free_string(mf->batchpack[i].src);
+			free_string(mf->batchpack[i].dst);
+		}
+		free(mf->batchpack);
+		break;
 	case AR_MF_NL5:
 	case AR_MF_WAVLINKER:
 	case AR_MF_INVALID:
@@ -202,6 +285,9 @@ static void free_manifest(struct ar_manifest *mf)
 
 int command_ar_pack(int argc, char *argv[])
 {
+	set_input_encoding("UTF-8");
+	set_output_encoding("CP932");
+
 	while (1) {
 		int c = alice_getopt(argc, argv, &cmd_ar_pack);
 		if (c == -1)

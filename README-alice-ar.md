@@ -69,6 +69,18 @@ then list the files to be included in the archive. E.g.
     input_filename1.qnt
     input_filename2.qnt
     ...
+    
+### BATCHPACK
+
+This is a generic batch-conversion manifest format. Each line following the
+archive output path specifies an input path/format and an output path/format.
+All files in the directory given by the input path are converted to the output
+format and saved in the output directory. E.g.
+
+    #BATCHPACK
+    output_filename.afa
+    src_dir,src_fmt,dst_dir,dst_fmt
+    ...
 
 ### ALICECG2
 

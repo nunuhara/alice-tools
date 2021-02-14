@@ -24,9 +24,21 @@
 enum ar_manifest_type {
 	AR_MF_INVALID,
 	AR_MF_ALICEPACK,
+	AR_MF_BATCHPACK,
 	AR_MF_ALICECG2,
 	AR_MF_NL5,
 	AR_MF_WAVLINKER,
+};
+
+enum ar_filetype {
+	AR_FT_UNKNOWN,
+	AR_FT_PNG,
+	AR_FT_PMS,
+	AR_FT_QNT,
+	AR_FT_WEBP,
+	AR_FT_X,
+	AR_FT_EX,
+	AR_FT_PACTEX,
 };
 
 // Custom manifest format (simple)
@@ -36,6 +48,17 @@ enum ar_manifest_type {
 // ...
 struct alicepack_line {
 	struct string *filename;
+};
+
+// Custom manifest format (batch conversion)
+// #BATCHPACK
+// dst
+// src,src_fmt,dst,dst_fmt
+struct batchpack_line {
+	struct string *src;
+	enum ar_filetype src_fmt;
+	struct string *dst;
+	enum ar_filetype dst_fmt;
 };
 
 // ALICECG2: file, src, src_fmt, dst, dst_fmt
@@ -69,6 +92,7 @@ struct ar_manifest {
 	size_t nr_rows;
 	union {
 		struct alicepack_line *alicepack;
+		struct batchpack_line *batchpack;
 		struct alicecg2_line *alicecg2;
 		struct nl5_line *nl5;
 		struct wavlinker_line *wavlinker;

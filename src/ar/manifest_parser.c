@@ -36,10 +36,31 @@ static enum cg_type ar_parse_image_format(struct string *str)
 	return ALCG_UNKNOWN;
 }
 
+static enum ar_filetype ar_parse_filetype(struct string *str)
+{
+	if (!strcasecmp(str->text, "PNG"))
+		return AR_FT_PNG;
+	if (!strcasecmp(str->text, "PMS"))
+		return AR_FT_PMS;
+	if (!strcasecmp(str->text, "QNT"))
+		return AR_FT_QNT;
+	if (!strcasecmp(str->text, "WEBP"))
+		return AR_FT_WEBP;
+	if (!strcasecmp(str->text, "X"))
+		return AR_FT_X;
+	if (!strcasecmp(str->text, "EX"))
+		return AR_FT_EX;
+	if (!strcasecmp(str->text, "PACTEX"))
+		return AR_FT_PACTEX;
+	return AR_FT_UNKNOWN;
+}
+
 static enum ar_manifest_type ar_parse_manifest_type(struct string *str)
 {
 	if (!strcasecmp(str->text, "#ALICEPACK"))
 		return AR_MF_ALICEPACK;
+	if (!strcasecmp(str->text, "#BATCHPACK"))
+		return AR_MF_BATCHPACK;
 	if (!strcasecmp(str->text, "#ALICECG2"))
 		return AR_MF_ALICECG2;
 	if (!strcasecmp(str->text, "#NL5"))
@@ -58,6 +79,27 @@ static void make_alicepack_manifest(struct ar_manifest *dst, ar_row_list *rows)
 		if (kv_size(*row) != 1)
 			ALICE_ERROR("line %d: Too many columns", (int)i+2);
 		dst->alicepack[i].filename = kv_A(*row, 0);
+		kv_destroy(*row);
+		free(row);
+	}
+}
+
+static void make_batchpack_manifest(struct ar_manifest *dst, ar_row_list *rows)
+{
+	dst->type = AR_MF_BATCHPACK;
+	dst->batchpack = xcalloc(dst->nr_rows, sizeof(struct batchpack_line));
+	for (size_t i = 0; i < dst->nr_rows; i++) {
+		ar_string_list *row = kv_A(*rows, i);
+		if (kv_size(*row) != 4) {
+			ALICE_ERROR("line %d: wrong number of columns", (int)i+2);
+		}
+		dst->batchpack[i].src = kv_A(*row, 0);
+		dst->batchpack[i].src_fmt = ar_parse_filetype(kv_A(*row, 1));
+		dst->batchpack[i].dst = kv_A(*row, 2);
+		dst->batchpack[i].dst_fmt = ar_parse_filetype(kv_A(*row, 3));
+
+		free_string(kv_A(*row, 1));
+		free_string(kv_A(*row, 3));
 		kv_destroy(*row);
 		free(row);
 	}
@@ -95,6 +137,9 @@ struct ar_manifest *ar_make_manifest(struct string *magic, struct string *output
 	switch (ar_parse_manifest_type(magic)) {
 	case AR_MF_ALICEPACK:
 		make_alicepack_manifest(mf, rows);
+		break;
+	case AR_MF_BATCHPACK:
+		make_batchpack_manifest(mf, rows);
 		break;
 	case AR_MF_ALICECG2:
 		make_alicecg2_manifest(mf, rows);
