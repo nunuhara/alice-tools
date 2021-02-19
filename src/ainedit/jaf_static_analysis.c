@@ -61,9 +61,8 @@ static void analyze_global_declaration(struct jaf_env *env, struct jaf_block_ite
 	jaf_check_type(decl->init, &decl->valuetype);
 
 	// add initval to ain object
-	struct ain_initval init = { .global_index = decl->var_no };
-	jaf_to_initval(&init, decl->init);
-	ain_add_initval(env->ain, &init);
+	int no = ain_add_initval(env->ain, decl->var_no);
+	jaf_to_initval(&env->ain->global_initvals[no], decl->init);
 	analyze_array_allocation(env, item);
 }
 

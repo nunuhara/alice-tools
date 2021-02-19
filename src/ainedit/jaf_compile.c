@@ -1555,9 +1555,7 @@ static void compile_global_init_function(struct compiler_state *state)
 	if (ain_get_function(state->ain, "0") >= 0)
 		return;
 
-	struct ain_function f = {0};
-	f.name = strdup("0");
-	int func_no = ain_add_function(state->ain, &f);
+	int func_no = ain_add_function(state->ain, "0");
 	state->ain->functions[func_no].address = state->out.index + 6;
 	state->ain->functions[func_no].return_type = (struct ain_type) {
 		.data = AIN_VOID,

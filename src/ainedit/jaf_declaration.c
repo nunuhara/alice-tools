@@ -152,40 +152,14 @@ static void function_init_vars(struct ain *ain, struct jaf_fundecl *decl, int32_
 
 static int _add_function(struct ain *ain, struct jaf_fundecl *decl)
 {
-	struct ain_function f = {0};
-	f.name = conv_output(decl->name->text);
-	jaf_to_ain_type(ain, &f.return_type, decl->type);
-	function_init_vars(ain, decl, &f.nr_args, &f.nr_vars, &f.vars);
-	return ain_add_function(ain, &f);
-}
+	char *tmp = conv_output(decl->name->text);
+	int fno = ain_add_function(ain, tmp);
+	free(tmp);
 
-static void copy_type(struct ain_type *dst, struct ain_type *src)
-{
-	*dst = *src;
-	if (ain_is_array_data_type(src->data)) {
-		dst->array_type = xcalloc(src->rank, sizeof(struct ain_type));
-		for (int i = 0; i < src->rank; i++) {
-			copy_type(dst->array_type + i, src->array_type + i);
-		}
-	}
-}
-
-static int copy_function(struct ain *ain, int no)
-{
-	struct ain_function *src = &ain->functions[no];
-	struct ain_function dst = *src;
-	dst.name = strdup(src->name);
-	copy_type(&dst.return_type, &src->return_type);
-	dst.vars = xcalloc(src->nr_vars, sizeof(struct ain_variable));
-	for (int i = 0; i < src->nr_vars; i++) {
-		dst.vars[i] = src->vars[i];
-		dst.vars[i].name = strdup(src->vars[i].name);
-		if (src->vars[i].name2) {
-			dst.vars[i].name2 = strdup(src->vars[i].name2);
-		}
-		copy_type(&dst.vars[i].type, &src->vars[i].type);
-	}
-	return ain_add_function(ain, &dst);
+	struct ain_function *f = &ain->functions[fno];
+	jaf_to_ain_type(ain, &f->return_type, decl->type);
+	function_init_vars(ain, decl, &f->nr_args, &f->nr_vars, &f->vars);
+	return fno;
 }
 
 static bool types_equal(struct ain_type *a, struct ain_type *b)
@@ -216,7 +190,7 @@ static void override_function(struct ain *ain, struct jaf_block_item *item, int 
 {
 	struct jaf_fundecl *decl = &item->fun;
 	decl->func_no = no;
-	decl->super_no = copy_function(ain, no);
+	decl->super_no = ain_dup_function(ain, no);
 	if (!function_signatures_equal(ain, decl->func_no, decl->super_no))
 		JAF_ERROR(item, "Invalid function signature in override of function '%s'", decl->name->text);
 	ain->functions[decl->super_no].address = ain->functions[no].address;
@@ -282,10 +256,11 @@ static void jaf_process_functype(struct ain *ain, struct jaf_fundecl *decl)
 
 static void jaf_process_global(struct ain *ain, struct jaf_vardecl *decl)
 {
-	struct ain_variable v = {0};
-	v.name = conv_output(decl->name->text);
-	jaf_to_ain_type(ain, &v.type, decl->type);
-	ain_add_global(ain, &v);
+	char *tmp = conv_output(decl->name->text);
+	int no = ain_add_global(ain, tmp);
+	free(tmp);
+
+	jaf_to_ain_type(ain, &ain->globals[no].type, decl->type);
 }
 
 static void jaf_process_structdef(struct ain *ain, struct jaf_block_item *item)
@@ -353,18 +328,17 @@ static void _jaf_process_hll_declaration(struct ain *ain, struct jaf_fundecl *de
 
 void jaf_process_hll_declarations(struct ain *ain, struct jaf_block *block, const char *hll_name)
 {
-	struct ain_library lib = {0};
-	lib.name = xstrdup(hll_name);
-	lib.nr_functions = block->nr_items - 1; // -1 for EOF
-	lib.functions = xcalloc(lib.nr_functions, sizeof(struct ain_hll_function));
-	for (int i = 0; i < lib.nr_functions; i++) {
+	int no = ain_add_library(ain, hll_name);
+	struct ain_library *lib = &ain->libraries[no];
+	lib->nr_functions = block->nr_items - 1; // -1 for EOF
+	lib->functions = xcalloc(lib->nr_functions, sizeof(struct ain_hll_function));
+	for (int i = 0; i < lib->nr_functions; i++) {
 		if (block->items[i]->kind != JAF_DECL_FUN)
 			JAF_ERROR(block->items[i],
 				  "Only function declarations are allowed in HLL files: %d",
 				  block->items[i]->kind);
 		if (block->items[i]->fun.body)
 			JAF_ERROR(block->items[i], "Function definitions not allowed in HLL files");
-		_jaf_process_hll_declaration(ain, &block->items[i]->fun, &lib.functions[i]);
+		_jaf_process_hll_declaration(ain, &block->items[i]->fun, &lib->functions[i]);
 	}
-	ain_add_library(ain, &lib);
 }

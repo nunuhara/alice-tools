@@ -30,24 +30,23 @@ void jaf_define_struct(struct ain *ain, struct jaf_block_item *def)
 	if (!def->struc.name)
 		JAF_ERROR(def, "Anonymous structs not supported");
 
-	struct ain_struct s = {
-		.name = conv_output(def->struc.name->text),
-		.constructor = -1,
-		.destructor = -1,
-	};
-	if (ain_get_struct(ain, s.name) >= 0)
+	char *name = conv_output(def->struc.name->text);
+	if (ain_get_struct(ain, name) >= 0) {
 		JAF_ERROR(def, "Redefining structs not supported");
-	def->struc.struct_no = ain_add_struct(ain, &s);
+	}
+
+	def->struc.struct_no = ain_add_struct(ain, name);
+	free(name);
 }
 
 void jaf_define_functype(struct ain *ain, struct jaf_block_item *item)
 {
 	struct jaf_fundecl *decl = &item->fun;
-	struct ain_function_type f = {0};
-	f.name = conv_output(decl->name->text);
-	if (ain_get_functype(ain, f.name) >= 0)
+	char *name = conv_output(decl->name->text);
+	if (ain_get_functype(ain, name) >= 0)
 		JAF_ERROR(item, "Multiple definitions of function type '%s'", decl->name->text);
-	decl->func_no = ain_add_functype(ain, &f);
+	decl->func_no = ain_add_functype(ain, name);
+	free(name);
 }
 
 enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type)
