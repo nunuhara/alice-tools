@@ -178,6 +178,14 @@ static cJSON *ain_switch_to_json(struct ain_switch *sw)
 	return o;
 }
 
+static cJSON *ain_scenario_label_to_json(struct ain_scenario_label *label)
+{
+	cJSON *o = cJSON_CreateObject();
+	cJSON_AddStringToObject(o, "name", label->name);
+	cJSON_AddNumberToObject(o, "address", label->address);
+	return o;
+}
+
 static cJSON *ain_function_type_to_json(struct ain *ain, struct ain_function_type *ft)
 {
 	cJSON *a;
@@ -268,6 +276,15 @@ static cJSON *ain_to_json(struct ain *ain)
 
 	// GVER: game version
 	cJSON_AddNumberToObject(j, "game-version", ain->game_version);
+
+	// SLBL: scenario labels
+	if (ain->nr_scenario_labels > 0) {
+		a = cJSON_CreateArray();
+		for (int i = 0; i < ain->nr_scenario_labels; i++) {
+			cJSON_AddItemToArray(a, ain_scenario_label_to_json(&ain->scenario_labels[i]));
+		}
+		cJSON_AddItemToObject(j, "scenario-labels", a);
+	}
 
 	// FNAM: filenames
 	a = cJSON_CreateArray();

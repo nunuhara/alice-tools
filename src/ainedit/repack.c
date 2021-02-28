@@ -128,14 +128,14 @@ static void write_function(struct ain_buffer *out, struct ain *ain, struct ain_f
 {
 	write_int32(out, f->address);
 	write_string(out, f->name);
-	if (ain->version > 0 && ain->version < 7)
+	if (ain->version > 1 && ain->version < 7)
 		write_int32(out, f->is_label);
 	write_return_type(out, ain, &f->return_type);
 	write_int32(out, f->nr_args);
 	write_int32(out, f->nr_vars);
 	if (AIN_VERSION_GTE(ain, 11, 0))
 		write_int32(out, f->is_lambda);
-	if (ain->version > 0)
+	if (ain->version > 1)
 		write_int32(out, f->crc);
 	for (int i = 0; i < f->nr_vars; i++) {
 		write_variable(out, ain, &f->vars[i]);
@@ -218,6 +218,12 @@ static void write_switch(struct ain_buffer *out, possibly_unused struct ain *ain
 		write_int32(out, s->cases[i].value);
 		write_int32(out, s->cases[i].address);
 	}
+}
+
+static void write_scenario_label(struct ain_buffer *out, possibly_unused struct ain *ain, struct ain_scenario_label *l)
+{
+	write_string(out, l->name);
+	write_int32(out, l->address);
 }
 
 static void write_function_type(struct ain_buffer *out, struct ain *ain, struct ain_function_type *f)
@@ -347,6 +353,14 @@ static uint8_t *ain_flatten(struct ain *ain, size_t *len)
 	if (ain->GVER.present) {
 		write_header(&out, "GVER");
 		write_int32(&out, ain->game_version);
+	}
+	// SLBL
+	if (ain->SLBL.present) {
+		write_header(&out, "SLBL");
+		write_int32(&out, ain->nr_scenario_labels);
+		for (int i = 0; i < ain->nr_scenario_labels; i++) {
+			write_scenario_label(&out, ain, &ain->scenario_labels[i]);
+		}
 	}
 	// STR0
 	if (ain->STR0.present) {

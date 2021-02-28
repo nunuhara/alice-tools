@@ -426,6 +426,15 @@ static void ain_dump_ojmp(FILE *f, struct ain *ain)
 	fprintf(f, "OJMP: 0x%x\n", ain->ojmp);
 }
 
+static void ain_dump_slbl(FILE *f, struct ain *ain)
+{
+	for (int i = 0; i < ain->nr_scenario_labels; i++) {
+		fprintf(f, "0x%08x:\t", ain->scenario_labels[i].address);
+		print_sjis(f, ain->scenario_labels[i].name);
+		fputc('\n', f);
+	}
+}
+
 static void print_section(FILE *f, const char *name, struct ain_section *section)
 {
 	if (section->present)
@@ -448,6 +457,7 @@ static void ain_dump_map(FILE *f, struct ain *ain)
 	print_section(f, "HLL0", &ain->HLL0);
 	print_section(f, "SWI0", &ain->SWI0);
 	print_section(f, "GVER", &ain->GVER);
+	print_section(f, "SLBL", &ain->SLBL);
 	print_section(f, "STR0", &ain->STR0);
 	print_section(f, "FNAM", &ain->FNAM);
 	print_section(f, "OJMP", &ain->OJMP);
@@ -496,6 +506,7 @@ enum {
 	LOPT_MSGF,
 	LOPT_GAME_VERSION,
 	LOPT_OJMP,
+	LOPT_SLBL,
 	LOPT_DECRYPT,
 	LOPT_MAP,
 	LOPT_NO_MACROS,
@@ -606,6 +617,9 @@ int command_ain_dump(int argc, char *argv[])
 		case LOPT_OJMP:
 			dump_targets[dump_ptr++] = LOPT_OJMP;
 			break;
+		case LOPT_SLBL:
+			dump_targets[dump_ptr++] = LOPT_SLBL;
+			break;
 		case 'd':
 		case LOPT_DECRYPT:
 			decrypt = true;
@@ -669,6 +683,7 @@ int command_ain_dump(int argc, char *argv[])
 		case LOPT_MSGF:           ain_dump_msgf(output, ain); break;
 		case LOPT_GAME_VERSION:   ain_dump_game_version(output, ain); break;
 		case LOPT_OJMP:           ain_dump_ojmp(output, ain); break;
+		case LOPT_SLBL:           ain_dump_slbl(output, ain); break;
 		case LOPT_MAP:            ain_dump_map(output, ain); break;
 		}
 	}
@@ -707,6 +722,7 @@ struct command cmd_ain_dump = {
 		{ "ain-version",        0,   "Dump .ain file version",                        no_argument,       LOPT_AIN_VERSION },
 		{ "game-version",       0,   "Dump game version",                             no_argument,       LOPT_GAME_VERSION },
 		{ "ojmp",               0,   "Dump OJMP value",                               no_argument,       LOPT_OJMP },
+		{ "slbl",               0,   "Dump scenario labels section",                  no_argument,       LOPT_SLBL },
 		{ "decrypt",            'd', "Dump decrypted .ain file",                      no_argument,       LOPT_DECRYPT },
 		{ "map",                0,   "Dump ain file map",                             no_argument,       LOPT_MAP },
 		{ "no-macros",          0,   "Don't use macros in code output",               no_argument,       LOPT_NO_MACROS },

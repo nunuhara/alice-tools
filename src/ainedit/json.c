@@ -345,6 +345,23 @@ static void read_switch_declarations(cJSON *decl, struct ain *ain)
 	ain->nr_switches = i;
 }
 
+static void read_scenario_labels(cJSON *decl, struct ain *ain)
+{
+	int i;
+	cJSON *l;
+	struct ain_scenario_label *labels = xcalloc(cJSON_GetArraySize(decl), sizeof(struct ain_scenario_label));
+	cJSON_ArrayForEachIndex(i, l, decl) {
+		if (!cJSON_IsObject(l))
+			ERROR("Non-object in scenario label list");
+		labels[i].name = cJSON_GetObjectString_NonNull(l, "name");
+		labels[i].address = cJSON_GetObjectInteger_NonNull(l, "address");
+	}
+
+	ain_free_scenario_labels(ain);
+	ain->scenario_labels = labels;
+	ain->nr_scenario_labels = i;
+}
+
 static char **read_string_array(cJSON *decl, int *n)
 {
 	int i;
@@ -480,6 +497,9 @@ static void read_json_declarations(cJSON *decl, struct ain *ain)
 		read_switch_declarations(v, ain);
 	// GVER
 	ain->game_version = cJSON_GetObjectInteger(decl, "game-version", 0);
+	// SLBL
+	if ((v = cJSON_GetObjectArray(decl, "scenario-labels")))
+		read_scenario_labels(v, ain);
 	// FNAM
 	if ((v = cJSON_GetObjectArray(decl, "filenames")))
 		read_filename_declarations(v, ain);
