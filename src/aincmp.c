@@ -371,6 +371,23 @@ static bool ain_compare_switches(struct ain *a, struct ain *b)
 	return true;
 }
 
+static bool ain_compare_scenario_labels(struct ain *a, struct ain *b)
+{
+	if (a->nr_scenario_labels != b->nr_scenario_labels) {
+		NOTICE("number of scenario labels differs (%d vs %d)", a->nr_scenario_labels, b->nr_scenario_labels);
+		return false;
+	}
+
+	for (int i = 0; i < a->nr_scenario_labels; i++) {
+		if (strcmp(a->scenario_labels[i].name, b->scenario_labels[i].name) ||
+			a->scenario_labels[i].address != b->scenario_labels[i].address) {
+			NOTICE("scenario label %d differs", i);
+			return false;
+		}
+	}
+	return true;
+}
+
 static bool ain_compare_strings(struct ain *a, struct ain *b)
 {
 	if (a->nr_strings != b->nr_strings) {
@@ -548,6 +565,10 @@ static void ain_compare(struct ain *a, struct ain *b)
 		NOTICE("game version differs (%d vs %d)", a->game_version, b->game_version);
 		exit_code = 1;
 	}
+
+	ain_compare_section(a, b, SLBL);
+	if (!ain_compare_scenario_labels(a, b))
+		exit_code = 1;
 
 	ain_compare_section(a, b, STR0);
 	if (!ain_compare_strings(a, b))
