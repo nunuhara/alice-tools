@@ -37,15 +37,11 @@ static cJSON *_ain_type_to_json(possibly_unused struct ain *ain, struct ain_type
 static cJSON *ain_type_to_json(struct ain *ain, struct ain_type *t)
 {
 	cJSON *a = _ain_type_to_json(ain, t);
-
-	if (t->data != AIN_ARRAY && t->data != AIN_REF_ARRAY && t->data != AIN_WRAP && t->data != AIN_OPTION)
-		return a;
-
-	cJSON *sub = cJSON_CreateArray();
-	for (int i = 0; i < t->rank; i++) {
-		cJSON_AddItemToArray(sub, _ain_type_to_json(ain, &t->array_type[i]));
+	if (t->array_type) {
+		cJSON_AddItemToArray(a, ain_type_to_json(ain, t->array_type));
+	} else {
+		cJSON_AddItemToArray(a, cJSON_CreateNull());
 	}
-	cJSON_AddItemToArray(a,  sub);
 	return a;
 }
 
