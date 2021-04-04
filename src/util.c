@@ -20,6 +20,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <libgen.h>
+#include <unistd.h>
 #include "system4.h"
 #include "system4/file.h"
 #include "system4/string.h"
@@ -111,8 +112,16 @@ void checked_stat(const char *path, struct stat *s)
 
 void mkdir_for_file(const char *filename)
 {
-	char *tmp = strdup(filename);
+	char *tmp = xstrdup(filename);
 	char *dir = dirname(tmp);
 	mkdir_p(dir);
+	free(tmp);
+}
+
+void chdir_to_file(const char *filename)
+{
+	char *tmp = xstrdup(filename);
+	if (chdir(dirname(tmp)))
+		ALICE_ERROR("chdir(%s): %s", filename, strerror(errno));
 	free(tmp);
 }

@@ -24,6 +24,7 @@
 #include "ex_parser.tab.h"
 
 struct ex *ex_parse(FILE *in);
+struct ex *ex_parse_file(const char *path);
 
 struct ex_value *ast_make_int(int32_t i);
 struct ex_value *ast_make_float(float f);

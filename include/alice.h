@@ -67,6 +67,9 @@ void checked_fread(void *ptr, size_t size, FILE *stream);
 DIR *checked_opendir(const char *path);
 void checked_stat(const char *path, struct stat *s);
 void mkdir_for_file(const char *filename);
+void chdir_to_file(const char *filename);
+
+struct ex *ex_parse_file(const char *path);
 
 extern unsigned long *current_line_nr;
 extern const char **current_file_name;
@@ -82,6 +85,8 @@ extern struct command cmd_ar_pack;
 extern struct command cmd_ex_build;
 extern struct command cmd_ex_compare;
 extern struct command cmd_ex_dump;
+extern struct command cmd_flat_build;
+extern struct command cmd_flat_extract;
 extern struct command cmd_fnl_dump;
 
 extern struct command cmd_alice;
@@ -89,6 +94,7 @@ extern struct command cmd_acx;
 extern struct command cmd_ain;
 extern struct command cmd_ar;
 extern struct command cmd_ex;
+extern struct command cmd_flat;
 extern struct command cmd_fnl;
 
 #endif /* ALICE_H_ */

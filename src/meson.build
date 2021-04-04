@@ -39,6 +39,8 @@ sources = ['acx/build.c',
            'ex/excmp.c',
            'ex/exdump.c',
            'ex/pack.c',
+           'flat/build.c',
+           'flat/extract.c',
            'fnldump.c',
            'util.c',
 ]

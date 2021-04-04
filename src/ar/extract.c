@@ -32,6 +32,7 @@
 #include "system4/cg.h"
 #include "system4/ex.h"
 #include "system4/file.h"
+#include "system4/flat.h"
 #include "system4/png.h"
 #include "system4/string.h"
 #include "system4/utfsjis.h"
@@ -218,7 +219,7 @@ static void extract_all_iter(struct archive_data *data, void *_output_dir);
 static void extract_flat(struct archive_data *data, char *output_dir)
 {
 	int error;
-	struct archive *ar = flat_open(data->data, data->size, &error);
+	struct archive *ar = (struct archive*)flat_open(data->data, data->size, &error);
 	if (!ar) {
 		WARNING("Error opening FLAT archive: %s", archive_strerror(error));
 		return;

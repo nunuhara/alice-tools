@@ -98,6 +98,18 @@ struct command cmd_ex = {
 	}
 };
 
+struct command cmd_flat = {
+	.name = "flat",
+	.usage = "<command> ...",
+	.description = "Tools for extracting and editing .flat files",
+	.parent = &cmd_alice,
+	.commands = {
+		&cmd_flat_build,
+		&cmd_flat_extract,
+		NULL
+	}
+};
+
 struct command cmd_fnl = {
 	.name = "fnl",
 	.usage = "<command> ...",
@@ -106,6 +118,7 @@ struct command cmd_fnl = {
 	.parent = &cmd_alice,
 	.commands = {
 		&cmd_fnl_dump,
+		NULL
 	}
 };
 
@@ -119,6 +132,7 @@ struct command cmd_alice = {
 		&cmd_ain,
 		&cmd_ar,
 		&cmd_ex,
+		&cmd_flat,
 		&cmd_fnl,
 		NULL
 	}

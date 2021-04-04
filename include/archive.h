@@ -28,7 +28,5 @@ enum archive_type {
 
 struct archive *open_archive(const char *path, enum archive_type *type, int *error);
 struct afa3_archive *afa3_open(const char *file, int flags, int *error);
-struct archive *flat_open_file(const char *path, int flags, int *error);
-struct archive *flat_open(uint8_t *data, size_t size, int *error);
 
 #endif /* ALICE_ARCHIVE_H_ */

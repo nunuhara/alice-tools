@@ -24,6 +24,7 @@
 #include "system4.h"
 #include "system4/afa.h"
 #include "system4/ald.h"
+#include "system4/flat.h"
 #include "archive.h"
 
 // dirname is allowed to return a pointer to static memory OR modify its input.
@@ -90,8 +91,6 @@ static struct archive *open_ald_archive(const char *path, int *error)
 }
 
 struct afa3_archive *afa3_open(const char *file, int flags, int *error);
-struct archive *flat_open_file(const char *path, possibly_unused int flags, int *error);
-struct archive *flat_open(uint8_t *data, size_t size, int *error);
 
 struct archive *open_archive(const char *path, enum archive_type *type, int *error)
 {
@@ -113,7 +112,7 @@ struct archive *open_archive(const char *path, enum archive_type *type, int *err
 		return ar;
 	} else if (!strcasecmp(ext, "flat")) {
 		*type = AR_FLAT;
-		return flat_open_file(path, 0, error);
+		return (struct archive*)flat_open_file(path, 0, error);
 	}
 	// TODO: try to use file magic
 
