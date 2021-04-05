@@ -85,6 +85,17 @@ struct command cmd_ar = {
 	}
 };
 
+struct command cmd_cg = {
+	.name = "cg",
+	.usage = "<command> ...",
+	.description = "Tools for working with CG formats",
+	.parent = &cmd_alice,
+	.commands = {
+		&cmd_cg_convert,
+		NULL
+	}
+};
+
 struct command cmd_ex = {
 	.name = "ex",
 	.usage = "<command> ...",
@@ -131,6 +142,7 @@ struct command cmd_alice = {
 		&cmd_acx,
 		&cmd_ain,
 		&cmd_ar,
+		&cmd_cg,
 		&cmd_ex,
 		&cmd_flat,
 		&cmd_fnl,
