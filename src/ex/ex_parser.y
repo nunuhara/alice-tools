@@ -140,7 +140,8 @@ body	:	'{'          '}' { $$ = NULL; }
 	|	'{' rows ',' '}' { $$ = $2; }
 	;
 
-rows	:	row          { $$ = ast_make_row_list($1); }
+rows	:	             { $$ = NULL; }
+	|	row          { $$ = ast_make_row_list($1); }
 	|	rows ',' row { $$ = ast_row_list_push($1, $3); }
 	;
 
