@@ -159,7 +159,7 @@ static void convert_dir(struct string *src_dir, enum ar_filetype src_fmt, struct
 	struct dirent *dir;
 	DIR *d = checked_opendir(src_dir->text);
 	while ((dir = readdir(d)) != NULL) {
-		if (!strcmp(dir->d_name, ".") || !strcmp(dir->d_name, ".."))
+		if (dir->d_name[0] == '.')
 			continue;
 
 		struct stat src_s;
@@ -173,7 +173,11 @@ static void convert_dir(struct string *src_dir, enum ar_filetype src_fmt, struct
 			goto loop_next;
 		}
 		if (!S_ISREG(src_s.st_mode)) {
-			WARNING("Skipping \"%s\": not a regular file", src_path->text);
+			NOTICE("Skipping \"%s\": not a regular file", src_path->text);
+			goto loop_next;
+		}
+		if (strcasecmp(file_extension(dir->d_name), ar_ft_extensions[src_fmt])) {
+			NOTICE("Skipping \"%s\": wrong file extension", src_path->text);
 			goto loop_next;
 		}
 
@@ -214,14 +218,14 @@ static void batchpack_convert(struct batchpack_line *line)
 
 kv_decl(filelist, struct ar_file_spec*);
 
-static void dir_to_file_list(struct string *dst, struct string *base_name, filelist *files)
+static void dir_to_file_list(struct string *dst, struct string *base_name, filelist *files, enum ar_filetype fmt)
 {
 	// add all files in dst to file list
 	// TODO: filter by file extension?
 	struct dirent *dir;
 	DIR *d = checked_opendir(dst->text);
 	while ((dir = readdir(d)) != NULL) {
-		if (!strcmp(dir->d_name, ".") || !strcmp(dir->d_name, ".."))
+		if (dir->d_name[0] == '.')
 			continue;
 
 		struct stat s;
@@ -230,13 +234,19 @@ static void dir_to_file_list(struct string *dst, struct string *base_name, filel
 		checked_stat(path->text, &s);
 
 		if (S_ISDIR(s.st_mode)) {
-			dir_to_file_list(path, name, files);
+			dir_to_file_list(path, name, files, fmt);
 			free_string(path);
 			free_string(name);
 			continue;
 		}
 		if (!S_ISREG(s.st_mode)) {
 			WARNING("Skipping \"%s\": not a regular file", path->text);
+			free_string(path);
+			free_string(name);
+			continue;
+		}
+		if (fmt && strcasecmp(file_extension(dir->d_name), ar_ft_extensions[fmt])) {
+			NOTICE("Skipping \"%s\": wrong file extension", path->text);
 			free_string(path);
 			free_string(name);
 			continue;
@@ -275,7 +285,7 @@ static struct ar_file_spec **batchpack_to_file_list(struct ar_manifest *mf, size
 			batchpack_convert(mf->batchpack+i);
 		}
 
-		dir_to_file_list(dst, string_ref(&EMPTY_STRING), &files);
+		dir_to_file_list(dst, string_ref(&EMPTY_STRING), &files, mf->batchpack[i].dst_fmt);
 	}
 
 	qsort(files.a, files.n, sizeof(struct ar_file_spec*), file_spec_compare);
