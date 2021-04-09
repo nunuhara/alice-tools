@@ -68,6 +68,7 @@ DIR *checked_opendir(const char *path);
 void checked_stat(const char *path, struct stat *s);
 void mkdir_for_file(const char *filename);
 void chdir_to_file(const char *filename);
+struct string *replace_extension(const char *file, const char *ext);
 
 struct ex *ex_parse_file(const char *path);
 

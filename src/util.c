@@ -125,3 +125,34 @@ void chdir_to_file(const char *filename)
 		ALICE_ERROR("chdir(%s): %s", filename, strerror(errno));
 	free(tmp);
 }
+
+/*
+ * replace_extension("filename", "ext") -> "filename.ext"
+ * replace_extension("filename.oth", "ext") -> "filename.ext"
+ * replace_extension("filename.ext.oth", "ext") -> "filename.ext"
+ */
+struct string *replace_extension(const char *file, const char *ext)
+{
+	const char *src_ext = strrchr(file, '.');
+	if (!src_ext) {
+		struct string *dst = make_string(file, strlen(file));
+		string_push_back(&dst, '.');
+		string_append_cstr(&dst, ext, strlen(ext));
+		return dst;
+	}
+
+	//size_t base_len = (src_ext+1) - file;
+	size_t base_len = src_ext - file;
+	struct string *dst = make_string(file, base_len);
+
+	// handle the case where stripping the extension produces a file name
+	// with the correct extension
+	src_ext = strrchr(dst->text, '.');
+	if (src_ext && !strcmp(src_ext+1, ext)) {
+		return dst;
+	}
+
+	string_append_cstr(&dst, ".", 1);
+	string_append_cstr(&dst, ext, strlen(ext));
+	return dst;
+}

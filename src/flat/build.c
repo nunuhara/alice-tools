@@ -214,7 +214,9 @@ static struct flat_archive *build_flat(struct ex *ex)
 
 int command_flat_build(int argc, char *argv[])
 {
-	char *output_file = NULL;
+	struct string *output_file = NULL;
+	set_input_encoding("UTF-8");
+	set_output_encoding("UTF-8");
 
 	while (1) {
 		int c = alice_getopt(argc, argv, &cmd_flat_build);
@@ -223,7 +225,7 @@ int command_flat_build(int argc, char *argv[])
 		switch (c) {
 		case 'o':
 		case LOPT_OUTPUT:
-			output_file = optarg;
+			output_file = make_string(optarg, strlen(optarg));
 			break;
 		}
 	}
@@ -242,7 +244,20 @@ int command_flat_build(int argc, char *argv[])
 		ALICE_ERROR("Failed to read flat manifest file: %s", argv[0]);
 	}
 
-	FILE *out = checked_fopen(output_file ? output_file : "out.flat", "wb");
+	// Determine output file path
+	// 1. Path given on command line
+	// 2. Path given in 'output' key in .txtex file
+	// 3. Replace file extension of input path
+	if (!output_file) {
+		struct string *s = ex_get_string(ex, "output");
+		if (s) {
+			output_file = s;
+		} else {
+			output_file = replace_extension(argv[0], ".flat");
+		}
+	}
+
+	FILE *out = checked_fopen(output_file->text, "wb");
 	chdir_to_file(argv[0]); // for relative paths
 	struct flat_archive *flat = build_flat(ex);
 	checked_fwrite(flat->data, flat->data_size, out);
@@ -250,6 +265,7 @@ int command_flat_build(int argc, char *argv[])
 
 	archive_free(&flat->ar);
 	ex_free(ex);
+	free_string(output_file);
 	return 0;
 }
 
