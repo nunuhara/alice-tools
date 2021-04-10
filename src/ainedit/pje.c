@@ -24,6 +24,7 @@
 #include "system4/file.h"
 #include "system4/ini.h"
 #include "system4/string.h"
+#include "alice.h"
 #include "ainedit.h"
 #include "jaf.h"
 
@@ -52,6 +53,7 @@ struct pje_config {
 	struct string_list source;
 	struct string *mod_ain;
 	struct string *mod_text;
+	struct string_list mod_jam;
 };
 
 struct inc_config {
@@ -174,6 +176,8 @@ static void pje_parse(const char *path, struct pje_config *config)
 			config->mod_ain = pje_string(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "ModText")) {
 			config->mod_text = pje_string(&ini[i]);
+		} else if (!strcmp(ini[i].name->text, "ModJam")) {
+			pje_string_list(&ini[i], &config->mod_jam);
 		} else if (ini[i].value.type == INI_FORMATION) {
 			WARNING("Formations not supported");
 		} else {
@@ -293,8 +297,11 @@ static void pje_free(struct pje_config *config)
 		free_string(config->obj_dir);
 	if (config->output_dir)
 		free_string(config->output_dir);
+	if (config->mod_ain)
+		free_string(config->mod_ain);
 	free_string_list(&config->system_source);
 	free_string_list(&config->source);
+	free_string_list(&config->mod_jam);
 }
 
 static void build_job_free(struct build_job *job)
@@ -352,6 +359,7 @@ void pje_build(const char *path, int major_version, int minor_version)
 		if (!(ain = ain_open(mod_ain->text, &err))) {
 			ERROR("Failed to open ain file: %s", ain_strerror);
 		}
+		ain_init_member_functions(ain, conv_output_utf8);
 		free_string(mod_ain);
 	} else {
 		ain = ain_new(major_version, minor_version);
@@ -366,6 +374,13 @@ void pje_build(const char *path, int major_version, int minor_version)
 
 	// build
 	jaf_build(ain, source_files, nr_source_files, header_files, nr_header_files);
+
+	// build .jam files
+	for (unsigned i = 0; i < config.mod_jam.n; i++) {
+		struct string *mod_jam = directory_file(src_dir, config.mod_jam.items[i]);
+		asm_append_jam(mod_jam->text, ain, 0);
+		free_string(mod_jam);
+	}
 
 	// write to disk
 	NOTICE("Writing AIN file...");
