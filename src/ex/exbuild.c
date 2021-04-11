@@ -25,7 +25,6 @@
 #include "system4.h"
 #include "system4/ex.h"
 #include "system4/string.h"
-#include "ex_ast.h"
 #include "alice.h"
 
 void ex_write(FILE *out, struct ex *ex);
@@ -67,24 +66,12 @@ int command_ex_build(int argc, char *argv[])
 	}
 
 	FILE *out = alice_open_output_file(output_file);
-
-	FILE *in;
-	if (!strcmp(argv[0], "-")) {
-		in = stdin;
-	} else {
-		in = fopen(argv[0], "rb");
-		char *tmp = strdup(argv[0]);
-		chdir(dirname(tmp));
-		free(tmp);
+	struct ex *ex = ex_parse_file(argv[0]);
+	if (!ex) {
+		ALICE_ERROR("failed to parse .txtex file: '%s'", argv[0]);
 	}
-	if (!in)
-		ERROR("fopen failed: %s", strerror(errno));
-
-	current_line_nr = &yex_line;
-	current_file_name = (const char**)&argv[0];
-
-	struct ex *ex = ex_parse(in);
 	ex_write(out, ex);
+	fclose(out);
 	ex_free(ex);
 	return 0;
 }

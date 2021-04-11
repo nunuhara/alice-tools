@@ -21,6 +21,7 @@
 #include <libgen.h>
 #include "system4.h"
 #include "system4/ain.h"
+#include "system4/ex.h"
 #include "system4/file.h"
 #include "system4/ini.h"
 #include "system4/string.h"
@@ -40,6 +41,8 @@ struct string_list {
 };
 
 struct pje_config {
+	const char *pje_path;
+	struct string *pje_dir;
 	struct string *project_name;
 	struct string *code_name;
 	int game_version;
@@ -51,9 +54,12 @@ struct pje_config {
 	struct pje_formation *formations;
 	struct string_list system_source;
 	struct string_list source;
+	// alice-tools extensions
 	struct string *mod_ain;
 	struct string *mod_text;
 	struct string_list mod_jam;
+	struct string *ex_input;
+	struct string *ex_name;
 };
 
 struct inc_config {
@@ -94,30 +100,16 @@ static struct string *directory_name(const char *path)
 	return r;
 }
 
-static struct string *directory_file(struct string *dir, struct string *file)
+static struct string *pje_string_ptr(struct ini_entry *entry)
 {
-	char tmp[1024];
-	if (dir->size + file->size + 2 >= 1024)
-		ERROR("path too long");
-
-	memcpy(tmp, dir->text, dir->size);
-	tmp[dir->size] = '/';
-	memcpy(tmp+dir->size+1, file->text, file->size);
-	tmp[dir->size+file->size+1] = '\0';
-
-	for (int i = dir->size+1; i < dir->size + file->size + 1; i++) {
-		if (tmp[i] == '\\')
-			tmp[i] = '/';
-	}
-
-	return make_string(tmp, dir->size+file->size+1);
+	if (entry->value.type != INI_STRING)
+		ERROR("Invalid value for '%s': not a string", entry->name->text);
+	return entry->value.s;
 }
 
 static struct string *pje_string(struct ini_entry *entry)
 {
-	if (entry->value.type != INI_STRING)
-		ERROR("Invalid value for '%s': not a string", entry->name->text);
-	return string_dup(entry->value.s);
+	return string_dup(pje_string_ptr(entry));
 }
 
 static int pje_integer(struct ini_entry *entry)
@@ -146,6 +138,7 @@ static void pje_parse(const char *path, struct pje_config *config)
 {
 	int ini_size;
 	struct ini_entry *ini = ini_parse(path, &ini_size);
+	struct string *pje_dir = directory_name(path);
 
 	for (int i = 0; i < ini_size; i++) {
 		if (!strcmp(ini[i].name->text, "ProjectName")) {
@@ -155,13 +148,13 @@ static void pje_parse(const char *path, struct pje_config *config)
 		} else if (!strcmp(ini[i].name->text, "GameVersion")) {
 			config->game_version = pje_integer(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "SourceDir")) {
-			config->source_dir = pje_string(&ini[i]);
+			config->source_dir = path_join(pje_dir, pje_string_ptr(&ini[i])->text);
 		} else if (!strcmp(ini[i].name->text, "HLLDir")) {
-			config->hll_dir = pje_string(&ini[i]);
+			config->hll_dir = path_join(pje_dir, pje_string_ptr(&ini[i])->text);
 		} else if (!strcmp(ini[i].name->text, "ObjDir")) {
-			config->obj_dir = pje_string(&ini[i]);
+			config->obj_dir = path_join(pje_dir, pje_string_ptr(&ini[i])->text);
 		} else if (!strcmp(ini[i].name->text, "OutputDir")) {
-			config->output_dir = pje_string(&ini[i]);
+			config->output_dir = path_join(pje_dir, pje_string_ptr(&ini[i])->text);
 		} else if (!strcmp(ini[i].name->text, "SystemSource")) {
 			pje_string_list(&ini[i], &config->system_source);
 		} else if (!strcmp(ini[i].name->text, "Source")) {
@@ -178,6 +171,10 @@ static void pje_parse(const char *path, struct pje_config *config)
 			config->mod_text = pje_string(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "ModJam")) {
 			pje_string_list(&ini[i], &config->mod_jam);
+		} else if (!strcmp(ini[i].name->text, "ExInput")) {
+			config->ex_input = path_join(pje_dir, pje_string_ptr(&ini[i])->text);
+		} else if (!strcmp(ini[i].name->text, "ExName")) {
+			config->ex_name = pje_string(&ini[i]);
 		} else if (ini[i].value.type == INI_FORMATION) {
 			WARNING("Formations not supported");
 		} else {
@@ -192,14 +189,21 @@ static void pje_parse(const char *path, struct pje_config *config)
 		config->project_name = cstr_to_string("UntitledProject");
 	if (!config->code_name)
 		config->code_name = cstr_to_string("out.ain");
-	if (!config->source_dir)
-		config->source_dir = cstr_to_string("source");
-	if (!config->hll_dir)
-		config->hll_dir = cstr_to_string("hll");
-	if (!config->obj_dir)
-		config->obj_dir = cstr_to_string("obj");
-	if (!config->output_dir)
-		config->output_dir = cstr_to_string("run");
+	if (!config->source_dir) {
+		config->source_dir = path_join(pje_dir, "source");
+	}
+	if (!config->output_dir) {
+		config->output_dir = path_join(pje_dir, "run");
+	}
+	if (!config->hll_dir) {
+		config->hll_dir = path_join(pje_dir, "hll");
+	}
+	if (!config->obj_dir) {
+		config->obj_dir = path_join(pje_dir, "obj");
+	}
+
+	config->pje_path = path;
+	config->pje_dir = pje_dir;
 }
 
 static void pje_parse_inc(const char *path, struct inc_config *config)
@@ -249,7 +253,7 @@ static void pje_read_source(struct build_job *job, struct string *dir, struct st
 static void pje_read_inc(struct build_job *job, struct string *dir, struct string *inc)
 {
 	struct inc_config config = {0};
-	struct string *file = directory_file(dir, inc);
+	struct string *file = path_join(dir, inc->text);
 	struct string *file_dir = directory_name(file->text);
 	pje_parse_inc(file->text, &config);
 
@@ -268,13 +272,13 @@ static void pje_read_source(struct build_job *job, struct string *dir, struct st
 		if (!strcmp(ext, "inc")) {
 			pje_read_inc(job, dir, source->items[i]);
 		} else if (!strcmp(ext, "jaf")) {
-			string_list_append(system ? &job->system_source : &job->source, directory_file(dir, source->items[i]));
+			string_list_append(system ? &job->system_source : &job->source, path_join(dir, source->items[i]->text));
 		} else if (!strcmp(ext, "hll")) {
 			if (i+1 >= source->n)
 				ERROR("Missing HLL name in source list: %s", source->items[i]->text);
 			if (strchr(source->items[i+1]->text, '.'))
 				ERROR("HLL name contains '.': %s", source->items[i+1]->text);
-			string_list_append(&job->headers, directory_file(dir, source->items[i]));
+			string_list_append(&job->headers, path_join(dir, source->items[i]->text));
 			string_list_append(&job->headers, string_dup(source->items[i+1]));
 			i++;
 		} else {
@@ -285,6 +289,8 @@ static void pje_read_source(struct build_job *job, struct string *dir, struct st
 
 static void pje_free(struct pje_config *config)
 {
+	if (config->pje_dir)
+		free_string(config->pje_dir);
 	if (config->project_name)
 		free_string(config->project_name);
 	if (config->code_name)
@@ -299,6 +305,10 @@ static void pje_free(struct pje_config *config)
 		free_string(config->output_dir);
 	if (config->mod_ain)
 		free_string(config->mod_ain);
+	if (config->ex_input)
+		free_string(config->ex_input);
+	if (config->ex_name)
+		free_string(config->ex_name);
 	free_string_list(&config->system_source);
 	free_string_list(&config->source);
 	free_string_list(&config->mod_jam);
@@ -311,22 +321,39 @@ static void build_job_free(struct build_job *job)
 	free_string_list(&job->headers);
 }
 
+static void pje_build_ex(struct pje_config *config)
+{
+	if (!config->ex_input && !config->ex_name)
+		return;
+	if (!config->ex_input)
+		ALICE_ERROR("'%s': ExName present but no ExInput given", config->pje_path);
+	if (!config->ex_name)
+		ALICE_ERROR("'%s': ExInput present but no ExName given", config->pje_path);
+
+	struct ex *ex = ex_parse_file(config->ex_input->text);
+	if (!ex)
+		ALICE_ERROR("Failed to parse .txtex file: '%s'", config->ex_name->text);
+
+	struct string *out = path_join(config->output_dir, config->ex_name->text);
+	ex_write_file(out->text, ex);
+
+	free_string(out);
+	ex_free(ex);
+}
+
 void pje_build(const char *path, int major_version, int minor_version)
 {
 	struct build_job job = {0};
 	struct pje_config config = {0};
 	pje_parse(path, &config);
 
-	struct string *pje_dir = directory_name(path);
-	struct string *src_dir = directory_file(pje_dir, config.source_dir);
-	struct string *out_dir = directory_file(pje_dir, config.output_dir);
-	if (mkdir_p(out_dir->text)) {
-		ERROR("Creating output directory '%s': %s", out_dir->text, strerror(errno));
+	if (mkdir_p(config.output_dir->text)) {
+		ALICE_ERROR("Creating output directory '%s': %s", config.output_dir->text, strerror(errno));
 	}
 
 	// collect source file names
-	pje_read_source(&job, src_dir, &config.system_source, true);
-	pje_read_source(&job, src_dir, &config.source, false);
+	pje_read_source(&job, config.source_dir, &config.system_source, true);
+	pje_read_source(&job, config.source_dir, &config.source, false);
 
 	// TODO: parse hll files
 	unsigned nr_header_files = job.headers.n;
@@ -355,9 +382,9 @@ void pje_build(const char *path, int major_version, int minor_version)
 	struct ain *ain;
 	if (config.mod_ain) {
 		int err;
-		struct string *mod_ain = directory_file(pje_dir, config.mod_ain);
+		struct string *mod_ain = path_join(config.pje_dir, config.mod_ain->text);
 		if (!(ain = ain_open(mod_ain->text, &err))) {
-			ERROR("Failed to open ain file: %s", ain_strerror);
+			ALICE_ERROR("Failed to open ain file: %s", ain_strerror);
 		}
 		ain_init_member_functions(ain, conv_output_utf8);
 		free_string(mod_ain);
@@ -367,7 +394,7 @@ void pje_build(const char *path, int major_version, int minor_version)
 
 	// apply text substitution, if ModText given
 	if (config.mod_text) {
-		struct string *mod_text = directory_file(pje_dir, config.mod_text);
+		struct string *mod_text = path_join(config.pje_dir, config.mod_text->text);
 		read_text(mod_text->text, ain);
 		free_string(mod_text);
 	}
@@ -377,20 +404,19 @@ void pje_build(const char *path, int major_version, int minor_version)
 
 	// build .jam files
 	for (unsigned i = 0; i < config.mod_jam.n; i++) {
-		struct string *mod_jam = directory_file(src_dir, config.mod_jam.items[i]);
+		struct string *mod_jam = path_join(config.source_dir, config.mod_jam.items[i]->text);
 		asm_append_jam(mod_jam->text, ain, 0);
 		free_string(mod_jam);
 	}
 
 	// write to disk
 	NOTICE("Writing AIN file...");
-	struct string *output_file = directory_file(out_dir, config.code_name);
+	struct string *output_file = path_join(config.output_dir, config.code_name->text);
 	ain_write(output_file->text, ain);
-
-	free_string(pje_dir);
-	free_string(src_dir);
-	free_string(out_dir);
 	free_string(output_file);
+
+	pje_build_ex(&config);
+
 	free(source_files);
 	free(header_files);
 	build_job_free(&job);

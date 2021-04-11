@@ -25,24 +25,8 @@
 #include "system4/afa.h"
 #include "system4/ald.h"
 #include "system4/flat.h"
+#include "alice.h"
 #include "archive.h"
-
-// dirname is allowed to return a pointer to static memory OR modify its input.
-// This works around the braindamage by ALWAYS returning a pointer to static
-// memory, at the cost of a string copy.
-char *xdirname(const char *path)
-{
-	static char buf[PATH_MAX];
-	strncpy(buf, path, PATH_MAX-1);
-	return dirname(buf);
-}
-
-char *xbasename(const char *path)
-{
-	static char buf[PATH_MAX];
-	strncpy(buf, path, PATH_MAX-1);
-	return basename(buf);
-}
 
 static struct archive *open_ald_archive(const char *path, int *error)
 {

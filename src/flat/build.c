@@ -32,14 +32,16 @@ enum {
 	LOPT_OUTPUT = 256,
 };
 
-static void buffer_write_file(struct buffer *buf, const char *path)
+static void buffer_write_file(struct buffer *buf, const struct string *dir, const char *file)
 {
 	size_t len;
-	uint8_t *file = file_read(path, &len);
+	struct string *path = path_join(dir, file);
+	uint8_t *data = file_read(path->text, &len);
 	if (!file)
 		ALICE_ERROR("reading '%s': %s", path, strerror(errno));
-	buffer_write_bytes(buf, file, len);
-	free(file);
+	buffer_write_bytes(buf, data, len);
+	free(data);
+	free_string(path);
 }
 
 static void pad_align(struct buffer *b)
@@ -68,7 +70,7 @@ static void deserialize_binary(struct buffer *b, struct string *s)
 	pad_align(b);
 }
 
-static void write_libl_files(struct buffer *b, struct ex_table *libl)
+static void write_libl_files(struct buffer *b, struct ex_table *libl, const struct string *dir)
 {
 	// validate fields
 	if (libl->nr_fields != 5)
@@ -97,12 +99,12 @@ static void write_libl_files(struct buffer *b, struct ex_table *libl)
 		} else {
 			buffer_write_int32(b, file_size(path));
 		}
-		buffer_write_file(b, path);
+		buffer_write_file(b, dir, path);
 		pad_align(b);
 	}
 }
 
-static void write_talt_files(struct buffer *b, struct ex_table *talt)
+static void write_talt_files(struct buffer *b, struct ex_table *talt, const struct string *dir)
 {
 	// validate fields
 	if (talt->nr_fields != 2)
@@ -129,7 +131,7 @@ static void write_talt_files(struct buffer *b, struct ex_table *talt)
 	for (unsigned i = 0; i < talt->nr_rows; i++) {
 		const char *path = talt->rows[i][0].s->text;
 		buffer_write_int32(b, file_size(path));
-		buffer_write_file(b, path);
+		buffer_write_file(b, dir, path);
 		pad_align(b);
 
 		struct ex_table *meta = talt->rows[i][1].t;
@@ -144,7 +146,7 @@ static void write_talt_files(struct buffer *b, struct ex_table *talt)
 	}
 }
 
-static struct flat_archive *build_flat(struct ex *ex)
+static struct flat_archive *build_flat(struct ex *ex, const struct string *dir)
 {
 	struct buffer b;
 	struct flat_archive *flat = flat_new();
@@ -163,7 +165,7 @@ static struct flat_archive *build_flat(struct ex *ex)
 		ALICE_ERROR("'flat' path missing from .flat manifest");
 	flat->flat.present = true;
 	flat->flat.off = b.index;
-	buffer_write_file(&b, flat_path->text);
+	buffer_write_file(&b, dir, flat_path->text);
 	flat->flat.size = b.index - flat->flat.off - 8;
 	free_string(flat_path);
 
@@ -171,7 +173,7 @@ static struct flat_archive *build_flat(struct ex *ex)
 	if (tmnl_path) {
 		flat->tmnl.present = true;
 		flat->tmnl.off = b.index;
-		buffer_write_file(&b, tmnl_path->text);
+		buffer_write_file(&b, dir, tmnl_path->text);
 		flat->tmnl.size = b.index - flat->tmnl.off - 8;
 		free_string(tmnl_path);
 	}
@@ -181,7 +183,7 @@ static struct flat_archive *build_flat(struct ex *ex)
 		ALICE_ERROR("'mtlc' path missing from .flat manifest");
 	flat->mtlc.present = true;
 	flat->mtlc.off = b.index;
-	buffer_write_file(&b, mtlc_path->text);
+	buffer_write_file(&b, dir, mtlc_path->text);
 	flat->mtlc.size = b.index - flat->mtlc.off - 8;
 	free_string(mtlc_path);
 
@@ -192,7 +194,7 @@ static struct flat_archive *build_flat(struct ex *ex)
 	flat->libl.off = b.index;
 	buffer_write_bytes(&b, (uint8_t*)"LIBL", 4);
 	buffer_write_int32(&b, 0);
-	write_libl_files(&b, libl);
+	write_libl_files(&b, libl, dir);
 	// write the section size now that we know it
 	buffer_write_int32_at(&b, flat->libl.off + 4, b.index - flat->libl.off - 8);
 
@@ -202,7 +204,7 @@ static struct flat_archive *build_flat(struct ex *ex)
 		flat->talt.off = b.index;
 		buffer_write_bytes(&b, (uint8_t*)"TALT", 4);
 		buffer_write_int32(&b, 0);
-		write_talt_files(&b, talt);
+		write_talt_files(&b, talt, dir);
 		// write the section size now that we know it
 		buffer_write_int32_at(&b, flat->talt.off + 4, b.index - flat->talt.off - 8);
 	}
@@ -212,8 +214,27 @@ static struct flat_archive *build_flat(struct ex *ex)
 	return flat;
 }
 
+struct flat_archive *flat_build(const char *xpath, struct string **output_path)
+{
+	struct string *dir = cstr_to_string(xdirname(xpath));
+	struct ex *ex = ex_parse_file(xpath);
+	if (!ex) {
+		ALICE_ERROR("Failed to read flat manifest file: %s", xpath);
+	}
+
+	if (output_path) {
+		*output_path = ex_get_string(ex, "output");
+	}
+
+	struct flat_archive *flat = build_flat(ex, dir);
+	free_string(dir);
+	ex_free(ex);
+	return flat;
+}
+
 int command_flat_build(int argc, char *argv[])
 {
+	struct string *mf_output_file = NULL;
 	struct string *output_file = NULL;
 	set_input_encoding("UTF-8");
 	set_output_encoding("UTF-8");
@@ -238,33 +259,25 @@ int command_flat_build(int argc, char *argv[])
 		USAGE_ERROR(&cmd_flat_build, "Wrong number of arguments");
 	}
 
-	// open .txtex file
-	struct ex *ex = ex_parse_file(argv[0]);
-	if (!ex) {
-		ALICE_ERROR("Failed to read flat manifest file: %s", argv[0]);
-	}
-
-	// Determine output file path
-	// 1. Path given on command line
-	// 2. Path given in 'output' key in .txtex file
-	// 3. Replace file extension of input path
+	// build flat object from manifest
+	struct flat_archive *flat = flat_build(argv[0], &mf_output_file);
 	if (!output_file) {
-		struct string *s = ex_get_string(ex, "output");
-		if (s) {
-			output_file = s;
+		if (mf_output_file) {
+			struct string *dir = cstr_to_string(xdirname(argv[0]));
+			output_file = path_join(dir, mf_output_file->text);
+			free_string(dir);
 		} else {
-			output_file = replace_extension(argv[0], ".flat");
+			output_file = replace_extension(argv[0], "flat");
 		}
 	}
 
+	// write flat file
 	FILE *out = checked_fopen(output_file->text, "wb");
-	chdir_to_file(argv[0]); // for relative paths
-	struct flat_archive *flat = build_flat(ex);
 	checked_fwrite(flat->data, flat->data_size, out);
 	fclose(out);
 
 	archive_free(&flat->ar);
-	ex_free(ex);
+	free_string(mf_output_file);
 	free_string(output_file);
 	return 0;
 }

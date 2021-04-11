@@ -33,8 +33,6 @@
 #include "alice-ar.h"
 
 void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_files);
-struct ex *ex_parse(FILE *f);
-void ex_write(FILE *out, struct ex *ex);
 
 const char * const ar_ft_extensions[] = {
 	[AR_FT_UNKNOWN] = "dat",
@@ -77,15 +75,6 @@ static struct ar_file_spec **alicepack_to_file_list(struct ar_manifest *mf, size
 	return files;
 }
 
-static struct string *mkpath(const struct string *dir, const char *file)
-{
-	struct string *path = string_dup(dir);
-	if (dir->size > 0 && dir->text[dir->size-1] != '/')
-		string_push_back(&path, '/');
-	string_append_cstr(&path, file, strlen(file));
-	return path;
-}
-
 static void convert_file(struct string *src, enum ar_filetype src_fmt, struct string *dst, enum ar_filetype dst_fmt)
 {
 	// ensure directory exists for dst
@@ -109,10 +98,11 @@ static void convert_file(struct string *src, enum ar_filetype src_fmt, struct st
 		if (dst_fmt != AR_FT_EX && dst_fmt != AR_FT_PACTEX) {
 			ALICE_ERROR("Invalid output format for .x files");
 		}
-		FILE *in = checked_fopen(src->text, "rb");
-		FILE *out = checked_fopen(dst->text, "wb");
-		struct ex *ex = ex_parse(in);
-		ex_write(out, ex);
+		struct ex *ex = ex_parse_file(src->text);
+		if (!ex) {
+			ALICE_ERROR("Failed to parse .txtex file: %s", src->text);
+		}
+		ex_write_file(dst->text, ex);
 		ex_free(ex);
 		break;
 	}
@@ -131,8 +121,8 @@ static void convert_dir(struct string *src_dir, enum ar_filetype src_fmt, struct
 			continue;
 
 		struct stat src_s;
-		struct string *src_path = mkpath(src_dir, dir->d_name);
-		struct string *dst_base = mkpath(dst_dir, dir->d_name);
+		struct string *src_path = path_join(src_dir, dir->d_name);
+		struct string *dst_base = path_join(dst_dir, dir->d_name);
 		struct string *dst_path = replace_extension(dst_base->text, ar_ft_extensions[dst_fmt]);
 		checked_stat(src_path->text, &src_s);
 
@@ -197,8 +187,8 @@ static void dir_to_file_list(struct string *dst, struct string *base_name, filel
 			continue;
 
 		struct stat s;
-		struct string *path = mkpath(dst, dir->d_name);
-		struct string *name = mkpath(base_name, dir->d_name);
+		struct string *path = path_join(dst, dir->d_name);
+		struct string *name = path_join(base_name, dir->d_name);
 		checked_stat(path->text, &s);
 
 		if (S_ISDIR(s.st_mode)) {

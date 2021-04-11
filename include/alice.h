@@ -19,6 +19,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <assert.h>
 #include <getopt.h>
 #include <dirent.h>
 #include "system4.h"
@@ -69,8 +70,14 @@ void checked_stat(const char *path, struct stat *s);
 void mkdir_for_file(const char *filename);
 void chdir_to_file(const char *filename);
 struct string *replace_extension(const char *file, const char *ext);
+char *xdirname(const char *path);
+char *xbasename(const char *path);
+struct string *path_join(const struct string *dir, const char *rest);
 
+/* ex/... */
 struct ex *ex_parse_file(const char *path);
+void ex_write(FILE *out, struct ex *ex);
+void ex_write_file(const char *path, struct ex *ex);
 
 extern unsigned long *current_line_nr;
 extern const char **current_file_name;

@@ -21,11 +21,22 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "system4/ex.h"
-#include "ex_parser.tab.h"
+#include "kvec.h"
 
-struct ex *ex_parse(FILE *in);
-struct ex *ex_parse_file(const char *path);
+kv_decl(block_list, struct ex_block*);
+kv_decl(field_list, struct ex_field*);
+kv_decl(value_list, struct ex_value*);
+kv_decl(row_list,   value_list*);
+kv_decl(node_list,  struct ex_tree*);
 
+// ex_parser.y
+extern struct ex *ex_data;
+enum ex_value_type ast_token_to_value_type(int token);
+
+// ex_lexer.l
+struct ex *ex_parse(FILE *in, const char *basepath);
+
+// ast.c
 struct ex_value *ast_make_int(int32_t i);
 struct ex_value *ast_make_float(float f);
 struct ex_value *ast_make_string(struct string *s);

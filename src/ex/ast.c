@@ -20,10 +20,9 @@
 #include "system4/ex.h"
 #include "system4/string.h"
 #include "alice.h"
-#include "ex_parser.tab.h"
 #include "ex_ast.h"
 
-extern FILE *yex_in;
+extern struct ex *ex_parse(FILE *in, const char *basepath);
 
 #define flatten_list(type, list, outvar)				\
 	do {								\
@@ -36,41 +35,22 @@ extern FILE *yex_in;
 		free(list);						\
 	} while (0)
 
-int yex_lex_destroy(void);
-
-struct ex *ex_parse(FILE *in)
-{
-	yex_in = in;
-	yex_parse();
-	// reset lexer state for subsequent calls
-	yex_lex_destroy();
-	return ex_data;
-}
-
 struct ex *ex_parse_file(const char *path)
 {
+	if (!strcmp(path, "-")) {
+		return ex_parse(stdin, "");
+	}
+	char *basepath = strdup(xdirname(path));
 	FILE *f = checked_fopen(path, "rb");
-	struct ex *ex = ex_parse(f);
+	struct ex *ex = ex_parse(f, basepath);
 	fclose(f);
+	free(basepath);
 	return ex;
 }
 
 /*
  * Values
  */
-
-enum ex_value_type ast_token_to_value_type(int token)
-{
-	switch (token) {
-	case INT:    return EX_INT;
-	case FLOAT:  return EX_FLOAT;
-	case STRING: return EX_STRING;
-	case TABLE:  return EX_TABLE;
-	case LIST:   return EX_LIST;
-	case TREE:   return EX_TREE;
-	default:     ERROR("Invalid token type: %d", token);
-	}
-}
 
 static struct ex_value *ast_alloc_value(enum ex_value_type type)
 {

@@ -44,25 +44,42 @@ struct string *make_string_from_utf8(const char *str, size_t len)
 char *include_stack[256];
 int include_stack_ptr = 0;
 
-static void begin_included_file(const char *path)
-{
-    // push current working directory to stack
-    char *cwd = xmalloc(2048);
-    cwd = getcwd(cwd, 2048);
-    include_stack[include_stack_ptr++] = cwd;
+struct string *path_stack[256];
+int path_stack_ptr = 0;
 
-    // chdir to directory of included file
-    char *tmp = strdup(path);
-    chdir(dirname(tmp));
-    free(tmp);
+int yex_lex_destroy(void);
+
+struct ex *ex_parse(FILE *in, const char *basepath)
+{
+    assert(path_stack_ptr == 0);
+    path_stack[path_stack_ptr++] = cstr_to_string(basepath);
+
+    yex_in = in;
+    yex_parse();
+    // reset lexer state for subsequent calls
+    yex_lex_destroy();
+
+    assert(path_stack_ptr == 1);
+    free_string(path_stack[--path_stack_ptr]);
+    return ex_data;
+}
+
+static FILE *open_included_file(const char *path)
+{
+    assert(path_stack_ptr > 0);
+    path_stack[path_stack_ptr] = path_join(path_stack[path_stack_ptr-1], xdirname(path));
+
+    struct string *fullpath = path_join(path_stack[path_stack_ptr-1], path);
+    FILE *f = file_open_utf8(fullpath->text, "rb");
+    free_string(fullpath);
+
+    path_stack_ptr++;
+    return f;
 }
 
 static void end_included_file(void)
 {
-    // pop dir from stack and chdir to it
-    include_stack_ptr--;
-    chdir(include_stack[include_stack_ptr]);
-    free(include_stack[include_stack_ptr]);
+    free_string(path_stack[--path_stack_ptr]);
 }
 
 unsigned long yex_line = 1;
@@ -140,11 +157,10 @@ indexed                   return INDEXED;
     [ \t]*         ;
     \"[^ \t\r\n]+\" {
         yex_text[yex_leng-1] = '\0';
-        yex_in = file_open_utf8(yex_text+1, "r");
+        yex_in = open_included_file(yex_text+1);
         if (!yex_in)
-            ERROR("Failed to open included file '%s': %s", yex_text, strerror(errno));
+            ERROR("Failed to open included file '%s': %s", yex_text+1, strerror(errno));
         yex_push_buffer_state(yex__create_buffer(yex_in, YY_BUF_SIZE));
-        begin_included_file(yex_text+1);
         BEGIN(INITIAL);
     }
 }

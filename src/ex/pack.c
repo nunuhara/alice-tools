@@ -24,6 +24,7 @@
 #include "system4/buffer.h"
 #include "system4/ex.h"
 #include "system4/string.h"
+#include "alice.h"
 
 bool columns_first = false;
 
@@ -247,9 +248,15 @@ void ex_write(FILE *out, struct ex *ex)
 	ex_encode(flat+32, size - 32);
 
 	if (fwrite(flat, size, 1, out) != 1)
-		ERROR("Failed to write ex file: %s", strerror(errno));
-	if (fclose(out))
-		ERROR("Failed to close ex file: %s", strerror(errno));
+		ERROR("Failed to write .ex file: %s", strerror(errno));
 
 	free(flat);
+}
+
+void ex_write_file(const char *path, struct ex *ex)
+{
+	FILE *out = checked_fopen(path, "wb");
+	ex_write(out, ex);
+	if (fclose(out))
+		ALICE_ERROR("Failed to close .ex file: %s", strerror(errno));
 }

@@ -22,14 +22,7 @@
 %code requires {
     #include "kvec.h"
     #include "system4/ex.h"
-
-    kv_decl(block_list, struct ex_block*);
-    kv_decl(field_list, struct ex_field*);
-    kv_decl(value_list, struct ex_value*);
-    kv_decl(row_list,   value_list*);
-    kv_decl(node_list,  struct ex_tree*);
-
-    extern struct ex *ex_data;
+    #include "ex_ast.h"
 }
 
 %{
@@ -48,6 +41,19 @@ struct ex *ex_data;
 void yex_error(const char *s)
 {
     sys_error("ERROR: at line %lu: %s\n", yex_line, s);
+}
+
+enum ex_value_type ast_token_to_value_type(int token)
+{
+    switch (token) {
+    case INT:    return EX_INT;
+    case FLOAT:  return EX_FLOAT;
+    case STRING: return EX_STRING;
+    case TABLE:  return EX_TABLE;
+    case LIST:   return EX_LIST;
+    case TREE:   return EX_TREE;
+    default:     ERROR("Invalid token type: %d", token);
+    }
 }
 
 %}
