@@ -43,32 +43,6 @@ enum {
 	LOPT_SILENT,
 };
 
-static bool parse_version(const char *str, int *major, int *minor)
-{
-	char major_str[3];
-	char minor_str[3];
-	const char *dot = strchr(str, '.');
-
-	if (dot) {
-		if (dot - str > 2)
-			return false;
-		if (strlen(dot+1) > 2)
-			return false;
-		strncpy(major_str, str, dot - str);
-		major_str[dot-str] = 0;
-		strcpy(minor_str, dot+1);
-	} else {
-		if (strlen(str) > 2)
-			return false;
-		strcpy(major_str, str);
-		strcpy(minor_str, "0");
-	}
-
-	*major = atoi(major_str);
-	*minor = atoi(minor_str);
-	return true;
-}
-
 enum input_type {
 	IN_CODE,
 	IN_JAM,
@@ -171,11 +145,11 @@ int command_ain_edit(int argc, char *argv[])
 	}
 
 	if (project_file) {
-		// FIXME: this should be a separate command
+		WARNING("'ain edit -p' is deprecated, and will be removed in a future version");
 		if (nr_inputs > 0) {
 			WARNING("Input files specified on the command line are ignored in --project mode");
 		}
-		pje_build(project_file, major_version, minor_version);
+		pje_build(project_file);
 		return 0;
 	}
 
@@ -240,7 +214,7 @@ struct command cmd_ain_edit = {
 		{ "jam",         0,   "Append to the CODE section",                   required_argument, LOPT_JAM },
 		{ "jaf",         0,   "Update .ain file from .jaf source code",       required_argument, LOPT_JAF },
 		{ "json",        'j', "Update .ain file from json data",              required_argument, LOPT_JSON },
-		{ "project",     'p', "Build .ain from project file",                 required_argument, LOPT_PROJECT },
+		{ "project",     'p', "Build .ain from project file (deprecated)",    required_argument, LOPT_PROJECT },
 		{ "text",        't', "Update strings/messages",                      required_argument, LOPT_TEXT },
 		{ "ain-version", 0,   "Specify the .ain version",                     required_argument, LOPT_AIN_VERSION },
 		{ "raw",         0,   "Read code in raw mode",                        no_argument,       LOPT_RAW },

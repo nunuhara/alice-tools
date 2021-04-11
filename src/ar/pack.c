@@ -317,6 +317,33 @@ static void free_manifest(struct ar_manifest *mf)
 	free(mf);
 }
 
+void ar_pack(const char *manifest)
+{
+	struct ar_manifest *mf = ar_parse_manifest(manifest);
+	const char *ext = file_extension(mf->output_path->text);
+	if (!ext || strcasecmp(ext, "afa"))
+		ALICE_ERROR("Only .afa archives supported");
+
+	// paths are relative to manifest location
+	char *old_cwd = xmalloc(2048);
+	old_cwd = getcwd(old_cwd, 2048);
+	chdir_to_file(manifest);
+
+	size_t nr_files;
+	struct ar_file_spec **files = manifest_to_file_list(mf, &nr_files);
+	write_afa(mf->output_path, files, nr_files);
+
+	free_manifest(mf);
+	for (size_t i = 0; i < nr_files; i++) {
+		free_string(files[i]->path);
+		free_string(files[i]->name);
+		free(files[i]);
+	}
+	free(files);
+	chdir(old_cwd);
+	free(old_cwd);
+}
+
 int command_ar_pack(int argc, char *argv[])
 {
 	set_input_encoding("UTF-8");
@@ -335,27 +362,7 @@ int command_ar_pack(int argc, char *argv[])
 		USAGE_ERROR(&cmd_ar_extract, "Wrong number of arguments");
 	}
 
-	struct ar_manifest *mf = ar_parse_manifest(argv[0]);
-	const char *ext = file_extension(mf->output_path->text);
-	if (!ext || strcasecmp(ext, "afa"))
-		ALICE_ERROR("Only .afa archives supported");
-
-	// paths are relative to manifest location
-	char *tmp = strdup(argv[0]);
-	chdir(dirname(tmp));
-	free(tmp);
-
-	size_t nr_files;
-	struct ar_file_spec **files = manifest_to_file_list(mf, &nr_files);
-	write_afa(mf->output_path, files, nr_files);
-
-	free_manifest(mf);
-	for (size_t i = 0; i < nr_files; i++) {
-		free_string(files[i]->path);
-		free_string(files[i]->name);
-		free(files[i]);
-	}
-	free(files);
+	ar_pack(argv[0]);
 	return 0;
 }
 

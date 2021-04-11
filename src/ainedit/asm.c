@@ -989,10 +989,8 @@ static parse_instruction_list *jam_parse(const char *filename, uint32_t instr_pt
 
 static void jam_assemble(struct asm_state *state, const char *filename)
 {
-	NOTICE("Parsing...");
 	parse_instruction_list *code = jam_parse(filename, state->buf_ptr);
 
-	NOTICE("Encoding...");
 	for (size_t i = 0; i < kv_size(*code); i++) {
 		struct parse_instruction *instr = kv_A(*code, i);
 		if (instr->opcode >= PSEUDO_OP_OFFSET) {

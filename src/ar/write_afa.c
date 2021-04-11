@@ -121,7 +121,6 @@ void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_f
 	buffer_write_int32(&buf, data_size+8);
 	checked_fwrite(buf.buf, buf.index, f);
 	for (size_t i = 0; i < nr_files; i++) {
-		NOTICE("%s", files[i]->path->text);
 		FILE *in = checked_fopen(files[i]->path->text, "rb");
 		uint8_t *tmp = xmalloc(sizes[i]);
 		checked_fread(tmp, sizes[i], in);

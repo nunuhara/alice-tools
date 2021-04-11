@@ -73,11 +73,17 @@ struct string *replace_extension(const char *file, const char *ext);
 char *xdirname(const char *path);
 char *xbasename(const char *path);
 struct string *path_join(const struct string *dir, const char *rest);
+bool parse_version(const char *str, int *major, int *minor);
 
 /* ex/... */
 struct ex *ex_parse_file(const char *path);
 void ex_write(FILE *out, struct ex *ex);
 void ex_write_file(const char *path, struct ex *ex);
+
+// ar/... */
+void ar_pack(const char *manifest);
+
+void pje_build(const char *path);
 
 extern unsigned long *current_line_nr;
 extern const char **current_file_name;
@@ -97,6 +103,7 @@ extern struct command cmd_ex_dump;
 extern struct command cmd_flat_build;
 extern struct command cmd_flat_extract;
 extern struct command cmd_fnl_dump;
+extern struct command cmd_project_build;
 
 extern struct command cmd_alice;
 extern struct command cmd_acx;
@@ -106,5 +113,6 @@ extern struct command cmd_cg;
 extern struct command cmd_ex;
 extern struct command cmd_flat;
 extern struct command cmd_fnl;
+extern struct command cmd_project;
 
 #endif /* ALICE_H_ */

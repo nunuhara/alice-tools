@@ -60,6 +60,9 @@ struct pje_config {
 	struct string_list mod_jam;
 	struct string *ex_input;
 	struct string *ex_name;
+	struct string_list archives;
+	int major_version;
+	int minor_version;
 };
 
 struct inc_config {
@@ -140,6 +143,9 @@ static void pje_parse(const char *path, struct pje_config *config)
 	struct ini_entry *ini = ini_parse(path, &ini_size);
 	struct string *pje_dir = directory_name(path);
 
+	config->major_version = 4;
+	config->minor_version = 0;
+
 	for (int i = 0; i < ini_size; i++) {
 		if (!strcmp(ini[i].name->text, "ProjectName")) {
 			config->project_name = pje_string(&ini[i]);
@@ -175,6 +181,12 @@ static void pje_parse(const char *path, struct pje_config *config)
 			config->ex_input = path_join(pje_dir, pje_string_ptr(&ini[i])->text);
 		} else if (!strcmp(ini[i].name->text, "ExName")) {
 			config->ex_name = pje_string(&ini[i]);
+		} else if (!strcmp(ini[i].name->text, "Archives")) {
+			pje_string_list(&ini[i], &config->archives);
+		} else if (!strcmp(ini[i].name->text, "CodeVersion")) {
+			if (!parse_version(pje_string_ptr(&ini[i])->text, &config->major_version, &config->minor_version)) {
+				ALICE_ERROR("Invalid CodeVersion");
+			}
 		} else if (ini[i].value.type == INI_FORMATION) {
 			WARNING("Formations not supported");
 		} else {
@@ -312,6 +324,7 @@ static void pje_free(struct pje_config *config)
 	free_string_list(&config->system_source);
 	free_string_list(&config->source);
 	free_string_list(&config->mod_jam);
+	free_string_list(&config->archives);
 }
 
 static void build_job_free(struct build_job *job)
@@ -321,39 +334,16 @@ static void build_job_free(struct build_job *job)
 	free_string_list(&job->headers);
 }
 
-static void pje_build_ex(struct pje_config *config)
-{
-	if (!config->ex_input && !config->ex_name)
-		return;
-	if (!config->ex_input)
-		ALICE_ERROR("'%s': ExName present but no ExInput given", config->pje_path);
-	if (!config->ex_name)
-		ALICE_ERROR("'%s': ExInput present but no ExName given", config->pje_path);
-
-	struct ex *ex = ex_parse_file(config->ex_input->text);
-	if (!ex)
-		ALICE_ERROR("Failed to parse .txtex file: '%s'", config->ex_name->text);
-
-	struct string *out = path_join(config->output_dir, config->ex_name->text);
-	ex_write_file(out->text, ex);
-
-	free_string(out);
-	ex_free(ex);
-}
-
-void pje_build(const char *path, int major_version, int minor_version)
+static void pje_build_ain(struct pje_config *config)
 {
 	struct build_job job = {0};
-	struct pje_config config = {0};
-	pje_parse(path, &config);
 
-	if (mkdir_p(config.output_dir->text)) {
-		ALICE_ERROR("Creating output directory '%s': %s", config.output_dir->text, strerror(errno));
-	}
+	struct string *output_file = path_join(config->output_dir, config->code_name->text);
+	NOTICE("AIN    %s", output_file->text);
 
 	// collect source file names
-	pje_read_source(&job, config.source_dir, &config.system_source, true);
-	pje_read_source(&job, config.source_dir, &config.source, false);
+	pje_read_source(&job, config->source_dir, &config->system_source, true);
+	pje_read_source(&job, config->source_dir, &config->source, false);
 
 	// TODO: parse hll files
 	unsigned nr_header_files = job.headers.n;
@@ -380,21 +370,21 @@ void pje_build(const char *path, int major_version, int minor_version)
 
 	// open/create ain object
 	struct ain *ain;
-	if (config.mod_ain) {
+	if (config->mod_ain) {
 		int err;
-		struct string *mod_ain = path_join(config.pje_dir, config.mod_ain->text);
+		struct string *mod_ain = path_join(config->pje_dir, config->mod_ain->text);
 		if (!(ain = ain_open(mod_ain->text, &err))) {
 			ALICE_ERROR("Failed to open ain file: %s", ain_strerror);
 		}
 		ain_init_member_functions(ain, conv_output_utf8);
 		free_string(mod_ain);
 	} else {
-		ain = ain_new(major_version, minor_version);
+		ain = ain_new(config->major_version, config->minor_version);
 	}
 
 	// apply text substitution, if ModText given
-	if (config.mod_text) {
-		struct string *mod_text = path_join(config.pje_dir, config.mod_text->text);
+	if (config->mod_text) {
+		struct string *mod_text = path_join(config->pje_dir, config->mod_text->text);
 		read_text(mod_text->text, ain);
 		free_string(mod_text);
 	}
@@ -403,23 +393,64 @@ void pje_build(const char *path, int major_version, int minor_version)
 	jaf_build(ain, source_files, nr_source_files, header_files, nr_header_files);
 
 	// build .jam files
-	for (unsigned i = 0; i < config.mod_jam.n; i++) {
-		struct string *mod_jam = path_join(config.source_dir, config.mod_jam.items[i]->text);
+	for (unsigned i = 0; i < config->mod_jam.n; i++) {
+		struct string *mod_jam = path_join(config->source_dir, config->mod_jam.items[i]->text);
 		asm_append_jam(mod_jam->text, ain, 0);
 		free_string(mod_jam);
 	}
 
 	// write to disk
-	NOTICE("Writing AIN file...");
-	struct string *output_file = path_join(config.output_dir, config.code_name->text);
 	ain_write(output_file->text, ain);
+
 	free_string(output_file);
-
-	pje_build_ex(&config);
-
 	free(source_files);
 	free(header_files);
 	build_job_free(&job);
-	pje_free(&config);
 	ain_free(ain);
+}
+
+static void pje_build_ex(struct pje_config *config)
+{
+	if (!config->ex_input && !config->ex_name)
+		return;
+	if (!config->ex_input)
+		ALICE_ERROR("'%s': ExName present but no ExInput given", config->pje_path);
+	if (!config->ex_name)
+		ALICE_ERROR("'%s': ExInput present but no ExName given", config->pje_path);
+
+	NOTICE("EX     %s", config->ex_input->text);
+	struct ex *ex = ex_parse_file(config->ex_input->text);
+	if (!ex)
+		ALICE_ERROR("Failed to parse .txtex file: '%s'", config->ex_name->text);
+
+	struct string *out = path_join(config->output_dir, config->ex_name->text);
+	ex_write_file(out->text, ex);
+
+	free_string(out);
+	ex_free(ex);
+}
+
+static void pje_build_archives(struct pje_config *config)
+{
+	for (unsigned i = 0; i < config->archives.n; i++) {
+		struct string *path = path_join(config->pje_dir, config->archives.items[i]->text);
+		NOTICE("AFA    %s", path->text);
+		ar_pack(path->text);
+		free_string(path);
+	}
+}
+
+void pje_build(const char *path)
+{
+	struct pje_config config = {0};
+	pje_parse(path, &config);
+
+	if (mkdir_p(config.output_dir->text)) {
+		ALICE_ERROR("Creating output directory '%s': %s", config.output_dir->text, strerror(errno));
+	}
+
+	pje_build_ain(&config);
+	pje_build_ex(&config);
+	pje_build_archives(&config);
+	pje_free(&config);
 }

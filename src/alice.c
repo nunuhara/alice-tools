@@ -133,6 +133,17 @@ struct command cmd_fnl = {
 	}
 };
 
+struct command cmd_project = {
+	.name = "project",
+	.usage = "<command> ...",
+	.description = "Tools for managing .pje projects",
+	.parent = &cmd_alice,
+	.commands = {
+		&cmd_project_build,
+		NULL
+	}
+};
+
 struct command cmd_alice = {
 	.name = "alice",
 	.usage = "<command> ...",
@@ -146,6 +157,7 @@ struct command cmd_alice = {
 		&cmd_ex,
 		&cmd_flat,
 		&cmd_fnl,
+		&cmd_project,
 		NULL
 	}
 };

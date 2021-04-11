@@ -87,9 +87,6 @@ extern uint32_t asm_instr_ptr;
 
 int asm_parse(void);
 
-// pje.c
-void pje_build(const char *path, int major_version, int minor_version);
-
 // asm.c
 void asm_assemble_jam(const char *filename, struct ain *ain, uint32_t flags);
 void asm_append_jam(const char *filename, struct ain *ain, int32_t flags);

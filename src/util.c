@@ -188,3 +188,29 @@ struct string *path_join(const struct string *dir, const char *file)
 	}
 	return path;
 }
+
+bool parse_version(const char *str, int *major, int *minor)
+{
+	char major_str[3];
+	char minor_str[3];
+	const char *dot = strchr(str, '.');
+
+	if (dot) {
+		if (dot - str > 2)
+			return false;
+		if (strlen(dot+1) > 2)
+			return false;
+		strncpy(major_str, str, dot - str);
+		major_str[dot-str] = 0;
+		strcpy(minor_str, dot+1);
+	} else {
+		if (strlen(str) > 2)
+			return false;
+		strcpy(major_str, str);
+		strcpy(minor_str, "0");
+	}
+
+	*major = atoi(major_str);
+	*minor = atoi(minor_str);
+	return true;
+}
