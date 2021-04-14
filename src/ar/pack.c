@@ -28,6 +28,7 @@
 #include "system4/cg.h"
 #include "system4/ex.h"
 #include "system4/file.h"
+#include "system4/flat.h"
 #include "system4/string.h"
 #include "alice.h"
 #include "alice-ar.h"
@@ -39,8 +40,10 @@ const char * const ar_ft_extensions[] = {
 	[AR_FT_PNG] = "png",
 	[AR_FT_QNT] = "qnt",
 	[AR_FT_X] = "x",
+	[AR_FT_TXTEX] = "txtex",
 	[AR_FT_EX] = "ex",
 	[AR_FT_PACTEX] = "pactex",
+	[AR_FT_FLAT] = "flat",
 };
 
 static enum ar_filetype cg_type_to_ar_filetype(enum cg_type type)
@@ -94,14 +97,13 @@ static void convert_file(struct string *src, enum ar_filetype src_fmt, struct st
 		cg_free(cg);
 		break;
 	}
-	case AR_FT_X: {
-		if (dst_fmt != AR_FT_EX && dst_fmt != AR_FT_PACTEX) {
-			ALICE_ERROR("Invalid output format for .x files");
-		}
+	case AR_FT_X:
+	case AR_FT_TXTEX: {
+		if (dst_fmt != AR_FT_EX && dst_fmt != AR_FT_PACTEX)
+			ALICE_ERROR("Invalid output format for .txtex files");
 		struct ex *ex = ex_parse_file(src->text);
-		if (!ex) {
+		if (!ex)
 			ALICE_ERROR("Failed to parse .txtex file: %s", src->text);
-		}
 		ex_write_file(dst->text, ex);
 		ex_free(ex);
 		break;
@@ -111,8 +113,67 @@ static void convert_file(struct string *src, enum ar_filetype src_fmt, struct st
 	}
 }
 
-static void convert_dir(struct string *src_dir, enum ar_filetype src_fmt, struct string *dst_dir,
-			enum ar_filetype dst_fmt)
+/*
+ * Since .flat files are somewhat of an archive-type of their own, some special
+ * handling is required compared to other file types.
+ */
+static void convert_flat(struct string *src, enum ar_filetype src_fmt,
+			 struct string *dst_dir, const char *name)
+{
+	if (src_fmt != AR_FT_X && src_fmt != AR_FT_TXTEX)
+		ALICE_ERROR("Invalid input format for .flat conversion");
+
+	// XXX: we only show the "wrong file extension" message for
+	//      unexpected extensions (to reduce console spam)
+	const char *ext = file_extension(name);
+	if (strcasecmp(ext, ar_ft_extensions[src_fmt])) {
+		if (!strcasecmp(ext, "z"))
+			return;
+		if (!strcasecmp(ext, "head"))
+			return;
+		if (!strcasecmp(ext, "mtlc"))
+			return;
+		if (!strcasecmp(ext, "tmnl"))
+			return;
+		if (!strcasecmp(ext, "ajp"))
+			return;
+		if (!strcasecmp(ext, "png"))
+			return;
+		if (!strcasecmp(ext, "qnt"))
+			return;
+		struct string *dst = path_join(dst_dir, name);
+		NOTICE("Skipping \"%s\": wrong file extension", dst->text);
+		free_string(dst);
+		return;
+	}
+
+	// TODO: Only rebuild .flat files if the inputs have been modified.
+	//       This will require splitting flat_build into two parts:
+	//         * flat_read_manifest -> manifest object
+	//         * flat_load_manifest -> flat object
+	//       In between, we can stat the input files to check timestamps.
+	struct string *output_path = NULL;
+	struct flat_archive *flat = flat_build(src->text, &output_path);
+	if (output_path) {
+		struct string *tmp = path_join(dst_dir, output_path->text);
+		free_string(output_path);
+		output_path = tmp;
+	} else {
+		struct string *tmp = path_join(dst_dir, name);
+		output_path = replace_extension(tmp->text, "flat");
+		free_string(tmp);
+	}
+
+	FILE *out = checked_fopen(output_path->text, "wb");
+	checked_fwrite(flat->data, flat->data_size, out);
+	fclose(out);
+
+	archive_free(&flat->ar);
+	free_string(output_path);
+}
+
+static void convert_dir(struct string *src_dir, enum ar_filetype src_fmt,
+			struct string *dst_dir, enum ar_filetype dst_fmt)
 {
 	struct dirent *dir;
 	DIR *d = checked_opendir(src_dir->text);
@@ -134,18 +195,22 @@ static void convert_dir(struct string *src_dir, enum ar_filetype src_fmt, struct
 			NOTICE("Skipping \"%s\": not a regular file", src_path->text);
 			goto loop_next;
 		}
+		// flat conversion is a special case
+		if (dst_fmt == AR_FT_FLAT) {
+			convert_flat(src_path, src_fmt, dst_dir, dir->d_name);
+			goto loop_next;
+		}
+
 		if (strcasecmp(file_extension(dir->d_name), ar_ft_extensions[src_fmt])) {
 			NOTICE("Skipping \"%s\": wrong file extension", src_path->text);
 			goto loop_next;
 		}
 
-		// skip if dst exists and is newer than src
 		if (file_exists(dst_path->text)) {
 			struct stat dst_s;
 			checked_stat(dst_path->text, &dst_s);
-			if (src_s.st_mtime < dst_s.st_mtime) {
+			if (src_s.st_mtime < dst_s.st_mtime)
 				goto loop_next;
-			}
 		}
 
 		NOTICE("%s -> %s", src_path->text, dst_path->text);
@@ -159,7 +224,6 @@ static void convert_dir(struct string *src_dir, enum ar_filetype src_fmt, struct
 		}
 
 		convert_file(src_path, src_fmt, dst_path, dst_fmt);
-
 
 	loop_next:
 		free_string(src_path);

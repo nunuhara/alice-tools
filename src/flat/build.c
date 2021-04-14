@@ -32,15 +32,28 @@ enum {
 	LOPT_OUTPUT = 256,
 };
 
-static void buffer_write_file(struct buffer *buf, const struct string *dir, const char *file)
+static void buffer_write_file(struct buffer *buf, const char *path)
 {
 	size_t len;
-	struct string *path = path_join(dir, file);
-	uint8_t *data = file_read(path->text, &len);
-	if (!file)
+	uint8_t *data = file_read(path, &len);
+	if (!data)
 		ALICE_ERROR("reading '%s': %s", path, strerror(errno));
 	buffer_write_bytes(buf, data, len);
 	free(data);
+}
+
+static struct string *get_path(const struct string *dir, const char *file)
+{
+	char *ufile = conv_output_utf8(file);
+	struct string *path = path_join(dir, ufile);
+	free(ufile);
+	return path;
+}
+
+static void buffer_write_file_relative(struct buffer *buf, const struct string *dir, const char *name)
+{
+	struct string *path = get_path(dir, name);
+	buffer_write_file(buf, path->text);
 	free_string(path);
 }
 
@@ -92,14 +105,16 @@ static void write_libl_files(struct buffer *b, struct ex_table *libl, const stru
 		deserialize_binary(b, libl->rows[i][0].s);
 		buffer_write_int32(b, libl->rows[i][1].i);
 
-		const char *path = libl->rows[i][4].s->text;
+		struct string *path = get_path(dir, libl->rows[i][4].s->text);
+		//const char *path = libl->rows[i][4].s->text;
 		if (libl->rows[i][2].i) {
-			buffer_write_int32(b, file_size(path) + 4);
+			buffer_write_int32(b, file_size(path->text) + 4);
 			buffer_write_int32(b, libl->rows[i][3].i);
 		} else {
-			buffer_write_int32(b, file_size(path));
+			buffer_write_int32(b, file_size(path->text));
 		}
-		buffer_write_file(b, dir, path);
+		buffer_write_file(b, path->text);
+		free_string(path);
 		pad_align(b);
 	}
 }
@@ -129,9 +144,10 @@ static void write_talt_files(struct buffer *b, struct ex_table *talt, const stru
 	buffer_write_int32(b, talt->nr_rows);
 
 	for (unsigned i = 0; i < talt->nr_rows; i++) {
-		const char *path = talt->rows[i][0].s->text;
-		buffer_write_int32(b, file_size(path));
-		buffer_write_file(b, dir, path);
+		struct string *path = get_path(dir, talt->rows[i][0].s->text);
+		buffer_write_int32(b, file_size(path->text));
+		buffer_write_file(b, path->text);
+		free_string(path);
 		pad_align(b);
 
 		struct ex_table *meta = talt->rows[i][1].t;
@@ -165,7 +181,7 @@ static struct flat_archive *build_flat(struct ex *ex, const struct string *dir)
 		ALICE_ERROR("'flat' path missing from .flat manifest");
 	flat->flat.present = true;
 	flat->flat.off = b.index;
-	buffer_write_file(&b, dir, flat_path->text);
+	buffer_write_file_relative(&b, dir, flat_path->text);
 	flat->flat.size = b.index - flat->flat.off - 8;
 	free_string(flat_path);
 
@@ -173,7 +189,7 @@ static struct flat_archive *build_flat(struct ex *ex, const struct string *dir)
 	if (tmnl_path) {
 		flat->tmnl.present = true;
 		flat->tmnl.off = b.index;
-		buffer_write_file(&b, dir, tmnl_path->text);
+		buffer_write_file_relative(&b, dir, tmnl_path->text);
 		flat->tmnl.size = b.index - flat->tmnl.off - 8;
 		free_string(tmnl_path);
 	}
@@ -183,7 +199,7 @@ static struct flat_archive *build_flat(struct ex *ex, const struct string *dir)
 		ALICE_ERROR("'mtlc' path missing from .flat manifest");
 	flat->mtlc.present = true;
 	flat->mtlc.off = b.index;
-	buffer_write_file(&b, dir, mtlc_path->text);
+	buffer_write_file_relative(&b, dir, mtlc_path->text);
 	flat->mtlc.size = b.index - flat->mtlc.off - 8;
 	free_string(mtlc_path);
 
@@ -223,7 +239,14 @@ struct flat_archive *flat_build(const char *xpath, struct string **output_path)
 	}
 
 	if (output_path) {
-		*output_path = ex_get_string(ex, "output");
+		// FIXME: this sucks
+		struct string *tmp = ex_get_string(ex, "output");
+		if (tmp) {
+			char *utmp = conv_output_utf8(tmp->text);
+			*output_path = cstr_to_string(utmp);
+			free(utmp);
+			free_string(tmp);
+		}
 	}
 
 	struct flat_archive *flat = build_flat(ex, dir);
@@ -237,7 +260,7 @@ int command_flat_build(int argc, char *argv[])
 	struct string *mf_output_file = NULL;
 	struct string *output_file = NULL;
 	set_input_encoding("UTF-8");
-	set_output_encoding("UTF-8");
+	set_output_encoding("CP932");
 
 	while (1) {
 		int c = alice_getopt(argc, argv, &cmd_flat_build);
@@ -277,7 +300,8 @@ int command_flat_build(int argc, char *argv[])
 	fclose(out);
 
 	archive_free(&flat->ar);
-	free_string(mf_output_file);
+	if (mf_output_file)
+		free_string(mf_output_file);
 	free_string(output_file);
 	return 0;
 }

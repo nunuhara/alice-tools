@@ -75,15 +75,19 @@ char *xbasename(const char *path);
 struct string *path_join(const struct string *dir, const char *rest);
 bool parse_version(const char *str, int *major, int *minor);
 
-/* ex/... */
+// ex/...
 struct ex *ex_parse_file(const char *path);
 void ex_write(FILE *out, struct ex *ex);
 void ex_write_file(const char *path, struct ex *ex);
 
-// ar/... */
+// ar/...
 void ar_pack(const char *manifest);
 
+// project/...
 void pje_build(const char *path);
+
+// flat/...
+struct flat_archive *flat_build(const char *xpath, struct string **output_path);
 
 extern unsigned long *current_line_nr;
 extern const char **current_file_name;

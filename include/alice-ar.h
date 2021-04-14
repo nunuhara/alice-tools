@@ -37,8 +37,10 @@ enum ar_filetype {
 	AR_FT_QNT,
 	AR_FT_WEBP,
 	AR_FT_X,
+	AR_FT_TXTEX,
 	AR_FT_EX,
 	AR_FT_PACTEX,
+	AR_FT_FLAT,
 };
 
 // Custom manifest format (simple)

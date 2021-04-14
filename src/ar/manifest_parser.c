@@ -48,10 +48,14 @@ static enum ar_filetype ar_parse_filetype(struct string *str)
 		return AR_FT_WEBP;
 	if (!strcasecmp(str->text, "X"))
 		return AR_FT_X;
+	if (!strcasecmp(str->text, "TXTEX"))
+		return AR_FT_TXTEX;
 	if (!strcasecmp(str->text, "EX"))
 		return AR_FT_EX;
 	if (!strcasecmp(str->text, "PACTEX"))
 		return AR_FT_PACTEX;
+	if (!strcasecmp(str->text, "FLAT"))
+		return AR_FT_FLAT;
 	return AR_FT_UNKNOWN;
 }
 
