@@ -21,6 +21,7 @@
 #include "system4.h"
 #include "system4/cg.h"
 #include "system4/file.h"
+#include "system4/string.h"
 #include "alice.h"
 
 enum {
@@ -43,12 +44,13 @@ static enum cg_type parse_cg_format(const char *fmt)
 		return ALCG_WEBP;
 	if (!strcasecmp(fmt, "dcf"))
 		ALICE_ERROR(".dcf output not supported");
-	return ALCG_UNKNOWN;
+	ALICE_ERROR("Unknown CG format: %s", fmt);
 }
 
 int command_cg_convert(int argc, char *argv[])
 {
 	enum cg_type output_format = ALCG_UNKNOWN;
+	struct string *output_file;
 
 	while (1) {
 		int c = alice_getopt(argc, argv, &cmd_cg_convert);
@@ -66,26 +68,31 @@ int command_cg_convert(int argc, char *argv[])
 	argv += optind;
 
 	// check argument count
-	if (argc != 2)
+	if (argc == 1) {
+		if (output_format == ALCG_UNKNOWN)
+			ALICE_ERROR("No output format specified");
+		output_file = replace_extension(argv[0], cg_file_extension(output_format));
+	} else if (argc == 2) {
+		if (output_format == ALCG_UNKNOWN)
+			output_format = parse_cg_format(file_extension(argv[1]));
+		output_file = cstr_to_string(argv[1]);
+	} else {
 		USAGE_ERROR(&cmd_cg_convert, "Wrong number of arguments");
+	}
 
 	// open input CG
 	struct cg *in = cg_load_file(argv[0]);
 	if (!in)
 		ALICE_ERROR("Failed to read input CG: %s", argv[0]);
 
-	// determine output format from output file extension
-	if (output_format == ALCG_UNKNOWN) {
-		output_format = parse_cg_format(file_extension(argv[1]));
-	}
-
 	// encode/write output CG
-	FILE *out = checked_fopen(argv[1], "wb");
+	FILE *out = checked_fopen(output_file->text, "wb");
 	if (!cg_write(in, output_format, out))
 		ALICE_ERROR("cg_write failed");
 
 	cg_free(in);
 	fclose(out);
+	free_string(output_file);
 	return 0;
 }
 
