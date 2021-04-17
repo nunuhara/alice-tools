@@ -77,9 +77,6 @@ See [README-alice-ar.md](https://haniwa.technology/alice-tools/README-alice-ar.h
 Known Limitations/Bugs
 ----------------------
 
-* Non-ASCII file paths aren't handled correctly on Windows. You will have to
-  rename any files with Japanese characters in their name before using these
-  tools on them.
 * aindump only supports dumping to a single file, which can be quite large.
 
 Source Code
@@ -95,6 +92,17 @@ nunuhara@haniwa.technology, or find me on /haniho/.
 
 Version History
 ---------------
+
+### [Version 0.10.0](https://haniwa.technology/alice-tools/alice-tools-0.10.0.zip)
+
+* Add "BATCHPACK" manifest format for `ar pack` command
+* Support ain v1 files (Mamanyonyo)
+* Add tools for editing .flat files (`flat extract` and `flat build`)
+* Support bytecode function replacement (.jam) via .pje project files
+* Support building archives and .ex files via .pje project files
+* Add `project build` command for building .pje files (replaces `ain edit -p`)
+* Add `cg convert` command for converting between CG types
+* Various improvements to the (still experimental) .jaf compiler
 
 ### [Version 0.9.1](https://haniwa.technology/alice-tools/alice-tools-0.9.1.zip)
 

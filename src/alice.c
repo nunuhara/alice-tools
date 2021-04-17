@@ -27,7 +27,7 @@
 #include <io.h>
 #endif
 
-#define ALICE_TOOLS_VERSION "0.9.1"
+#define ALICE_TOOLS_VERSION "0.10.0"
 
 static unsigned long _current_line_nr = 0;
 static const char *_current_file_name = NULL;
