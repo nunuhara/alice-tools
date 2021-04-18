@@ -70,6 +70,10 @@ See [README-ex.md](https://haniwa.technology/alice-tools/README-ex.html)
 
 See [README-acx.md](https://haniwa.technology/alice-tools/README-acx.html)
 
+### Editing .flat files
+
+See [README-flat.md](https://haniwa.technology/alice-tools/README-flat.html)
+
 ### Extracting archives
 
 See [README-alice-ar.md](https://haniwa.technology/alice-tools/README-alice-ar.html)
