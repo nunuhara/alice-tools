@@ -74,6 +74,10 @@ See [README-acx.md](https://haniwa.technology/alice-tools/README-acx.html)
 
 See [README-alice-ar.md](https://haniwa.technology/alice-tools/README-alice-ar.html)
 
+### Building projects (.pje)
+
+See [README-project.md](https://haniwa.technology/alice-tools/README-project.html)
+
 Known Limitations/Bugs
 ----------------------
 
