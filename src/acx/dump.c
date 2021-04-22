@@ -103,10 +103,14 @@ int command_acx_dump(int argc, char *argv[])
 		USAGE_ERROR(&cmd_acx_dump, "Wrong number of arguments");
 	}
 
+	int error = ACX_SUCCESS;
 	FILE *out = alice_open_output_file(output_file);
-	struct acx *acx = acx_load(argv[0]);
-	if (!acx)
-		ALICE_ERROR("Failed to load ACX data from %s", argv[0]);
+	struct acx *acx = acx_load(argv[0], &error);
+	if (error == ACX_ERROR_FILE) {
+		ALICE_ERROR("Failed to load .acx file \"%s\": %s", argv[0], strerror(errno));
+	} else if (error != ACX_SUCCESS) {
+		ALICE_ERROR("Invalid .acx file: \"%s\"", argv[0]);
+	}
 	acx_dump(out, acx);
 	fclose(out);
 	acx_free(acx);

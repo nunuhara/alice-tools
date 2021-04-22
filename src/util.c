@@ -157,24 +157,7 @@ struct string *replace_extension(const char *file, const char *ext)
 	return dst;
 }
 
-// dirname is allowed to return a pointer to static memory OR modify its input.
-// This works around the braindamage by ALWAYS returning a pointer to static
-// memory, at the cost of a string copy.
-char *xdirname(const char *path)
-{
-	static char buf[PATH_MAX];
-	strncpy(buf, path, PATH_MAX-1);
-	return dirname(buf);
-}
-
-char *xbasename(const char *path)
-{
-	static char buf[PATH_MAX];
-	strncpy(buf, path, PATH_MAX-1);
-	return basename(buf);
-}
-
-struct string *path_join(const struct string *dir, const char *file)
+struct string *string_path_join(const struct string *dir, const char *file)
 {
 	struct string *path = string_dup(dir);
 	if (dir->size > 0 && dir->text[dir->size-1] != '/')

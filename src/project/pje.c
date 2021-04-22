@@ -154,13 +154,13 @@ static void pje_parse(const char *path, struct pje_config *config)
 		} else if (!strcmp(ini[i].name->text, "GameVersion")) {
 			config->game_version = pje_integer(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "SourceDir")) {
-			config->source_dir = path_join(pje_dir, pje_string_ptr(&ini[i])->text);
+			config->source_dir = string_path_join(pje_dir, pje_string_ptr(&ini[i])->text);
 		} else if (!strcmp(ini[i].name->text, "HLLDir")) {
-			config->hll_dir = path_join(pje_dir, pje_string_ptr(&ini[i])->text);
+			config->hll_dir = string_path_join(pje_dir, pje_string_ptr(&ini[i])->text);
 		} else if (!strcmp(ini[i].name->text, "ObjDir")) {
-			config->obj_dir = path_join(pje_dir, pje_string_ptr(&ini[i])->text);
+			config->obj_dir = string_path_join(pje_dir, pje_string_ptr(&ini[i])->text);
 		} else if (!strcmp(ini[i].name->text, "OutputDir")) {
-			config->output_dir = path_join(pje_dir, pje_string_ptr(&ini[i])->text);
+			config->output_dir = string_path_join(pje_dir, pje_string_ptr(&ini[i])->text);
 		} else if (!strcmp(ini[i].name->text, "SystemSource")) {
 			pje_string_list(&ini[i], &config->system_source);
 		} else if (!strcmp(ini[i].name->text, "Source")) {
@@ -178,7 +178,7 @@ static void pje_parse(const char *path, struct pje_config *config)
 		} else if (!strcmp(ini[i].name->text, "ModJam")) {
 			pje_string_list(&ini[i], &config->mod_jam);
 		} else if (!strcmp(ini[i].name->text, "ExInput")) {
-			config->ex_input = path_join(pje_dir, pje_string_ptr(&ini[i])->text);
+			config->ex_input = string_path_join(pje_dir, pje_string_ptr(&ini[i])->text);
 		} else if (!strcmp(ini[i].name->text, "ExName")) {
 			config->ex_name = pje_string(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "Archives")) {
@@ -202,16 +202,16 @@ static void pje_parse(const char *path, struct pje_config *config)
 	if (!config->code_name)
 		config->code_name = cstr_to_string("out.ain");
 	if (!config->source_dir) {
-		config->source_dir = path_join(pje_dir, "source");
+		config->source_dir = string_path_join(pje_dir, "source");
 	}
 	if (!config->output_dir) {
-		config->output_dir = path_join(pje_dir, "run");
+		config->output_dir = string_path_join(pje_dir, "run");
 	}
 	if (!config->hll_dir) {
-		config->hll_dir = path_join(pje_dir, "hll");
+		config->hll_dir = string_path_join(pje_dir, "hll");
 	}
 	if (!config->obj_dir) {
-		config->obj_dir = path_join(pje_dir, "obj");
+		config->obj_dir = string_path_join(pje_dir, "obj");
 	}
 
 	config->pje_path = path;
@@ -265,7 +265,7 @@ static void pje_read_source(struct build_job *job, struct string *dir, struct st
 static void pje_read_inc(struct build_job *job, struct string *dir, struct string *inc)
 {
 	struct inc_config config = {0};
-	struct string *file = path_join(dir, inc->text);
+	struct string *file = string_path_join(dir, inc->text);
 	struct string *file_dir = directory_name(file->text);
 	pje_parse_inc(file->text, &config);
 
@@ -284,13 +284,13 @@ static void pje_read_source(struct build_job *job, struct string *dir, struct st
 		if (!strcmp(ext, "inc")) {
 			pje_read_inc(job, dir, source->items[i]);
 		} else if (!strcmp(ext, "jaf")) {
-			string_list_append(system ? &job->system_source : &job->source, path_join(dir, source->items[i]->text));
+			string_list_append(system ? &job->system_source : &job->source, string_path_join(dir, source->items[i]->text));
 		} else if (!strcmp(ext, "hll")) {
 			if (i+1 >= source->n)
 				ERROR("Missing HLL name in source list: %s", source->items[i]->text);
 			if (strchr(source->items[i+1]->text, '.'))
 				ERROR("HLL name contains '.': %s", source->items[i+1]->text);
-			string_list_append(&job->headers, path_join(dir, source->items[i]->text));
+			string_list_append(&job->headers, string_path_join(dir, source->items[i]->text));
 			string_list_append(&job->headers, string_dup(source->items[i+1]));
 			i++;
 		} else {
@@ -338,7 +338,7 @@ static void pje_build_ain(struct pje_config *config)
 {
 	struct build_job job = {0};
 
-	struct string *output_file = path_join(config->output_dir, config->code_name->text);
+	struct string *output_file = string_path_join(config->output_dir, config->code_name->text);
 	NOTICE("AIN    %s", output_file->text);
 
 	// collect source file names
@@ -372,7 +372,7 @@ static void pje_build_ain(struct pje_config *config)
 	struct ain *ain;
 	if (config->mod_ain) {
 		int err;
-		struct string *mod_ain = path_join(config->pje_dir, config->mod_ain->text);
+		struct string *mod_ain = string_path_join(config->pje_dir, config->mod_ain->text);
 		if (!(ain = ain_open(mod_ain->text, &err))) {
 			ALICE_ERROR("Failed to open ain file: %s", ain_strerror);
 		}
@@ -384,7 +384,7 @@ static void pje_build_ain(struct pje_config *config)
 
 	// apply text substitution, if ModText given
 	if (config->mod_text) {
-		struct string *mod_text = path_join(config->pje_dir, config->mod_text->text);
+		struct string *mod_text = string_path_join(config->pje_dir, config->mod_text->text);
 		read_text(mod_text->text, ain);
 		free_string(mod_text);
 	}
@@ -394,7 +394,7 @@ static void pje_build_ain(struct pje_config *config)
 
 	// build .jam files
 	for (unsigned i = 0; i < config->mod_jam.n; i++) {
-		struct string *mod_jam = path_join(config->source_dir, config->mod_jam.items[i]->text);
+		struct string *mod_jam = string_path_join(config->source_dir, config->mod_jam.items[i]->text);
 		asm_append_jam(mod_jam->text, ain, 0);
 		free_string(mod_jam);
 	}
@@ -423,7 +423,7 @@ static void pje_build_ex(struct pje_config *config)
 	if (!ex)
 		ALICE_ERROR("Failed to parse .txtex file: '%s'", config->ex_name->text);
 
-	struct string *out = path_join(config->output_dir, config->ex_name->text);
+	struct string *out = string_path_join(config->output_dir, config->ex_name->text);
 	ex_write_file(out->text, ex);
 
 	free_string(out);
@@ -433,7 +433,7 @@ static void pje_build_ex(struct pje_config *config)
 static void pje_build_archives(struct pje_config *config)
 {
 	for (unsigned i = 0; i < config->archives.n; i++) {
-		struct string *path = path_join(config->pje_dir, config->archives.items[i]->text);
+		struct string *path = string_path_join(config->pje_dir, config->archives.items[i]->text);
 		NOTICE("AFA    %s", path->text);
 		ar_pack(path->text);
 		free_string(path);

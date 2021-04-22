@@ -24,6 +24,7 @@
 #include "system4.h"
 #include "system4/afa.h"
 #include "system4/ald.h"
+#include "system4/file.h"
 #include "system4/flat.h"
 #include "alice.h"
 #include "archive.h"
@@ -31,8 +32,8 @@
 static struct archive *open_ald_archive(const char *path, int *error)
 {
 	int count = 0;
-	char *dir_name = xdirname(path);
-	char *base_name = xbasename(path);
+	char *dir_name = path_dirname(path);
+	char *base_name = path_basename(path);
 	char *ald_filenames[ALD_FILEMAX];
 	int prefix_len = strlen(base_name) - 5;
 	if (prefix_len <= 0)

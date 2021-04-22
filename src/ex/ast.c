@@ -18,6 +18,7 @@
 #include <string.h>
 #include "system4.h"
 #include "system4/ex.h"
+#include "system4/file.h"
 #include "system4/string.h"
 #include "alice.h"
 #include "ex_ast.h"
@@ -40,7 +41,7 @@ struct ex *ex_parse_file(const char *path)
 	if (!strcmp(path, "-")) {
 		return ex_parse(stdin, "");
 	}
-	char *basepath = strdup(xdirname(path));
+	char *basepath = strdup(path_dirname(path));
 	FILE *f = checked_fopen(path, "rb");
 	struct ex *ex = ex_parse(f, basepath);
 	fclose(f);

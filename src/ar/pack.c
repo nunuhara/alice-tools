@@ -141,7 +141,7 @@ static void convert_flat(struct string *src, enum ar_filetype src_fmt,
 			return;
 		if (!strcasecmp(ext, "qnt"))
 			return;
-		struct string *dst = path_join(dst_dir, name);
+		struct string *dst = string_path_join(dst_dir, name);
 		NOTICE("Skipping \"%s\": wrong file extension", dst->text);
 		free_string(dst);
 		return;
@@ -155,11 +155,11 @@ static void convert_flat(struct string *src, enum ar_filetype src_fmt,
 	struct string *output_path = NULL;
 	struct flat_archive *flat = flat_build(src->text, &output_path);
 	if (output_path) {
-		struct string *tmp = path_join(dst_dir, output_path->text);
+		struct string *tmp = string_path_join(dst_dir, output_path->text);
 		free_string(output_path);
 		output_path = tmp;
 	} else {
-		struct string *tmp = path_join(dst_dir, name);
+		struct string *tmp = string_path_join(dst_dir, name);
 		output_path = replace_extension(tmp->text, "flat");
 		free_string(tmp);
 	}
@@ -182,8 +182,8 @@ static void convert_dir(struct string *src_dir, enum ar_filetype src_fmt,
 			continue;
 
 		struct stat src_s;
-		struct string *src_path = path_join(src_dir, dir->d_name);
-		struct string *dst_base = path_join(dst_dir, dir->d_name);
+		struct string *src_path = string_path_join(src_dir, dir->d_name);
+		struct string *dst_base = string_path_join(dst_dir, dir->d_name);
 		struct string *dst_path = replace_extension(dst_base->text, ar_ft_extensions[dst_fmt]);
 		checked_stat(src_path->text, &src_s);
 
@@ -251,8 +251,8 @@ static void dir_to_file_list(struct string *dst, struct string *base_name, filel
 			continue;
 
 		struct stat s;
-		struct string *path = path_join(dst, dir->d_name);
-		struct string *name = path_join(base_name, dir->d_name);
+		struct string *path = string_path_join(dst, dir->d_name);
+		struct string *name = string_path_join(base_name, dir->d_name);
 		checked_stat(path->text, &s);
 
 		if (S_ISDIR(s.st_mode)) {

@@ -45,7 +45,7 @@ static void buffer_write_file(struct buffer *buf, const char *path)
 static struct string *get_path(const struct string *dir, const char *file)
 {
 	char *ufile = conv_output_utf8(file);
-	struct string *path = path_join(dir, ufile);
+	struct string *path = string_path_join(dir, ufile);
 	free(ufile);
 	return path;
 }
@@ -232,7 +232,7 @@ static struct flat_archive *build_flat(struct ex *ex, const struct string *dir)
 
 struct flat_archive *flat_build(const char *xpath, struct string **output_path)
 {
-	struct string *dir = cstr_to_string(xdirname(xpath));
+	struct string *dir = cstr_to_string(path_dirname(xpath));
 	struct ex *ex = ex_parse_file(xpath);
 	if (!ex) {
 		ALICE_ERROR("Failed to read flat manifest file: %s", xpath);
@@ -286,8 +286,8 @@ int command_flat_build(int argc, char *argv[])
 	struct flat_archive *flat = flat_build(argv[0], &mf_output_file);
 	if (!output_file) {
 		if (mf_output_file) {
-			struct string *dir = cstr_to_string(xdirname(argv[0]));
-			output_file = path_join(dir, mf_output_file->text);
+			struct string *dir = cstr_to_string(path_dirname(argv[0]));
+			output_file = string_path_join(dir, mf_output_file->text);
 			free_string(dir);
 		} else {
 			output_file = replace_extension(argv[0], "flat");

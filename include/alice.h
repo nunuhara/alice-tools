@@ -70,9 +70,7 @@ void checked_stat(const char *path, struct stat *s);
 void mkdir_for_file(const char *filename);
 void chdir_to_file(const char *filename);
 struct string *replace_extension(const char *file, const char *ext);
-char *xdirname(const char *path);
-char *xbasename(const char *path);
-struct string *path_join(const struct string *dir, const char *rest);
+struct string *string_path_join(const struct string *dir, const char *rest);
 bool parse_version(const char *str, int *major, int *minor);
 
 // ex/...

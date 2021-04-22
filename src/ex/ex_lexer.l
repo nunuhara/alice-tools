@@ -67,9 +67,9 @@ struct ex *ex_parse(FILE *in, const char *basepath)
 static FILE *open_included_file(const char *path)
 {
     assert(path_stack_ptr > 0);
-    path_stack[path_stack_ptr] = path_join(path_stack[path_stack_ptr-1], xdirname(path));
+    path_stack[path_stack_ptr] = string_path_join(path_stack[path_stack_ptr-1], path_dirname(path));
 
-    struct string *fullpath = path_join(path_stack[path_stack_ptr-1], path);
+    struct string *fullpath = string_path_join(path_stack[path_stack_ptr-1], path);
     FILE *f = file_open_utf8(fullpath->text, "rb");
     free_string(fullpath);
 
