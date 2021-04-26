@@ -24,6 +24,7 @@ enum archive_type {
 	AR_AFA,
 	AR_AFA3,
 	AR_FLAT,
+	AR_DLF,
 };
 
 struct archive *open_archive(const char *path, enum archive_type *type, int *error);
