@@ -24,6 +24,7 @@
 #include "system4.h"
 #include "system4/afa.h"
 #include "system4/ald.h"
+#include "system4/dlf.h"
 #include "system4/file.h"
 #include "system4/flat.h"
 #include "alice.h"
@@ -98,6 +99,9 @@ struct archive *open_archive(const char *path, enum archive_type *type, int *err
 	} else if (!strcasecmp(ext, "flat")) {
 		*type = AR_FLAT;
 		return (struct archive*)flat_open_file(path, 0, error);
+	} else if (!strcasecmp(ext, ".dlf")) {
+		*type = AR_DLF;
+		return (struct archive*)dlf_open(path, ARCHIVE_MMAP, error);
 	}
 	// TODO: try to use file magic
 
