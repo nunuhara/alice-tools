@@ -435,7 +435,7 @@ static void pje_build_archives(struct pje_config *config)
 	for (unsigned i = 0; i < config->archives.n; i++) {
 		struct string *path = string_path_join(config->pje_dir, config->archives.items[i]->text);
 		NOTICE("AFA    %s", path->text);
-		ar_pack(path->text);
+		ar_pack(path->text, 2);
 		free_string(path);
 	}
 }

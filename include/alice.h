@@ -79,7 +79,7 @@ void ex_write(FILE *out, struct ex *ex);
 void ex_write_file(const char *path, struct ex *ex);
 
 // ar/...
-void ar_pack(const char *manifest);
+void ar_pack(const char *manifest, int afa_version);
 
 // project/...
 void pje_build(const char *path);

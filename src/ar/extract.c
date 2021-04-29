@@ -152,6 +152,11 @@ static char *get_default_filename(struct archive_data *data, enum filetype ft)
 		u[ulen] = '.';
 		memcpy(u+ulen+1, ext, extlen + 1);
 	}
+
+	for (int i = 0; u[i]; i++) {
+		if (u[i] == '\\')
+			u[i] = '/';
+	}
 	return u;
 }
 

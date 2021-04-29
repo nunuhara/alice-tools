@@ -35,8 +35,11 @@ static uint32_t align8(uint32_t i)
 
 static uint8_t zpad[0x1000] = {0};
 
-void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_files)
+void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_files, int version)
 {
+	if (version < 1 || version > 2)
+		ALICE_ERROR("Unsupported AFA version: %d", version);
+
 	// open output file
 	FILE *f = checked_fopen(filename->text, "wb");
 
@@ -65,6 +68,8 @@ void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_f
 		buffer_write_pascal_cstring(&buf, u);
 		buffer_write_int32(&buf, 0); // timestamp?
 		buffer_write_int32(&buf, 0); // timestamp?
+		if (version == 1)
+			buffer_write_int32(&buf, 0x1cb603c); // color?
 		buffer_write_int32(&buf, off);
 		buffer_write_int32(&buf, sizes[i]);
 		off += align8(sizes[i]);
@@ -90,7 +95,7 @@ void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_f
 	buffer_write_bytes(&buf, (uint8_t*)"AFAH", 4);
 	buffer_write_int32(&buf, 0x1c);
 	buffer_write_bytes(&buf, (uint8_t*)"AlicArch", 8);
-	buffer_write_int32(&buf, 2);
+	buffer_write_int32(&buf, version);
 	buffer_write_int32(&buf, 1); // ???
 	buffer_write_int32(&buf, data_start);
 	buffer_write_bytes(&buf, (uint8_t*)"INFO", 4);

@@ -33,7 +33,9 @@
 #include "alice.h"
 #include "alice-ar.h"
 
-void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_files);
+void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_files, int version);
+
+static char path_separator = '/';
 
 const char * const ar_ft_extensions[] = {
 	[AR_FT_UNKNOWN] = "dat",
@@ -72,7 +74,7 @@ static struct ar_file_spec **alicepack_to_file_list(struct ar_manifest *mf, size
 	for (size_t i = 0; i < mf->nr_rows; i++) {
 		files[i] = xmalloc(sizeof(struct ar_file_spec));
 		files[i]->path = string_ref(mf->alicepack[i].filename);
-		files[i]->name = string_ref(mf->alicepack[i].filename);
+		files[i]->name = string_dup(mf->alicepack[i].filename);
 	}
 
 	return files;
@@ -332,20 +334,37 @@ static void alicecg2_to_batchpack(struct ar_manifest *mf)
 
 static struct ar_file_spec **manifest_to_file_list(struct ar_manifest *mf, size_t *size_out)
 {
+	struct ar_file_spec **files;
 	switch (mf->type) {
 	case AR_MF_ALICEPACK:
-		return alicepack_to_file_list(mf, size_out);
+		files = alicepack_to_file_list(mf, size_out);
+		break;
 	case AR_MF_ALICECG2:
 		alicecg2_to_batchpack(mf);
-		return batchpack_to_file_list(mf, size_out);
+		files = batchpack_to_file_list(mf, size_out);
+		break;
 	case AR_MF_BATCHPACK:
-		return batchpack_to_file_list(mf, size_out);
+		files = batchpack_to_file_list(mf, size_out);
+		break;
 	case AR_MF_NL5:
 	case AR_MF_WAVLINKER:
 	case AR_MF_INVALID:
+	default:
+		ALICE_ERROR("Invalid manifest type");
 		break;
 	}
-	ALICE_ERROR("Invalid manifest type");
+
+	// handle file separator in file names
+	for (size_t i = 0; i < *size_out; i++) {
+		for (int j = 0; files[i]->name->text[j]; j++) {
+			char c = files[i]->name->text[j];
+			if (c == '/' || c == '\\') {
+				files[i]->name->text[j] = path_separator;
+			}
+		}
+	}
+
+	return files;
 }
 
 static void free_manifest(struct ar_manifest *mf)
@@ -381,7 +400,7 @@ static void free_manifest(struct ar_manifest *mf)
 	free(mf);
 }
 
-void ar_pack(const char *manifest)
+void ar_pack(const char *manifest, int afa_version)
 {
 	struct ar_manifest *mf = ar_parse_manifest(manifest);
 	const char *ext = file_extension(mf->output_path->text);
@@ -395,7 +414,7 @@ void ar_pack(const char *manifest)
 
 	size_t nr_files;
 	struct ar_file_spec **files = manifest_to_file_list(mf, &nr_files);
-	write_afa(mf->output_path, files, nr_files);
+	write_afa(mf->output_path, files, nr_files, afa_version);
 
 	free_manifest(mf);
 	for (size_t i = 0; i < nr_files; i++) {
@@ -408,15 +427,33 @@ void ar_pack(const char *manifest)
 	free(old_cwd);
 }
 
+enum {
+	LOPT_AFA_VERSION = 256,
+	LOPT_BACKSLASH
+};
+
 int command_ar_pack(int argc, char *argv[])
 {
 	set_input_encoding("UTF-8");
 	set_output_encoding("CP932");
 
+	int afa_version = 2;
+
 	while (1) {
 		int c = alice_getopt(argc, argv, &cmd_ar_pack);
 		if (c == -1)
 			break;
+
+		switch (c) {
+		case LOPT_AFA_VERSION:
+			afa_version = atoi(optarg);
+			if (afa_version < 1 || afa_version > 2)
+				ALICE_ERROR("Unsupported .afa version: %d", afa_version);
+			break;
+		case LOPT_BACKSLASH:
+			path_separator = '\\';
+			break;
+		}
 	}
 
 	argc -= optind;
@@ -426,7 +463,7 @@ int command_ar_pack(int argc, char *argv[])
 		USAGE_ERROR(&cmd_ar_extract, "Wrong number of arguments");
 	}
 
-	ar_pack(argv[0]);
+	ar_pack(argv[0], afa_version);
 	return 0;
 }
 
@@ -437,6 +474,8 @@ struct command cmd_ar_pack = {
 	.parent = &cmd_ar,
 	.fun = command_ar_pack,
 	.options = {
+		{ "afa-version", 0, "Specify the .afa version (1 or 2)", required_argument, LOPT_AFA_VERSION },
+		{ "backslash", 0, "Use backslash as the path separator", no_argument, LOPT_BACKSLASH },
 		{ 0 }
 	}
 };
