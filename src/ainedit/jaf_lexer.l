@@ -83,6 +83,7 @@ unsigned long jaf_line = 1;
 "int"					{ return(INT); }
 "lint"					{ return(LINT); }
 "intp"					{ return(INTP); }
+ "imain_system"				{ return(IMAIN_SYSTEM); }
 "floatp"				{ return(FLOATP); }
 "return"				{ return(SYM_RETURN); }
 "string"				{ return(STRING); }
@@ -104,6 +105,7 @@ unsigned long jaf_line = 1;
 "wrap"                                  { return WRAP; }
 "hll_param"                             { return HLL_PARAM; }
 "hll_func"                              { return HLL_FUNC; }
+"hll_struct"                            { return HLL_STRUCT; }
 "functype"                              { return FUNCTYPE; }
 "delegate"                              { return DELEGATE; }
 "override"                              { return OVERRIDE; }

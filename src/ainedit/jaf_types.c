@@ -580,6 +580,8 @@ static void jaf_check_hll_argument(struct jaf_expression *arg, struct ain_type *
 		if (type_param->data != AIN_ARRAY && type_param->data != AIN_REF_ARRAY)
 			COMPILER_ERROR(arg, "Expected array as type param");
 		jaf_check_type(arg, type_param->array_type);
+	} else if (type->data == AIN_IMAIN_SYSTEM) {
+		jaf_type_check_int(arg);
 	} else {
 		jaf_check_type(arg, type);
 	}
