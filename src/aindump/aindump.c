@@ -89,9 +89,9 @@ static void print_type(FILE *f, struct ain *ain, struct ain_type *t)
 static void ain_dump_version(FILE *f, struct ain *ain)
 {
 	if (ain->minor_version) {
-		fprintf(f, "AIN version %d (%d.%d)\n", ain->version, ain->version, ain->minor_version);
+		fprintf(f, "%d.%d\n", ain->version, ain->minor_version);
 	} else {
-		fprintf(f, "AIN version %d\n", ain->version);
+		fprintf(f, "%d\n", ain->version);
 	}
 }
 
