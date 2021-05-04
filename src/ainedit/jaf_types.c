@@ -574,7 +574,7 @@ static void jaf_check_types_system_call(possibly_unused struct jaf_env *env, str
 	expr->valuetype = syscalls[expr->call.func_no].return_type;
 }
 
-static void jaf_check_hll_argument(struct jaf_expression *arg, struct ain_type *type, struct ain_type *type_param)
+static void jaf_check_hll_argument(struct jaf_env *env, struct jaf_expression *arg, struct ain_type *type, struct ain_type *type_param)
 {
 	if (type && (type->data == AIN_HLL_PARAM || type->data == AIN_REF_HLL_PARAM)) {
 		if (type_param->data != AIN_ARRAY && type_param->data != AIN_REF_ARRAY)
@@ -582,6 +582,11 @@ static void jaf_check_hll_argument(struct jaf_expression *arg, struct ain_type *
 		jaf_check_type(arg, type_param->array_type);
 	} else if (type->data == AIN_IMAIN_SYSTEM) {
 		jaf_type_check_int(arg);
+	} else if (!AIN_VERSION_GTE(env->ain, 14, 0) && (type->data == AIN_STRUCT || type->data == AIN_REF_STRUCT)) {
+		// XXX: special case since hll types are data-only (until v14+)
+		if (arg->valuetype.data != AIN_STRUCT) {
+			TYPE_ERROR(arg, type->data);
+		}
 	} else {
 		jaf_check_type(arg, type);
 	}
@@ -610,7 +615,7 @@ static void jaf_check_types_hll_call(struct jaf_env *env, struct jaf_expression 
 		JAF_ERROR(expr, "Too many arguments to HLL function: %s.%s", obj_name, mbr_name);
 	// FIXME: multi-valued arguments?
 	for (unsigned i = 0; i < nr_args; i++) {
-		jaf_check_hll_argument(expr->call.args->items[i], &def->arguments[i].type, type);
+		jaf_check_hll_argument(env, expr->call.args->items[i], &def->arguments[i].type, type);
 		//jaf_check_type(expr->call.args->items[i], &def->arguments[i].type);
 	}
 
