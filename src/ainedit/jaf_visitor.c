@@ -165,6 +165,7 @@ void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
 		stmt->rassign.lhs = jaf_accept_expr(stmt->rassign.lhs, visitor);
 		stmt->rassign.rhs = jaf_accept_expr(stmt->rassign.rhs, visitor);
 		break;
+	case JAF_STMT_NULL:
 	case JAF_STMT_GOTO:
 	case JAF_STMT_CONTINUE:
 	case JAF_STMT_BREAK:

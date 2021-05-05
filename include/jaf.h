@@ -278,6 +278,7 @@ enum block_item_kind {
 	JAF_DECL_FUNCTYPE,
 	JAF_DECL_STRUCT,
 	//JAF_DECL_ENUM,
+	JAF_STMT_NULL,
 	JAF_STMT_LABELED,
 	JAF_STMT_COMPOUND,
 	JAF_STMT_EXPRESSION,
@@ -444,6 +445,7 @@ struct jaf_block *jaf_vardecl(struct jaf_type_specifier *type, struct jaf_declar
 struct jaf_block *jaf_merge_blocks(struct jaf_block *head, struct jaf_block *tail);
 struct jaf_block *jaf_block(struct jaf_block_item *item);
 struct jaf_block *jaf_block_append(struct jaf_block *head, struct jaf_block_item *tail);
+struct jaf_block_item *jaf_null_statement(void);
 struct jaf_block_item *jaf_compound_statement(struct jaf_block *block);
 struct jaf_block_item *jaf_label_statement(struct string *label, struct jaf_block_item *stmt);
 struct jaf_block_item *jaf_case_statement(struct jaf_expression *expr, struct jaf_block_item *stmt);

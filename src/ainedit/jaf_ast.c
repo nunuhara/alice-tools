@@ -474,6 +474,12 @@ struct jaf_block_item *jaf_expression_statement(struct jaf_expression *expr)
 	return item;
 }
 
+struct jaf_block_item *jaf_null_statement(void)
+{
+	struct jaf_block_item *item = block_item(JAF_STMT_NULL);
+	return item;
+}
+
 struct jaf_block_item *jaf_if_statement(struct jaf_expression *test, struct jaf_block_item *cons, struct jaf_block_item *alt)
 {
 	struct jaf_block_item *item = block_item(JAF_STMT_IF);
@@ -717,6 +723,7 @@ void jaf_free_block_item(struct jaf_block_item *item)
 		break;
 	case JAF_STMT_GOTO:
 		free_string(item->target);
+	case JAF_STMT_NULL:
 	case JAF_STMT_CONTINUE:
 	case JAF_STMT_BREAK:
 	case JAF_EOF:

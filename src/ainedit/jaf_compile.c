@@ -1449,6 +1449,8 @@ static void compile_statement(struct compiler_state *state, struct jaf_block_ite
 		JAF_ERROR(item, "Functions must be defined at top-level");
 	case JAF_DECL_STRUCT:
 		JAF_ERROR(item, "Structs must be defined at top-level");
+	case JAF_STMT_NULL:
+		break;
 	case JAF_STMT_LABELED:
 		compile_label(state, item);
 		break;

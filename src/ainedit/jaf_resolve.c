@@ -105,6 +105,7 @@ static void jaf_resolve_statement_types(struct jaf_block_item *item, struct jaf_
 		break;
 	case JAF_DECL_STRUCT:
 	case JAF_DECL_FUNCTYPE:
+	case JAF_STMT_NULL:
 	case JAF_STMT_LABELED:
 	case JAF_STMT_COMPOUND:
 	case JAF_STMT_EXPRESSION:

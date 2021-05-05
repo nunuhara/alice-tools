@@ -558,7 +558,7 @@ block_item
 	;
 
 expression_statement
-	: ';'            { $$ = jaf_expression_statement(NULL); }
+	: ';'            { $$ = jaf_null_statement(); }
 	| expression ';' { $$ = jaf_expression_statement($1); }
 	;
 
