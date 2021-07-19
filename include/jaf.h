@@ -85,6 +85,32 @@ enum _ain_type {
 #define AIN_METHOD   ((enum ain_data_type)_AIN_METHOD)
 #define AIN_BUILTIN  ((enum ain_data_type)_AIN_BUILTIN)
 
+/*
+ * Built-in libraries; these are negative to disambiguate between true built-ins
+ * and the special HLL built-ins that replaced them.
+ */
+enum jaf_builtin_lib {
+	JAF_BUILTIN_INT    = -1,
+	JAF_BUILTIN_FLOAT  = -2,
+	JAF_BUILTIN_STRING = -3,
+	JAF_BUILTIN_ARRAY  = -4,
+};
+
+enum jaf_array_method {
+	JAF_ARRAY_ALLOC,
+	JAF_ARRAY_REALLOC,
+	JAF_ARRAY_FREE,
+	JAF_ARRAY_NUMOF,
+	JAF_ARRAY_COPY,
+	JAF_ARRAY_FILL,
+	JAF_ARRAY_PUSHBACK,
+	JAF_ARRAY_POPBACK,
+	JAF_ARRAY_EMPTY,
+	JAF_ARRAY_ERASE,
+	JAF_ARRAY_INSERT,
+	JAF_ARRAY_SORT
+};
+
 enum jaf_type_qualifier {
 	JAF_QUAL_CONST       = 1,
 	JAF_QUAL_REF         = 2,

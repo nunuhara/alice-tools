@@ -851,8 +851,15 @@ static void compile_hllcall(struct compiler_state *state, struct jaf_expression 
 
 static void compile_builtin_call(possibly_unused struct compiler_state *state, struct jaf_expression *expr)
 {
-	// TODO: pre-v11 builtins (instruction based)
-	JAF_ERROR(expr, "built-in methods not supported");
+	switch (expr->call.func_no) {
+	case A_NUMOF:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction1(state, PUSH, 1); // TODO: push actual rank?
+		write_instruction0(state, A_NUMOF);
+		break;
+	default:
+		JAF_ERROR(expr, "Unimplemented builtin method");
+	}
 }
 
 static void compile_new_lvalue(struct compiler_state *state, struct jaf_expression *expr)
