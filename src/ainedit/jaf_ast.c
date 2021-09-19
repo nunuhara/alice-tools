@@ -635,6 +635,7 @@ void jaf_free_expr(struct jaf_expression *expr)
 	case JAF_EXP_HLLCALL:
 	case JAF_EXP_METHOD_CALL:
 	case JAF_EXP_BUILTIN_CALL:
+	case JAF_EXP_SUPER_CALL:
 		jaf_free_expr(expr->call.fun);
 		jaf_free_argument_list(expr->call.args);
 		break;

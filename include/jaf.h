@@ -76,6 +76,7 @@ enum _ain_type {
 	_AIN_HLLCALL  = 1004, // member: hll call (e.g. Library.Function)
 	_AIN_METHOD   = 1005, // member: method reference (e.g. obj.method)
 	_AIN_BUILTIN  = 1006, // member: builtin method reference (e.g. "string".Split)
+	_AIN_SUPER    = 1007, // super call - can be either function or method call
 };
 #define AIN_FUNCTION ((enum ain_data_type)_AIN_FUNCTION)
 #define AIN_LIBRARY  ((enum ain_data_type)_AIN_LIBRARY)
@@ -84,6 +85,7 @@ enum _ain_type {
 #define AIN_HLLCALL  ((enum ain_data_type)_AIN_HLLCALL)
 #define AIN_METHOD   ((enum ain_data_type)_AIN_METHOD)
 #define AIN_BUILTIN  ((enum ain_data_type)_AIN_BUILTIN)
+#define AIN_SUPER    ((enum ain_data_type)_AIN_SUPER)
 
 /*
  * Built-in libraries; these are negative to disambiguate between true built-ins
@@ -135,6 +137,7 @@ enum jaf_expression_type {
 	JAF_EXP_HLLCALL,
 	JAF_EXP_METHOD_CALL,
 	JAF_EXP_BUILTIN_CALL,
+	JAF_EXP_SUPER_CALL,
 	JAF_EXP_NEW,
 	JAF_EXP_CAST,
 	JAF_EXP_MEMBER,

@@ -81,6 +81,7 @@ static struct jaf_expression *jaf_resolve_expression_types(struct jaf_expression
 	case JAF_EXP_HLLCALL:
 	case JAF_EXP_METHOD_CALL:
 	case JAF_EXP_BUILTIN_CALL:
+	case JAF_EXP_SUPER_CALL:
 	case JAF_EXP_CAST:
 	case JAF_EXP_MEMBER:
 	case JAF_EXP_SEQ:

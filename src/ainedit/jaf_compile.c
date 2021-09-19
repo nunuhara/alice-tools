@@ -806,11 +806,8 @@ static void compile_funcall(struct compiler_state *state, struct jaf_expression 
 	write_instruction1(state, CALLFUNC, expr->call.func_no);
 }
 
-static void compile_method_call(struct compiler_state *state, struct jaf_expression *expr)
+static void _compile_method_call(struct compiler_state *state, struct jaf_expression *expr)
 {
-	assert(expr->call.fun->type == JAF_EXP_MEMBER);
-	compile_lvalue(state, expr->call.fun->member.struc);
-
 	if (AIN_VERSION_GTE(state->ain, 11, 0)) {
 		write_instruction1(state, PUSH, expr->call.func_no);
 		compile_function_arguments(state, expr->call.args, expr->call.func_no);
@@ -820,6 +817,13 @@ static void compile_method_call(struct compiler_state *state, struct jaf_express
 		compile_function_arguments(state, expr->call.args, expr->call.func_no);
 		write_instruction1(state, CALLMETHOD, expr->call.func_no);
 	}
+}
+
+static void compile_method_call(struct compiler_state *state, struct jaf_expression *expr)
+{
+	assert(expr->call.fun->type == JAF_EXP_MEMBER);
+	compile_lvalue(state, expr->call.fun->member.struc);
+	_compile_method_call(state, expr);
 }
 
 static void compile_syscall(struct compiler_state *state, struct jaf_expression *expr)
@@ -846,6 +850,18 @@ static void compile_hllcall(struct compiler_state *state, struct jaf_expression 
 		write_instruction3(state, CALLHLL, expr->call.lib_no, expr->call.func_no, expr->call.type_param);
 	} else {
 		write_instruction2(state, CALLHLL, expr->call.lib_no, expr->call.func_no);
+	}
+}
+
+static void compile_super_call(struct compiler_state *state, struct jaf_expression *expr)
+{
+	assert(expr->call.fun->type == JAF_EXP_IDENTIFIER);
+	if (state->ain->functions[expr->call.func_no].struct_type >= 0) {
+		write_instruction0(state, PUSHSTRUCTPAGE);
+		_compile_method_call(state, expr);
+	} else {
+		compile_function_arguments(state, expr->call.args, expr->call.func_no);
+		write_instruction1(state, CALLFUNC, expr->call.func_no);
 	}
 }
 
@@ -998,6 +1014,9 @@ static void compile_expression(struct compiler_state *state, struct jaf_expressi
 		break;
 	case JAF_EXP_METHOD_CALL:
 		compile_method_call(state, expr);
+		break;
+	case JAF_EXP_SUPER_CALL:
+		compile_super_call(state, expr);
 		break;
 	case JAF_EXP_BUILTIN_CALL:
 		compile_builtin_call(state, expr);

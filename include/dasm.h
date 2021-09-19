@@ -24,6 +24,7 @@
 struct ain_function;
 
 #define DASM_ERROR(dasm, fmt, ...) ERROR("At 0x%x: " fmt, dasm->addr, ##__VA_ARGS__)
+#define DASM_WARNING(dasm, fmt, ...) WARNING("At 0x%x: " fmt, dasm->addr, ##__VA_ARGS__)
 
 #define DASM_FUNC_STACK_SIZE 16
 

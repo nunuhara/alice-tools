@@ -344,6 +344,7 @@ struct jaf_expression *jaf_simplify(struct jaf_expression *in)
 	case JAF_EXP_HLLCALL:
 	case JAF_EXP_METHOD_CALL:
 	case JAF_EXP_BUILTIN_CALL:
+	case JAF_EXP_SUPER_CALL:
 	case JAF_EXP_NEW:
 	case JAF_EXP_MEMBER:
 	case JAF_EXP_SEQ:

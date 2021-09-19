@@ -370,7 +370,7 @@ static void jaf_check_types_identifier(struct jaf_env *env, struct jaf_expressio
 		if (!env->fundecl || env->fundecl->super_no <= 0) {
 			JAF_ERROR(expr, "'super' used outside of a function override");
 		}
-		expr->valuetype.data = AIN_FUNCTION;
+		expr->valuetype.data = AIN_SUPER;
 		expr->valuetype.struc = env->fundecl->super_no;
 	} else if (AIN_VERSION_LT(env->ain, 11, 0) && !strcmp(u, "system")) {
 		expr->valuetype.data = AIN_SYSTEM;
@@ -638,7 +638,16 @@ static void jaf_check_types_method_call(struct jaf_env *env, struct jaf_expressi
 	int method_no = expr->call.fun->member.member_no;
 	expr->type = JAF_EXP_METHOD_CALL;
 	expr->call.func_no = method_no;
-	jaf_check_function_arguments(expr, expr->call.args, &env->ain->functions[expr->call.func_no]);
+	jaf_check_function_arguments(expr, expr->call.args, &env->ain->functions[method_no]);
+	expr->valuetype = env->ain->functions[method_no].return_type;
+}
+
+static void jaf_check_types_super_call(struct jaf_env *env, struct jaf_expression *expr)
+{
+	int method_no = expr->call.fun->valuetype.struc;
+	expr->type = JAF_EXP_SUPER_CALL;
+	expr->call.func_no = method_no;
+	jaf_check_function_arguments(expr, expr->call.args, &env->ain->functions[method_no]);
 	expr->valuetype = env->ain->functions[method_no].return_type;
 }
 
@@ -732,6 +741,9 @@ static void jaf_check_types_call(struct jaf_env *env, struct jaf_expression *exp
 		break;
 	case AIN_METHOD:
 		jaf_check_types_method_call(env, expr);
+		break;
+	case AIN_SUPER:
+		jaf_check_types_super_call(env, expr);
 		break;
 	case AIN_BUILTIN:
 		if (expr->call.fun->member.object_no < 0) {
@@ -1047,6 +1059,7 @@ void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr)
 	case JAF_EXP_HLLCALL:
 	case JAF_EXP_METHOD_CALL:
 	case JAF_EXP_BUILTIN_CALL:
+	case JAF_EXP_SUPER_CALL:
 		// these should be JAF_EXP_FUNCALLs initially
 		JAF_ERROR(expr, "Unexpected expression type");
 	}

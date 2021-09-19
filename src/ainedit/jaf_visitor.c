@@ -55,6 +55,7 @@ struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr, struct jaf_v
 	case JAF_EXP_HLLCALL:
 	case JAF_EXP_METHOD_CALL:
 	case JAF_EXP_BUILTIN_CALL:
+	case JAF_EXP_SUPER_CALL:
 		expr->call.fun = jaf_accept_expr(expr->call.fun, visitor);
 		jaf_accept_arglist(expr->call.args, visitor);
 		break;
