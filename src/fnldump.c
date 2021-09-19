@@ -22,6 +22,7 @@
 #include <getopt.h>
 #include <limits.h>
 #include <webp/encode.h>
+#include <png.h>
 #include "little_endian.h"
 #include "system4.h"
 #include "system4/file.h"
@@ -30,31 +31,54 @@
 #include "system4/utfsjis.h"
 #include "alice.h"
 
-void write_bitmap(FILE *f, uint32_t width, uint32_t height, uint8_t *pixels)
+static void write_bitmap(FILE *f, uint32_t width, uint32_t height, uint8_t *pixels)
 {
-	// expand to RGB packed pixel
-	uint8_t *rgb = xmalloc(width * height * 3);
+	if (width % 8 != 0)
+		ERROR("Invalid glyph width");
 
-	uint32_t p = 0;
-	for (int row = height - 1; row >= 0; row--) {
-		for (unsigned col = 0; col < width; col++, p++) {
-			uint8_t v = pixels[p/8] & (1 << (7 - p % 8)) ? 255 : 0;
-			rgb[row*width*3 + col*3 + 0] = v;
-			rgb[row*width*3 + col*3 + 1] = v;
-			rgb[row*width*3 + col*3 + 2] = v;
-		}
+	png_structp png_ptr = NULL;
+	png_infop info_ptr = NULL;
+	png_byte **row_pointers = NULL;
+
+	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	if (!png_ptr)
+		ERROR("png_create_write_struct failed");
+
+	info_ptr = png_create_info_struct(png_ptr);
+	if (!info_ptr)
+		ERROR("png_create_info_struct failed");
+
+	if (setjmp(png_jmpbuf(png_ptr)))
+		ERROR("png_init_io failed");
+
+	png_init_io(png_ptr, f);
+
+	if (setjmp(png_jmpbuf(png_ptr)))
+		ERROR("png_write_header failed");
+
+	png_set_IHDR(png_ptr, info_ptr, width, height, 1,
+		     PNG_COLOR_TYPE_GRAY, PNG_INTERLACE_NONE,
+		     PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+	png_write_info(png_ptr, info_ptr);
+
+	uint32_t stride = width / 8;
+	row_pointers = png_malloc(png_ptr, height * sizeof(png_byte*));
+	for (unsigned i = 0; i < height; i++) {
+		row_pointers[height - (i+1)] = pixels + i*stride;
 	}
 
-	uint8_t *output;
-	size_t len = WebPEncodeLosslessRGB(rgb, width, height, width*3, &output);
+	if (setjmp(png_jmpbuf(png_ptr)))
+		ERROR("png_write_image failed");
 
-	if (!fwrite(output, len, 1, f)) {
-		ERROR("fwrite failed: %s", strerror(errno));
-	}
+	png_write_image(png_ptr, row_pointers);
 
-	free(rgb);
-	WebPFree(output);
-	return;
+	if (setjmp(png_jmpbuf(png_ptr)))
+		ERROR("png_write_end failed");
+
+	png_write_end(png_ptr, NULL);
+
+	png_free(png_ptr, row_pointers);
+	png_destroy_write_struct(&png_ptr, &info_ptr);
 }
 
 enum {
@@ -93,7 +117,7 @@ int command_fnl_dump(int argc, char *argv[])
 			NOTICE("\tsize %lu (%lu glyphs)", font_face->height, font_face->nr_glyphs);
 
 			// create subdir
-			sprintf(path, "%s/font_%u/face_%u", output_dir, (unsigned)font, (unsigned)face);
+			sprintf(path, "%s/font_%u/%upx", output_dir, (unsigned)font, (unsigned)font_face->height);
 			mkdir_p(path);
 
 			// extract glyphs
@@ -102,7 +126,8 @@ int command_fnl_dump(int argc, char *argv[])
 				if (!glyph->data_pos)
 					continue;
 
-				sprintf(path, "%s/font_%u/face_%u/glyph_%u.webp", output_dir, (unsigned)font, (unsigned)face, (unsigned)g);
+				sprintf(path, "%s/font_%u/%upx/glyph_%u.png", output_dir, (unsigned)font,
+					(unsigned)font_face->height, (unsigned)g);
 				FILE *f = fopen(path, "wb");
 				if (!f) {
 					ERROR("fopen failed: %s", strerror(errno));
