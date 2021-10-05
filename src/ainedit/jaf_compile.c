@@ -933,6 +933,7 @@ static void compile_cast(struct compiler_state *state, struct jaf_expression *ex
 		if (dst_type == AIN_INT) {
 			write_instruction0(state, FTOI);
 		} else if (dst_type == AIN_STRING) {
+			write_instruction1(state, PUSH, 6);
 			write_instruction0(state, FTOS);
 		} else {
 			goto invalid_cast;
