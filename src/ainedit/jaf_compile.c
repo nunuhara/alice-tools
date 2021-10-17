@@ -112,8 +112,13 @@ static void write_instruction0(struct compiler_state *state, uint16_t opcode)
 
 static void write_instruction1(struct compiler_state *state, uint16_t opcode, uint32_t arg0)
 {
-	write_opcode(state, opcode);
-	write_argument(state, arg0);
+	if (opcode == S_MOD && state->ain->version <= 8) {
+		write_instruction1(state, PUSH, arg0);
+		write_instruction0(state, S_MOD);
+	} else {
+		write_opcode(state, opcode);
+		write_argument(state, arg0);
+	}
 }
 
 static void write_instruction2(struct compiler_state *state, uint16_t opcode, uint32_t arg0, uint32_t arg1)
@@ -322,8 +327,7 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		case JAF_REMAINDER:
 			switch (rhs_type) {
 			case AIN_INT:
-			case AIN_ENUM:
-				write_instruction1(state, S_MOD, 2); break;
+			case AIN_ENUM:   write_instruction1(state, S_MOD, 2); break;
 			case AIN_FLOAT:  write_instruction1(state, S_MOD, 3); break;
 			case AIN_STRING: write_instruction1(state, S_MOD, 4); break;
 			default:         _COMPILER_ERROR(NULL, -1, "Invalid type for string formatting");
