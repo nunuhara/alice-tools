@@ -1476,6 +1476,8 @@ static void compile_statement(struct compiler_state *state, struct jaf_block_ite
 		break;
 	case JAF_DECL_FUNCTYPE:
 		JAF_ERROR(item, "Function types must be declared at top-level");
+	case JAF_DECL_DELEGATE:
+		JAF_ERROR(item, "Delegates must be declared at top-level");
 	case JAF_DECL_FUN:
 		JAF_ERROR(item, "Functions must be defined at top-level");
 	case JAF_DECL_STRUCT:

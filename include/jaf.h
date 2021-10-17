@@ -305,6 +305,7 @@ enum block_item_kind {
 	JAF_DECL_VAR,
 	JAF_DECL_FUN,
 	JAF_DECL_FUNCTYPE,
+	JAF_DECL_DELEGATE,
 	JAF_DECL_STRUCT,
 	//JAF_DECL_ENUM,
 	JAF_STMT_NULL,
@@ -537,6 +538,7 @@ void jaf_accept_block(struct jaf_block *block, struct jaf_visitor *visitor);
 // jaf_ain.c
 void jaf_define_struct(struct ain *ain, struct jaf_block_item *type);
 void jaf_define_functype(struct ain *ain, struct jaf_block_item *item);
+void jaf_define_delegate(struct ain *ain, struct jaf_block_item *item);
 void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_specifier *in);
 enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type);
 void jaf_to_initval(struct ain_initval *dst, struct jaf_expression *expr);

@@ -254,6 +254,14 @@ static void jaf_process_functype(struct ain *ain, struct jaf_fundecl *decl)
 	function_init_vars(ain, decl, &f->nr_arguments, &f->nr_variables, &f->variables);
 }
 
+static void jaf_process_delegate(struct ain *ain, struct jaf_fundecl *decl)
+{
+	assert(decl->func_no >= 0 && decl->func_no <= ain->nr_delegates);
+	struct ain_function_type *f = &ain->delegates[decl->func_no];
+	jaf_to_ain_type(ain, &f->return_type, decl->type);
+	function_init_vars(ain, decl, &f->nr_arguments, &f->nr_variables, &f->variables);
+}
+
 static void jaf_process_global(struct ain *ain, struct jaf_vardecl *decl)
 {
 	char *tmp = conv_output(decl->name->text);
@@ -298,6 +306,9 @@ void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
 			break;
 		case JAF_DECL_FUNCTYPE:
 			jaf_process_functype(ain, &block->items[i]->fun);
+			break;
+		case JAF_DECL_DELEGATE:
+			jaf_process_delegate(ain, &block->items[i]->fun);
 			break;
 		case JAF_DECL_STRUCT:
 			jaf_process_structdef(ain, block->items[i]);

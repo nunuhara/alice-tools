@@ -115,7 +115,7 @@ static void print_type_specifier(FILE *out, struct jaf_type_specifier *type)
 	if (type->qualifiers & JAF_QUAL_REF) {
 		fprintf(out, "ref ");
 	}
-	if (type->type == JAF_STRUCT || type->type == JAF_FUNCTYPE || type->type == JAF_ENUM) {
+	if (type->type == JAF_STRUCT || type->type == JAF_FUNCTYPE || type->type == JAF_DELEGATE || type->type == JAF_ENUM) {
 		fprintf(out, "%s", type->name->text);
 	} else {
 		fprintf(out, "%s", jaf_type_to_string(type->type));
@@ -252,6 +252,22 @@ static void print_vardecl(FILE *out, struct jaf_vardecl *decl)
 	}
 }
 
+static void print_fundecl(FILE *out, struct jaf_fundecl *decl)
+{
+	print_type_specifier(out, decl->type);
+	fprintf(out, "%s(", decl->name->text);
+	if (decl->params) {
+		struct jaf_block *params = decl->params;
+		for (size_t i = 0; i < params->nr_items; i++) {
+			if (i > 0)
+				fprintf(out, ", ");
+			assert(params->items[i]->kind == JAF_DECL_VAR);
+			print_vardecl(out, &params->items[i]->var);
+		}
+	}
+	fputc(')', out);
+}
+
 void jaf_print_block_item(FILE *out, struct jaf_block_item *item)
 {
 	switch (item->kind) {
@@ -261,22 +277,15 @@ void jaf_print_block_item(FILE *out, struct jaf_block_item *item)
 		break;
 	case JAF_DECL_FUNCTYPE:
 		fprintf(out, "functype ");
-		// fallthrough
+		print_fundecl(out, &item->fun);
+		break;
+	case JAF_DECL_DELEGATE:
+		fprintf(out, "delegate ");
+		print_fundecl(out, &item->fun);
+		break;
 	case JAF_DECL_FUN:
-		print_type_specifier(out, item->fun.type);
-		fprintf(out, " %s(", item->fun.name->text);
-		if (item->fun.params) {
-			struct jaf_block *params = item->fun.params;
-			for (size_t i = 0; i < params->nr_items; i++) {
-				if (i > 0)
-					fprintf(out, ", ");
-				assert(params->items[i]->kind == JAF_DECL_VAR);
-				print_vardecl(out, &params->items[i]->var);
-			}
-		}
-		fputc(')', out);
-		if (item->kind == JAF_DECL_FUN)
-			fprintf(out, " { ... }");
+		print_fundecl(out, &item->fun);
+		fprintf(out, " { ... }");
 		break;
 	case JAF_DECL_STRUCT:
 		fprintf(out, "struct %s { ... }", item->struc.name->text);

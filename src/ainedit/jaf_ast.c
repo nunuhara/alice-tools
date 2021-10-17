@@ -681,6 +681,7 @@ void jaf_free_block_item(struct jaf_block_item *item)
 		ain_free_type(&item->var.valuetype);
 		break;
 	case JAF_DECL_FUNCTYPE:
+	case JAF_DECL_DELEGATE:
 	case JAF_DECL_FUN:
 		free_string(item->fun.name);
 		jaf_free_type_specifier(item->fun.type);

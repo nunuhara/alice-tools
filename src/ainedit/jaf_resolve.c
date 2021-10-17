@@ -34,6 +34,9 @@ static bool jaf_resolve_typedef(struct jaf_type_specifier *type, struct ain *ain
 		} else if ((no = ain_get_functype(ain, u)) >= 0) {
 			type->type = JAF_FUNCTYPE;
 			type->func_no = no;
+		} else if ((no = ain_get_delegate(ain, u)) >= 0) {
+			type->type = JAF_DELEGATE;
+			type->func_no = no;
 		} else if ((no = ain_get_enum(ain, u)) >= 0) {
 			type->type = JAF_ENUM;
 			type->struct_no = no;
@@ -106,6 +109,7 @@ static void jaf_resolve_statement_types(struct jaf_block_item *item, struct jaf_
 		break;
 	case JAF_DECL_STRUCT:
 	case JAF_DECL_FUNCTYPE:
+	case JAF_DECL_DELEGATE:
 	case JAF_STMT_NULL:
 	case JAF_STMT_LABELED:
 	case JAF_STMT_COMPOUND:

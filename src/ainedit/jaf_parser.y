@@ -104,6 +104,10 @@ int sym_type(char *name)
 	free(u);
 	return TYPEDEF_NAME;
     }
+    if (ain_get_delegate(jaf_ain_out, u) >= 0) {
+        free(u);
+        return TYPEDEF_NAME;
+    }
     if (ain_get_enum(jaf_ain_out, u) >= 0) {
         free(u);
         return TYPEDEF_NAME;
@@ -153,6 +157,14 @@ static struct jaf_block *jaf_functype(struct jaf_type_specifier *type, struct ja
     struct jaf_block *b = jaf_function(type, decl, NULL);
     b->items[0]->kind = JAF_DECL_FUNCTYPE;
     jaf_define_functype(jaf_ain_out, b->items[0]);
+    return b;
+}
+
+static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct jaf_function_declarator *decl)
+{
+    struct jaf_block *b = jaf_function(type, decl, NULL);
+    b->items[0]->kind = JAF_DECL_DELEGATE;
+    jaf_define_delegate(jaf_ain_out, b->items[0]);
     return b;
 }
 
@@ -609,6 +621,7 @@ external_declaration
 	| struct_specifier ';'                                    { $$ = jaf_block($1); }
 	| enum_specifier ';'                                      { ERROR("Enums not supported"); }
 	| FUNCTYPE declaration_specifiers functype_declarator ';' { $$ = jaf_functype($2, $3); }
+	| DELEGATE declaration_specifiers functype_declarator ';' { $$ = jaf_delegate($2, $3); }
 	;
 
 functype_declarator

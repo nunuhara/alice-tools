@@ -116,6 +116,7 @@ void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
 		break;
 	case JAF_DECL_FUN:
 	case JAF_DECL_FUNCTYPE:
+	case JAF_DECL_DELEGATE:
 		jaf_accept_block(stmt->fun.params, visitor);
 		jaf_accept_block(stmt->fun.body, visitor);
 		break;
