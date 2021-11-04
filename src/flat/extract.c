@@ -186,7 +186,10 @@ int command_flat_extract(int argc, char *argv[])
 	// open .flat file
 	struct flat_archive *flat;
 	int error;
-	flat = flat_open_file(argv[0], 0, &error);
+	char *input_file = conv_cmdline_utf8(argv[0]);
+	flat = flat_open_file(input_file, 0, &error);
+	free(input_file);
+
 	if (!flat) {
 		ALICE_ERROR("Opening archive: %s", archive_strerror(error));
 	}

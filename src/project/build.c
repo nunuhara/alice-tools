@@ -36,7 +36,12 @@ static int command_project_build(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	pje_build(argv[0]);
+	if (argc != 1)
+		USAGE_ERROR(&cmd_project_build, "Wrong number of arguments");
+
+	char *input_file = conv_cmdline_utf8(argv[0]);
+	pje_build(input_file);
+	free(input_file);
 	return 0;
 }
 

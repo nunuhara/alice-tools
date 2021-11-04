@@ -23,6 +23,7 @@
 #include <getopt.h>
 #include <dirent.h>
 #include "system4.h"
+#include "system4/file.h"
 
 #define ALICE_ERROR(msg, ...) sys_error("ERROR: " msg "\n", ##__VA_ARGS__)
 #define USAGE_ERROR(cmd, msg, ...) (print_usage(cmd), ALICE_ERROR(msg, ##__VA_ARGS__))
@@ -57,6 +58,7 @@ void set_output_encoding(const char *enc);
 char *conv_output(const char *str);
 char *conv_utf8(const char *str);
 char *conv_output_utf8(const char *str);
+char *conv_cmdline_utf8(const char *str);
 
 struct stat;
 
@@ -65,8 +67,8 @@ char *escape_string(const char *str);
 FILE *checked_fopen(const char *filename, const char *mode);
 void checked_fwrite(void *ptr, size_t size, FILE *stream);
 void checked_fread(void *ptr, size_t size, FILE *stream);
-DIR *checked_opendir(const char *path);
-void checked_stat(const char *path, struct stat *s);
+UDIR *checked_opendir(const char *path);
+void checked_stat(const char *path, ustat *s);
 void mkdir_for_file(const char *filename);
 void chdir_to_file(const char *filename);
 struct string *replace_extension(const char *file, const char *ext);

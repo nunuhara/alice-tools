@@ -363,10 +363,16 @@ struct ex_tree *ast_make_tree(node_list *nodes)
 	if (!nodes) {
 		tree->nr_children = 0;
 		tree->children = NULL;
+		tree->_children = NULL;
 		return tree;
 	}
 	tree->nr_children = kv_size(*nodes);
 	flatten_list(struct ex_tree, nodes, tree->children);
+	tree->_children = xcalloc(tree->nr_children, sizeof(struct ex_value));
+	for (uint32_t i = 0; i < tree->nr_children; i++) {
+		tree->_children[i].type = EX_TREE;
+		tree->_children[i].tree = &tree->children[i];
+	}
 	return tree;
 }
 

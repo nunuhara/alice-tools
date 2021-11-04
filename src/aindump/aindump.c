@@ -646,10 +646,13 @@ int command_ain_dump(int argc, char *argv[])
 		return 0;
 	}
 
-	if (!(ain = ain_open(argv[0], &err))) {
+	char *input_file = conv_cmdline_utf8(argv[0]);
+	if (!(ain = ain_open(input_file, &err))) {
 		ALICE_ERROR("Failed to open ain file: %s\n", ain_strerror(err));
 		return 1;
 	}
+	free(input_file);
+
 	ain_init_member_functions(ain, conv_utf8);
 
 	// chdir to output file directory so that subsequent opens are relative

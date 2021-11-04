@@ -105,7 +105,11 @@ int command_acx_dump(int argc, char *argv[])
 
 	int error = ACX_SUCCESS;
 	FILE *out = alice_open_output_file(output_file);
-	struct acx *acx = acx_load(argv[0], &error);
+
+	char *input_file = conv_cmdline_utf8(argv[0]);
+	struct acx *acx = acx_load(input_file, &error);
+	free(input_file);
+
 	if (error == ACX_ERROR_FILE) {
 		ALICE_ERROR("Failed to load .acx file \"%s\": %s", argv[0], strerror(errno));
 	} else if (error != ACX_SUCCESS) {

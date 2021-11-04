@@ -84,7 +84,13 @@ int command_ex_dump(int argc, char *argv[])
 		return 0;
 	}
 
-	struct ex *ex = ex_read_file(argv[0]);
+	char *input_file = conv_cmdline_utf8(argv[0]);
+	struct ex *ex = ex_read_file(input_file);
+	free(input_file);
+
+	if (!ex)
+		ALICE_ERROR("ex_read_file(\"%s\") failed", argv[0]);
+
 	if (split) {
 		const char *dir;
 		if (output_file)

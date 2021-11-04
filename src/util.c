@@ -78,7 +78,7 @@ char *escape_string(const char *str)
 
 FILE *checked_fopen(const char *filename, const char *mode)
 {
-	FILE *f = fopen(filename, mode);
+	FILE *f = file_open_utf8(filename, mode);
 	if (!f)
 		ALICE_ERROR("fopen(\"%s\", \"%s\"): %s", filename, mode, strerror(errno));
 	return f;
@@ -93,20 +93,20 @@ void checked_fwrite(void *ptr, size_t size, FILE *stream)
 void checked_fread(void *ptr, size_t size, FILE *stream)
 {
 	if (fread(ptr, size, 1, stream) != 1)
-		ALICE_ERROR("fwrite: %s", strerror(errno));
+		ALICE_ERROR("fread: %s", strerror(errno));
 }
 
-DIR *checked_opendir(const char *path)
+UDIR *checked_opendir(const char *path)
 {
-	DIR *d = opendir(path);
+	UDIR *d = opendir_utf8(path);
 	if (!d)
 		ALICE_ERROR("opendir(\"%s\"): %s", path, strerror(errno));
 	return d;
 }
 
-void checked_stat(const char *path, struct stat *s)
+void checked_stat(const char *path, ustat *s)
 {
-	if (stat(path, s))
+	if (stat_utf8(path, s))
 		ALICE_ERROR("stat(\"%s\"): %s", path, strerror(errno));
 }
 

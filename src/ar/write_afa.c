@@ -59,11 +59,7 @@ void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_f
 	struct buffer buf;
 	buffer_init(&buf, NULL, 0);
 	for (size_t i = 0; i < nr_files; i++) {
-#ifdef _WIN32
-		char *u = strdup(files[i]->name->text);
-#else
 		char *u = utf2sjis(files[i]->name->text, files[i]->name->size);
-#endif
 		buffer_write_int32(&buf, strlen(u));
 		buffer_write_pascal_cstring(&buf, u);
 		buffer_write_int32(&buf, 0); // timestamp?

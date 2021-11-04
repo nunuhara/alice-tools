@@ -86,3 +86,28 @@ char *conv_output_utf8(const char *str)
 		ALICE_ERROR("iconv_open: %s", strerror(errno));
 	return convert_text(output_utf8_conv, str);
 }
+
+#ifdef _WIN32
+#include <Windows.h>
+#include <direct.h>
+char *conv_cmdline_utf8(const char *str)
+{
+	// NOTE: In theory this could be done in a single conversion by iconv,
+	//       but this is probably simpler...
+	int nr_wchars = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
+	wchar_t *wstr = xmalloc(nr_wchars * sizeof(wchar_t));
+	MultiByteToWideChar(CP_ACP, 0, str, -1, wstr, nr_wchars);
+
+	int nr_uchars = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
+	char *ustr = xmalloc(nr_uchars);
+	WideCharToMultiByte(CP_UTF8, 0, wstr, -1, ustr, nr_uchars, NULL, NULL);
+
+	free(wstr);
+	return ustr;
+}
+#else
+char *conv_cmdline_utf8(const char *str)
+{
+	return strdup(str);
+}
+#endif

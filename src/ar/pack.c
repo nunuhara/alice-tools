@@ -177,15 +177,17 @@ static void convert_flat(struct string *src, enum ar_filetype src_fmt,
 static void convert_dir(struct string *src_dir, enum ar_filetype src_fmt,
 			struct string *dst_dir, enum ar_filetype dst_fmt)
 {
-	struct dirent *dir;
-	DIR *d = checked_opendir(src_dir->text);
-	while ((dir = readdir(d)) != NULL) {
-		if (dir->d_name[0] == '.')
+	char *d_name;
+	UDIR *d = checked_opendir(src_dir->text);
+	while ((d_name = readdir_utf8(d)) != NULL) {
+		if (d_name[0] == '.') {
+			free(d_name);
 			continue;
+		}
 
-		struct stat src_s;
-		struct string *src_path = string_path_join(src_dir, dir->d_name);
-		struct string *dst_base = string_path_join(dst_dir, dir->d_name);
+		ustat src_s;
+		struct string *src_path = string_path_join(src_dir, d_name);
+		struct string *dst_base = string_path_join(dst_dir, d_name);
 		struct string *dst_path = replace_extension(dst_base->text, ar_ft_extensions[dst_fmt]);
 		checked_stat(src_path->text, &src_s);
 
@@ -199,17 +201,17 @@ static void convert_dir(struct string *src_dir, enum ar_filetype src_fmt,
 		}
 		// flat conversion is a special case
 		if (dst_fmt == AR_FT_FLAT) {
-			convert_flat(src_path, src_fmt, dst_dir, dir->d_name);
+			convert_flat(src_path, src_fmt, dst_dir, d_name);
 			goto loop_next;
 		}
 
-		if (strcasecmp(file_extension(dir->d_name), ar_ft_extensions[src_fmt])) {
+		if (strcasecmp(file_extension(d_name), ar_ft_extensions[src_fmt])) {
 			NOTICE("Skipping \"%s\": wrong file extension", src_path->text);
 			goto loop_next;
 		}
 
 		if (file_exists(dst_path->text)) {
-			struct stat dst_s;
+			ustat dst_s;
 			checked_stat(dst_path->text, &dst_s);
 			if (src_s.st_mtime < dst_s.st_mtime)
 				goto loop_next;
@@ -231,8 +233,9 @@ static void convert_dir(struct string *src_dir, enum ar_filetype src_fmt,
 		free_string(src_path);
 		free_string(dst_path);
 		free_string(dst_base);
+		free(d_name);
 	}
-	closedir(d);
+	closedir_utf8(d);
 }
 
 static void batchpack_convert(struct batchpack_line *line)
@@ -246,42 +249,44 @@ static void dir_to_file_list(struct string *dst, struct string *base_name, filel
 {
 	// add all files in dst to file list
 	// TODO: filter by file extension?
-	struct dirent *dir;
-	DIR *d = checked_opendir(dst->text);
-	while ((dir = readdir(d)) != NULL) {
-		if (dir->d_name[0] == '.')
-			continue;
+	char *d_name;
+	UDIR *d = checked_opendir(dst->text);
+	while ((d_name = readdir_utf8(d)) != NULL) {
+		if (d_name[0] == '.')
+			goto loop_next;
 
-		struct stat s;
-		struct string *path = string_path_join(dst, dir->d_name);
-		struct string *name = string_path_join(base_name, dir->d_name);
+		ustat s;
+		struct string *path = string_path_join(dst, d_name);
+		struct string *name = string_path_join(base_name, d_name);
 		checked_stat(path->text, &s);
 
 		if (S_ISDIR(s.st_mode)) {
 			dir_to_file_list(path, name, files, fmt);
 			free_string(path);
 			free_string(name);
-			continue;
+			goto loop_next;
 		}
 		if (!S_ISREG(s.st_mode)) {
 			WARNING("Skipping \"%s\": not a regular file", path->text);
 			free_string(path);
 			free_string(name);
-			continue;
+			goto loop_next;
 		}
-		if (fmt && strcasecmp(file_extension(dir->d_name), ar_ft_extensions[fmt])) {
+		if (fmt && strcasecmp(file_extension(d_name), ar_ft_extensions[fmt])) {
 			NOTICE("Skipping \"%s\": wrong file extension", path->text);
 			free_string(path);
 			free_string(name);
-			continue;
+			goto loop_next;
 		}
 
 		struct ar_file_spec *spec = xmalloc(sizeof(struct ar_file_spec));
 		spec->path = path;
 		spec->name = name;
 		kv_push(struct ar_file_spec*, *files, spec);
+loop_next:
+		free(d_name);
 	}
-	closedir(d);
+	closedir_utf8(d);
 }
 
 static int file_spec_compare(const void *_a, const void *_b)

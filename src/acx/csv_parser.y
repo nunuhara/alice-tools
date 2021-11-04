@@ -48,7 +48,7 @@ struct acx *acx_parse(const char *path)
     if (!strcmp(path, "-"))
 	csv_in = stdin;
     else
-	csv_in = fopen(path, "rb");
+	csv_in = file_open_utf8(path, "rb");
     if (!csv_in)
 	ERROR("Opening input file '%s': %s", path, strerror(errno));
 
