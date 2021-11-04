@@ -50,6 +50,7 @@ The currently implemented commands are:
     alice ain     edit    - Edit a .ain file
     alice ar      extract - Extract an archive file
     alice ar      list    - List the contents of an archive file
+    alice ar      pack    - Create an archive file
     alice cg      convert - Convert a CG file to another format
     alice ex      build   - Build a .ex file
     alice ex      compare - Compare .ex files
@@ -100,6 +101,13 @@ nunuhara@haniwa.technology, or find me on /haniho/.
 
 Version History
 ---------------
+
+### [Version 0.10.1](https://haniwa.technology/alice-tools/alice-tools-0.10.1.zip)
+
+* Support extracting DLF and ALK archives
+* Fix issues with Japanese file names on Windows
+* Allow using quoted strings in archive manifest files
+* Various improvements to the .jaf compiler
 
 ### [Version 0.10.0](https://haniwa.technology/alice-tools/alice-tools-0.10.0.zip)
 
