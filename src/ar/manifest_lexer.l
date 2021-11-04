@@ -49,9 +49,7 @@ extern void ar_mf_error(const char *s);
     \" {
         BEGIN(INITIAL);
         *string_buf_ptr = '\0';
-        char *sjis = conv_output(string_buf);
-        ar_mf_lval.string = make_string(sjis, strlen(sjis));
-        free(sjis);
+        ar_mf_lval.string = make_string(string_buf, strlen(string_buf));
         return STRING;
     }
 
