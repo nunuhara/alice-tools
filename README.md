@@ -102,6 +102,10 @@ nunuhara@haniwa.technology, or find me on /haniho/.
 Version History
 ---------------
 
+### [Version 0.10.2](https://haniwa.technology/alice-tools/alice-tools-0.10.2.zip)
+
+* Fix encoding issue when using quoted strings in manifest files
+
 ### [Version 0.10.1](https://haniwa.technology/alice-tools/alice-tools-0.10.1.zip)
 
 * Support extracting DLF and ALK archives
