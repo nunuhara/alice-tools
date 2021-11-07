@@ -414,10 +414,15 @@ bool dasm_eof(struct dasm_state *dasm)
 	return dasm->addr >= dasm->ain->code_size;
 }
 
+void dasm_jump(struct dasm_state *dasm, uint32_t addr)
+{
+	dasm->addr = addr;
+	dasm->instr = dasm_eof(dasm) ? &instructions[0] : dasm_get_instruction(dasm);
+}
+
 void dasm_reset(struct dasm_state *dasm)
 {
-	dasm->addr = 0;
-	dasm->instr = dasm_eof(dasm) ? &instructions[0] : dasm_get_instruction(dasm);
+	dasm_jump(dasm, 0);
 }
 
 dasm_save_t dasm_save(struct dasm_state *dasm)
@@ -591,4 +596,46 @@ void disassemble_ain(FILE *out, struct ain *ain, unsigned int flags)
 	fflush(dasm.out);
 
 	jump_table_fini();
+}
+
+bool disassemble_function(FILE *out, struct ain *ain, char *_name, unsigned int flags)
+{
+	char *name = conv_utf8_input(_name);
+	int fno = ain_get_function(ain, name);
+	free(name);
+	if (fno < 0)
+		return false;
+
+	struct dasm_state dasm;
+	dasm_init(&dasm, out, ain, flags);
+
+	generate_labels(&dasm);
+
+	uint32_t addr = ain->functions[fno].address - 6;
+	for (dasm_jump(&dasm, addr); !dasm_eof(&dasm); dasm_next(&dasm)) {
+		jump_list *targets = get_jump_targets(dasm.addr);
+		if (targets) {
+			for (size_t i = 0; i < kv_size(*targets); i++) {
+				struct jump_target *t = kv_A(*targets, i);
+				switch (t->type) {
+				case JMP_LABEL:
+					fprintf(dasm.out, "%s:\n", t->label);
+					break;
+				case JMP_CASE:
+					print_switch_case(&dasm, t->switch_case);
+					break;
+				case JMP_DEFAULT:
+					fprintf(dasm.out, ".DEFAULT %zd\n", t->switch_default - dasm.ain->switches);
+					break;
+				}
+			}
+		}
+		print_instruction(&dasm);
+		fflush(dasm.out);
+		if (dasm.instr->opcode == ENDFUNC)
+			break;
+	}
+	fflush(dasm.out);
+	jump_table_fini();
+	return true;
 }

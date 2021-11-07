@@ -257,7 +257,7 @@ enum {
 
 int alice_getopt(int argc, char *argv[], struct command *cmd)
 {
-	static struct option long_opts[32];
+	static struct option long_opts[64];
 	static char short_opts[64];
 	static bool initialized = false;
 

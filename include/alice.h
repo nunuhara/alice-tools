@@ -58,6 +58,7 @@ void set_output_encoding(const char *enc);
 char *conv_output(const char *str);
 char *conv_utf8(const char *str);
 char *conv_output_utf8(const char *str);
+char *conv_utf8_input(const char *str);
 char *conv_cmdline_utf8(const char *str);
 
 struct stat;

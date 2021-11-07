@@ -55,6 +55,7 @@ static const char *output_encoding = "UTF-8";
 static iconv_t output_conv = (iconv_t)-1;
 static iconv_t utf8_conv = (iconv_t)-1;
 static iconv_t output_utf8_conv = (iconv_t)-1;
+static iconv_t utf8_input_conv = (iconv_t)-1;
 
 void set_input_encoding(const char *enc)
 {
@@ -85,6 +86,14 @@ char *conv_output_utf8(const char *str)
 	if (output_utf8_conv == (iconv_t)-1 && (output_utf8_conv = iconv_open("UTF-8", output_encoding)) == (iconv_t)-1)
 		ALICE_ERROR("iconv_open: %s", strerror(errno));
 	return convert_text(output_utf8_conv, str);
+}
+
+// convert from UTF-8 to input encoding (e.g. to convert command line parameter for ain lookup)
+char *conv_utf8_input(const char *str)
+{
+	if (utf8_input_conv == (iconv_t)-1 && (utf8_input_conv = iconv_open(input_encoding, "UTF-8")) == (iconv_t)-1)
+		ALICE_ERROR("iconv_open: %s", strerror(errno));
+	return convert_text(utf8_input_conv, str);
 }
 
 #ifdef _WIN32

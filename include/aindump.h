@@ -17,6 +17,7 @@
 #ifndef AINDUMP_H
 #define AINDUMP_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -39,6 +40,7 @@ void guess_filenames(struct ain *ain);
 
 // dasm.c
 void disassemble_ain(FILE *out, struct ain *ain, unsigned int flags);;
+bool disassemble_function(FILE *out, struct ain *ain, char *name, unsigned int flags);
 
 // aindump.c
 void ain_dump_function(FILE *out, struct ain *ain, struct ain_function *f);

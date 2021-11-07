@@ -490,6 +490,7 @@ enum {
 	LOPT_TEXT,
 	LOPT_OUTPUT,
 	LOPT_FUNCTIONS,
+	LOPT_FUNCTION,
 	LOPT_GLOBALS,
 	LOPT_STRUCTURES,
 	LOPT_MESSAGES,
@@ -525,6 +526,7 @@ int command_ain_dump(int argc, char *argv[])
 	struct ain *ain;
 
 	int dump_targets[256];
+	char *dump_args[256];
 	int dump_ptr = 0;
 
 	while (1) {
@@ -561,6 +563,10 @@ int command_ain_dump(int argc, char *argv[])
 		case 'f':
 		case LOPT_FUNCTIONS:
 			dump_targets[dump_ptr++] = LOPT_FUNCTIONS;
+			break;
+		case LOPT_FUNCTION:
+			dump_args[dump_ptr] = conv_cmdline_utf8(optarg);
+			dump_targets[dump_ptr++] = LOPT_FUNCTION;
 			break;
 		case 'g':
 		case LOPT_GLOBALS:
@@ -670,6 +676,7 @@ int command_ain_dump(int argc, char *argv[])
 		case LOPT_TEXT:           ain_dump_text(output, ain); break;
 		case LOPT_AIN_VERSION:    ain_dump_version(output, ain); break;
 		case LOPT_FUNCTIONS:      ain_dump_functions(output, ain); break;
+		case LOPT_FUNCTION:       disassemble_function(output, ain, dump_args[i], flags); free(dump_args[i]); break;
 		case LOPT_GLOBALS:        ain_dump_globals(output, ain); break;
 		case LOPT_STRUCTURES:     ain_dump_structures(output, ain); break;
 		case LOPT_MESSAGES:       ain_dump_messages(output, ain); break;
@@ -708,6 +715,7 @@ struct command cmd_ain_dump = {
 		{ "json",               'j', "Dump to JSON format",                           no_argument,       LOPT_JSON },
 		{ "raw-code",           'C', "Dump code section (raw)",                       no_argument,       LOPT_RAW_CODE },
 		{ "functions",          'f', "Dump functions section",                        no_argument,       LOPT_FUNCTIONS },
+		{ "function",           0,   "Dump function code",                            required_argument, LOPT_FUNCTION },
 		{ "globals",            'g', "Dump globals section",                          no_argument,       LOPT_GLOBALS },
 		{ "structures",         'S', "Dump structures section",                       no_argument,       LOPT_STRUCTURES },
 		{ "messages",           'm', "Dump messages section",                         no_argument,       LOPT_MESSAGES },
