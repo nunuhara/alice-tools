@@ -104,6 +104,7 @@ struct command cmd_ex = {
 	.commands = {
 		&cmd_ex_dump,
 		&cmd_ex_build,
+		&cmd_ex_edit,
 		&cmd_ex_compare,
 		NULL
 	}

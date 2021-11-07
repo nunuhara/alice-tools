@@ -105,6 +105,7 @@ extern struct command cmd_cg_convert;
 extern struct command cmd_ex_build;
 extern struct command cmd_ex_compare;
 extern struct command cmd_ex_dump;
+extern struct command cmd_ex_edit;
 extern struct command cmd_flat_build;
 extern struct command cmd_flat_extract;
 extern struct command cmd_fnl_dump;
