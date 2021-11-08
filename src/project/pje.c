@@ -19,6 +19,7 @@
 #include <string.h>
 #include <errno.h>
 #include <libgen.h>
+#include <sys/stat.h>
 #include "system4.h"
 #include "system4/ain.h"
 #include "system4/ex.h"
@@ -355,15 +356,65 @@ static void pje_read_inc(struct build_job *job, struct string *dir, struct strin
 	free_string(file_dir);
 }
 
+static void pje_read_source_file(struct build_job *job, struct string *dir, struct string *file, bool system)
+{
+	const char *ext = extname(file->text);
+	if (!strcmp(ext, "inc")) {
+		pje_read_inc(job, dir, file);
+	} else if (!strcmp(ext, "jaf")) {
+		string_list_append(system ? &job->system_source : &job->source, string_path_join(dir, file->text));
+	} else if (!strcmp(ext, "txtex") || !strcmp(ext, "x")) {
+		string_list_append(&job->ex_source, string_path_join(dir, file->text));
+	} else {
+		ALICE_ERROR("Unhandled file extension in source list: '%s'", ext);
+	}
+}
+
+static void pje_read_source_dir_wildcard(struct build_job *job, struct string *dir, const char *source, bool system)
+{
+	char *d_name;
+	UDIR *d = checked_opendir(dir->text);
+	while ((d_name = readdir_utf8(d)) != NULL) {
+		if (d_name[0] == '.')
+			goto loop_next;
+
+		struct string *subdir = string_path_join(dir, d_name);
+		if (!is_directory(subdir->text)) {
+			goto not_dir;
+		}
+
+		struct string *file = string_path_join(subdir, source);
+		if (!file_exists(file->text)) {
+			goto not_exists;
+		}
+
+		struct string *tmp = cstr_to_string(d_name);
+		struct string *file_rel = string_path_join(tmp, source);
+		pje_read_source_file(job, dir, file_rel, system);
+
+		free_string(file_rel);
+		free_string(tmp);
+	not_exists:
+		free_string(file);
+	not_dir:
+		free_string(subdir);
+	loop_next:
+		free(d_name);
+	}
+	closedir_utf8(d);
+}
+
 static void pje_read_source(struct build_job *job, struct string *dir, struct string_list *source, bool system)
 {
 	for (unsigned i = 0; i < source->n; i++) {
-		const char *ext = extname(source->items[i]->text);
-		if (!strcmp(ext, "inc")) {
-			pje_read_inc(job, dir, source->items[i]);
-		} else if (!strcmp(ext, "jaf")) {
-			string_list_append(system ? &job->system_source : &job->source, string_path_join(dir, source->items[i]->text));
-		} else if (!strcmp(ext, "hll")) {
+		// check for dir wildcard (e.g. '*/source.inc')
+		char c0 = source->items[i]->text[0];
+		char c1 = source->items[i]->text[1];
+		if (c0 == '*' && (c1 == '/' || c1 == '\\')) {
+			pje_read_source_dir_wildcard(job, dir, source->items[i]->text + 2, system);
+		}
+		// hll sources are handled differently because they are followed by the library name
+		else if (!strcmp(extname(source->items[i]->text), "hll")) {
 			if (i+1 >= source->n)
 				ERROR("Missing HLL name in source list: %s", source->items[i]->text);
 			if (strchr(source->items[i+1]->text, '.'))
@@ -371,10 +422,10 @@ static void pje_read_source(struct build_job *job, struct string *dir, struct st
 			string_list_append(&job->headers, string_path_join(dir, source->items[i]->text));
 			string_list_append(&job->headers, string_dup(source->items[i+1]));
 			i++;
-		} else if (!strcmp(ext, "txtex") || !strcmp(ext, "x")) {
-			string_list_append(&job->ex_source, string_path_join(dir, source->items[i]->text));
-		} else {
-			ERROR("Unhandled file extension in source list: '%s'", ext);
+		}
+		// standard source file include (inc, jaf, txtex)
+		else {
+			pje_read_source_file(job, dir, source->items[i], system);
 		}
 	}
 }
