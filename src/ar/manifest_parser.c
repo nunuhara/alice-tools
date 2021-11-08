@@ -36,7 +36,7 @@ static enum cg_type ar_parse_image_format(struct string *str)
 	return ALCG_UNKNOWN;
 }
 
-static enum ar_filetype ar_parse_filetype(struct string *str)
+enum ar_filetype ar_parse_filetype(struct string *str)
 {
 	if (!strcasecmp(str->text, "PNG"))
 		return AR_FT_PNG;

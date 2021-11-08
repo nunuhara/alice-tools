@@ -26,6 +26,7 @@
 #include "system4/ini.h"
 #include "system4/string.h"
 #include "alice.h"
+#include "alice-ar.h"
 #include "ainedit.h"
 #include "jaf.h"
 
@@ -61,7 +62,10 @@ struct pje_config {
 	struct string *ex_input;
 	struct string *ex_name;
 	struct string *ex_mod_name;
-	struct string_list archives;
+	struct string_list archives; // DEPRECATED
+	struct string *cg_name;
+	struct string *sound_name;
+	struct string *flat_name;
 	int major_version;
 	int minor_version;
 };
@@ -73,6 +77,14 @@ struct inc_config {
 	struct string_list copy_to_dll;
 	struct string_list copy_to_dp;
 	struct string_list load_dll;
+	struct string_list cg;
+	struct string_list sound;
+	struct string_list flat;
+};
+
+struct batchpack_list {
+	unsigned n;
+	struct batchpack_line *lines;
 };
 
 struct build_job {
@@ -80,6 +92,9 @@ struct build_job {
 	struct string_list source;
 	struct string_list headers;
 	struct string_list ex_source;
+	struct batchpack_list cg;
+	struct batchpack_list sound;
+	struct batchpack_list flat;
 };
 
 static void string_list_append(struct string_list *list, struct string *str)
@@ -88,12 +103,34 @@ static void string_list_append(struct string_list *list, struct string *str)
 	list->items[list->n++] = str;
 }
 
+static void batchpack_list_append(struct batchpack_list *list,
+				  struct string *src_dir, enum ar_filetype src_fmt,
+				  struct string *dst_dir, enum ar_filetype dst_fmt)
+{
+	list->lines = xrealloc_array(list->lines, list->n, list->n+1, sizeof(struct batchpack_line));
+	list->lines[list->n++] = (struct batchpack_line) {
+		.src = src_dir,
+		.src_fmt = src_fmt,
+		.dst = dst_dir,
+		.dst_fmt = dst_fmt
+	};
+}
+
 static void free_string_list(struct string_list *list)
 {
 	for (unsigned i = 0; i < list->n; i++) {
 		free_string(list->items[i]);
 	}
 	free(list->items);
+}
+
+static void free_batchpack_list(struct batchpack_list *list)
+{
+	for (unsigned i = 0; i < list->n; i++) {
+		free_string(list->lines[i].src);
+		free_string(list->lines[i].dst);
+	}
+	free(list->lines);
 }
 
 static struct string *directory_name(const char *path)
@@ -187,6 +224,12 @@ static void pje_parse(const char *path, struct pje_config *config)
 			config->ex_mod_name = pje_string(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "Archives")) {
 			pje_string_list(&ini[i], &config->archives);
+		} else if (!strcmp(ini[i].name->text, "CgName")) {
+			config->cg_name = pje_string(&ini[i]);
+		} else if (!strcmp(ini[i].name->text, "SoundName")) {
+			config->sound_name = pje_string(&ini[i]);
+		} else if (!strcmp(ini[i].name->text, "FlatName")) {
+			config->flat_name = pje_string(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "CodeVersion")) {
 			if (!parse_version(pje_string_ptr(&ini[i])->text, &config->major_version, &config->minor_version)) {
 				ALICE_ERROR("Invalid CodeVersion");
@@ -240,6 +283,12 @@ static void pje_parse_inc(const char *path, struct inc_config *config)
 			pje_string_list(&ini[i], &config->copy_to_dp);
 		} else if (!strcmp(ini[i].name->text, "LoadDLL")) {
 			pje_string_list(&ini[i], &config->load_dll);
+		} else if (!strcmp(ini[i].name->text, "CG")) {
+			pje_string_list(&ini[i], &config->cg);
+		} else if (!strcmp(ini[i].name->text, "Sound")) {
+			pje_string_list(&ini[i], &config->sound);
+		} else if (!strcmp(ini[i].name->text, "Flat")) {
+			pje_string_list(&ini[i], &config->flat);
 		} else {
 			ERROR("Unhandled variable in file '%s': %s", path, ini[i].name->text);
 		}
@@ -256,6 +305,9 @@ static void pje_free_inc(struct inc_config *config)
 	free_string_list(&config->copy_to_dll);
 	free_string_list(&config->copy_to_dp);
 	free_string_list(&config->load_dll);
+	free_string_list(&config->cg);
+	free_string_list(&config->sound);
+	free_string_list(&config->flat);
 }
 
 static const char *extname(const char *s)
@@ -266,6 +318,17 @@ static const char *extname(const char *s)
 
 static void pje_read_source(struct build_job *job, struct string *dir, struct string_list *source, bool system);
 
+static void pje_read_archive(struct batchpack_list *dst, struct string_list *src, struct string *dir)
+{
+	for (unsigned i = 0; i < src->n; i += 4) {
+		struct string *src_dir = string_path_join(dir, src->items[i]->text);
+		enum ar_filetype src_fmt = ar_parse_filetype(src->items[i+1]);
+		struct string *dst_dir = string_path_join(dir, src->items[i+2]->text);
+		enum ar_filetype dst_fmt = ar_parse_filetype(src->items[i+3]);
+		batchpack_list_append(dst, src_dir, src_fmt, dst_dir, dst_fmt);
+	}
+}
+
 static void pje_read_inc(struct build_job *job, struct string *dir, struct string *inc)
 {
 	struct inc_config config = {0};
@@ -273,8 +336,19 @@ static void pje_read_inc(struct build_job *job, struct string *dir, struct strin
 	struct string *file_dir = directory_name(file->text);
 	pje_parse_inc(file->text, &config);
 
+	if (config.cg.n % 4 != 0)
+		ALICE_ERROR("Incorrect format for 'CG' entry");
+	if (config.sound.n % 4 != 0)
+		ALICE_ERROR("Incorrect format for 'Sound' entry");
+	if (config.flat.n % 4 != 0)
+		ALICE_ERROR("Incorrect format for 'Flat' entry");
+
 	pje_read_source(job, file_dir, &config.system_source, true);
 	pje_read_source(job, file_dir, &config.source, false);
+
+	pje_read_archive(&job->cg, &config.cg, file_dir);
+	pje_read_archive(&job->sound, &config.sound, file_dir);
+	pje_read_archive(&job->flat, &config.flat, file_dir);
 
 	pje_free_inc(&config);
 	free_string(file);
@@ -329,6 +403,12 @@ static void pje_free(struct pje_config *config)
 		free_string(config->ex_name);
 	if (config->ex_mod_name)
 		free_string(config->ex_mod_name);
+	if (config->cg_name)
+		free_string(config->cg_name);
+	if (config->sound_name)
+		free_string(config->sound_name);
+	if (config->flat_name)
+		free_string(config->flat_name);
 	free_string_list(&config->system_source);
 	free_string_list(&config->source);
 	free_string_list(&config->mod_jam);
@@ -341,6 +421,9 @@ static void build_job_free(struct build_job *job)
 	free_string_list(&job->source);
 	free_string_list(&job->headers);
 	free_string_list(&job->ex_source);
+	free_batchpack_list(&job->cg);
+	free_batchpack_list(&job->sound);
+	free_batchpack_list(&job->flat);
 }
 
 static void pje_build_ain(struct pje_config *config, struct build_job *job)
@@ -508,16 +591,16 @@ static void pje_build_ex(struct pje_config *config, struct build_job *job)
 
 	// Write the ExInput file to output directory
 	if (ex && config->ex_name) {
-		NOTICE("EX     %s", config->ex_name->text);
 		struct string *out = string_path_join(config->output_dir, config->ex_name->text);
+		NOTICE("EX     %s", out->text);
 		ex_write_file(out->text, ex);
 		free_string(out);
 	}
 
 	// Write the mod .ex file to output directory
 	if (source_ex && config->ex_mod_name) {
-		NOTICE("EX     %s", config->ex_mod_name->text);
 		struct string *mod_out = string_path_join(config->output_dir, config->ex_mod_name->text);
+		NOTICE("EX     %s", mod_out->text);
 		ex_write_file(mod_out->text, source_ex);
 		free_string(mod_out);
 	}
@@ -528,13 +611,54 @@ static void pje_build_ex(struct pje_config *config, struct build_job *job)
 		ex_free(source_ex);
 }
 
-static void pje_build_archives(struct pje_config *config)
+static struct ar_manifest *pje_make_manifest(struct string *out, struct batchpack_list *list)
+{
+	struct ar_manifest *ar = xcalloc(1, sizeof(struct ar_manifest));
+	ar->type = AR_MF_BATCHPACK;
+	ar->output_path = out;
+	ar->nr_rows = list->n;
+	ar->batchpack = list->lines;
+	return ar;
+}
+
+static void pje_free_manifest(struct ar_manifest *ar)
+{
+	free_string(ar->output_path);
+	free(ar);
+}
+
+static void pje_build_archive(struct pje_config *config, struct string *out_name, struct batchpack_list *list)
+{
+	struct string *out_path = string_path_join(config->output_dir, out_name->text);
+	struct ar_manifest *ar = pje_make_manifest(out_path, list);
+	NOTICE("AFA    %s", ar->output_path->text);
+	ar_pack_manifest(ar, 2);
+	pje_free_manifest(ar);
+}
+
+static void pje_build_archives(struct pje_config *config, struct build_job *job)
 {
 	for (unsigned i = 0; i < config->archives.n; i++) {
 		struct string *path = string_path_join(config->pje_dir, config->archives.items[i]->text);
 		NOTICE("AFA    %s", path->text);
 		ar_pack(path->text, 2);
 		free_string(path);
+	}
+
+	if (job->cg.n > 0) {
+		if (!config->cg_name)
+			ALICE_ERROR("CG files found but CgName not given");
+		pje_build_archive(config, config->cg_name, &job->cg);
+	}
+	if (job->sound.n > 0) {
+		if (!config->sound_name)
+			ALICE_ERROR("Sound files found but SoundName not given");
+		pje_build_archive(config, config->sound_name, &job->sound);
+	}
+	if (job->flat.n > 0) {
+		if (!config->flat_name)
+			ALICE_ERROR("Flat files found but FlatName not given");
+		pje_build_archive(config, config->flat_name, &job->flat);
 	}
 }
 
@@ -553,7 +677,7 @@ void pje_build(const char *path)
 
 	pje_build_ain(&config, &job);
 	pje_build_ex(&config, &job);
-	pje_build_archives(&config);
+	pje_build_archives(&config, &job);
 	build_job_free(&job);
 	pje_free(&config);
 }

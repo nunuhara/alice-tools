@@ -405,6 +405,19 @@ static void free_manifest(struct ar_manifest *mf)
 	free(mf);
 }
 
+void ar_pack_manifest(struct ar_manifest *ar, int afa_version)
+{
+	size_t nr_files;
+	struct ar_file_spec **files = manifest_to_file_list(ar, &nr_files);
+	write_afa(ar->output_path, files, nr_files, afa_version);
+	for (size_t i = 0; i < nr_files; i++) {
+		free_string(files[i]->path);
+		free_string(files[i]->name);
+		free(files[i]);
+	}
+	free(files);
+}
+
 void ar_pack(const char *manifest, int afa_version)
 {
 	struct ar_manifest *mf = ar_parse_manifest(manifest);
@@ -417,17 +430,8 @@ void ar_pack(const char *manifest, int afa_version)
 	old_cwd = getcwd(old_cwd, 2048);
 	chdir_to_file(manifest);
 
-	size_t nr_files;
-	struct ar_file_spec **files = manifest_to_file_list(mf, &nr_files);
-	write_afa(mf->output_path, files, nr_files, afa_version);
-
+	ar_pack_manifest(mf, afa_version);
 	free_manifest(mf);
-	for (size_t i = 0; i < nr_files; i++) {
-		free_string(files[i]->path);
-		free_string(files[i]->name);
-		free(files[i]);
-	}
-	free(files);
 	chdir(old_cwd);
 	free(old_cwd);
 }

@@ -112,4 +112,7 @@ kv_decl(ar_row_list, ar_string_list*);
 struct ar_manifest *ar_make_manifest(struct string *magic, struct string *output_path, ar_row_list *rows);
 struct ar_manifest *ar_parse_manifest(const char *path);
 
+enum ar_filetype ar_parse_filetype(struct string *str);
+void ar_pack_manifest(struct ar_manifest *ar, int afa_version);;
+
 #endif /* ALICEAR_H_ */
