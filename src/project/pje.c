@@ -60,6 +60,7 @@ struct pje_config {
 	struct string_list mod_jam;
 	struct string *ex_input;
 	struct string *ex_name;
+	struct string *ex_mod_name;
 	struct string_list archives;
 	int major_version;
 	int minor_version;
@@ -78,6 +79,7 @@ struct build_job {
 	struct string_list system_source;
 	struct string_list source;
 	struct string_list headers;
+	struct string_list ex_source;
 };
 
 static void string_list_append(struct string_list *list, struct string *str)
@@ -181,6 +183,8 @@ static void pje_parse(const char *path, struct pje_config *config)
 			config->ex_input = string_path_join(pje_dir, pje_string_ptr(&ini[i])->text);
 		} else if (!strcmp(ini[i].name->text, "ExName")) {
 			config->ex_name = pje_string(&ini[i]);
+		} else if (!strcmp(ini[i].name->text, "ExModName")) {
+			config->ex_mod_name = pje_string(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "Archives")) {
 			pje_string_list(&ini[i], &config->archives);
 		} else if (!strcmp(ini[i].name->text, "CodeVersion")) {
@@ -293,6 +297,8 @@ static void pje_read_source(struct build_job *job, struct string *dir, struct st
 			string_list_append(&job->headers, string_path_join(dir, source->items[i]->text));
 			string_list_append(&job->headers, string_dup(source->items[i+1]));
 			i++;
+		} else if (!strcmp(ext, "txtex") || !strcmp(ext, "x")) {
+			string_list_append(&job->ex_source, string_path_join(dir, source->items[i]->text));
 		} else {
 			ERROR("Unhandled file extension in source list: '%s'", ext);
 		}
@@ -321,6 +327,8 @@ static void pje_free(struct pje_config *config)
 		free_string(config->ex_input);
 	if (config->ex_name)
 		free_string(config->ex_name);
+	if (config->ex_mod_name)
+		free_string(config->ex_mod_name);
 	free_string_list(&config->system_source);
 	free_string_list(&config->source);
 	free_string_list(&config->mod_jam);
@@ -332,24 +340,18 @@ static void build_job_free(struct build_job *job)
 	free_string_list(&job->system_source);
 	free_string_list(&job->source);
 	free_string_list(&job->headers);
+	free_string_list(&job->ex_source);
 }
 
-static void pje_build_ain(struct pje_config *config)
+static void pje_build_ain(struct pje_config *config, struct build_job *job)
 {
-	struct build_job job = {0};
-
 	struct string *output_file = string_path_join(config->output_dir, config->code_name->text);
 	NOTICE("AIN    %s", output_file->text);
 
-	// collect source file names
-	pje_read_source(&job, config->source_dir, &config->system_source, true);
-	pje_read_source(&job, config->source_dir, &config->source, false);
-
-	// TODO: parse hll files
-	unsigned nr_header_files = job.headers.n;
+	unsigned nr_header_files = job->headers.n;
 	const char **header_files = xcalloc(nr_header_files, sizeof(const char*));
-	for (unsigned i = 0; i < job.headers.n; i++) {
-		header_files[i] = job.headers.items[i]->text;
+	for (unsigned i = 0; i < job->headers.n; i++) {
+		header_files[i] = job->headers.items[i]->text;
 	}
 
 	// consolidate files into list
@@ -359,13 +361,13 @@ static void pje_build_ain(struct pje_config *config)
 	//       SystemSource files included from the top-level Source list be compiled
 	//       before Source files included from the top-level SystemSource list?
 	//       This needs to be confirmed before implementing global constructors.
-	unsigned nr_source_files = job.system_source.n + job.source.n;
+	unsigned nr_source_files = job->system_source.n + job->source.n;
 	const char **source_files = xcalloc(nr_source_files, sizeof(const char*));
-	for (unsigned i = 0; i < job.system_source.n; i++) {
-		source_files[i] = job.system_source.items[i]->text;
+	for (unsigned i = 0; i < job->system_source.n; i++) {
+		source_files[i] = job->system_source.items[i]->text;
 	}
-	for (unsigned i = 0; i < job.source.n; i++) {
-		source_files[job.system_source.n + i] = job.source.items[i]->text;
+	for (unsigned i = 0; i < job->source.n; i++) {
+		source_files[job->system_source.n + i] = job->source.items[i]->text;
 	}
 
 	// open/create ain object
@@ -405,29 +407,125 @@ static void pje_build_ain(struct pje_config *config)
 	free_string(output_file);
 	free(source_files);
 	free(header_files);
-	build_job_free(&job);
 	ain_free(ain);
 }
 
-static void pje_build_ex(struct pje_config *config)
+static bool is_ex_file(const char *name)
 {
-	if (!config->ex_input && !config->ex_name)
+	char head[4];
+	FILE *fp = checked_fopen(name, "rb");
+	checked_fread(head, 4, fp);
+	fclose(fp);
+
+	return head[0] == 'H' && head[1] == 'E' && head[2] == 'A' && head[3] == 'D';
+}
+
+static struct ex *read_input_ex(struct string *ex_input)
+{
+	if (!ex_input)
+		return NULL;
+
+	struct ex *ex;
+	if (is_ex_file(ex_input->text)) {
+		NOTICE("EX     (input) %s", ex_input->text);
+		if (!(ex = ex_read_file(ex_input->text)))
+			ALICE_ERROR("Failed to read .ex file: '%s'", ex_input->text);
+	} else {
+		NOTICE("TXTEX  %s", ex_input->text);
+		if (!(ex = ex_parse_file(ex_input->text)))
+			ALICE_ERROR("Failed to parse .txtex file: '%s'", ex_input->text);
+	}
+	return ex;
+}
+
+static struct ex *read_source_ex(struct build_job *job)
+{
+	struct ex *source_ex = NULL;
+	for (unsigned i = 0; i < job->ex_source.n; i++) {
+		NOTICE("TXTEX  %s", job->ex_source.items[i]->text);
+		struct ex *this_ex = ex_parse_file(job->ex_source.items[i]->text);
+		if (!source_ex) {
+			source_ex = this_ex;
+		} else {
+			ex_append(source_ex, this_ex);
+			ex_free(this_ex);
+		}
+	}
+	return source_ex;
+}
+
+/*
+ * ExInput   - either a .ex or .txtex file
+ * ExName    - name of the main .ex file
+ * ExModName - name of the mod .ex file
+ *
+ * .txtex files in the source directory are either appended to ExInput, or (if
+ * ExModName is given) written to a separate .ex file.
+ *
+ * If .txtex files are present in the source directory, either ExName or
+ * ExModName must be given.
+ *
+ * If ExModName is given, ExInput must also be given, and there must be .txtex
+ * files present in the source directory.
+ */
+static void pje_build_ex(struct pje_config *config, struct build_job *job)
+{
+	if (!config->ex_name && !config->ex_mod_name) {
+		if (job->ex_source.n > 0)
+			ALICE_ERROR("'%s': Ex source files found but ExName/ExModName not given", config->pje_path);
 		return;
-	if (!config->ex_input)
-		ALICE_ERROR("'%s': ExName present but no ExInput given", config->pje_path);
-	if (!config->ex_name)
-		ALICE_ERROR("'%s': ExInput present but no ExName given", config->pje_path);
+	}
+	if (config->ex_mod_name && job->ex_source.n == 0)
+		ALICE_ERROR("'%s': ExModName present but no .txtex files found in source directory", config->pje_path);
 
-	NOTICE("EX     %s", config->ex_input->text);
-	struct ex *ex = ex_parse_file(config->ex_input->text);
-	if (!ex)
-		ALICE_ERROR("Failed to parse .txtex file: '%s'", config->ex_name->text);
+	// Read ExInput file; this can be either a .txtex file or a .ex file
+	struct ex *ex = read_input_ex(config->ex_input);
+	// Read txtex files from source directory
+	struct ex *source_ex = read_source_ex(job);
 
-	struct string *out = string_path_join(config->output_dir, config->ex_name->text);
-	ex_write_file(out->text, ex);
+	// If ExModName is given, txtex data is written to a separate .ex file;
+	// otherwise the data is appended to the ExInput file.
+	if (config->ex_mod_name) {
+		// source files are for a mod .ex file
+		if (ex && source_ex) {
+			struct ex *tmp = ex_extract_append(ex, source_ex);
+			ex_free(source_ex);
+			source_ex = tmp;
+		}
+	} else {
+		// source files are for the main .ex file
+		if (ex && source_ex) {
+			// appending to existing .ex file
+			ex_append(ex, source_ex);
+			ex_free(source_ex);
+			source_ex = NULL;
+		} else if (source_ex) {
+			// creating new .ex file from sources
+			ex = source_ex;
+			source_ex = NULL;
+		}
+	}
 
-	free_string(out);
-	ex_free(ex);
+	// Write the ExInput file to output directory
+	if (ex && config->ex_name) {
+		NOTICE("EX     %s", config->ex_name->text);
+		struct string *out = string_path_join(config->output_dir, config->ex_name->text);
+		ex_write_file(out->text, ex);
+		free_string(out);
+	}
+
+	// Write the mod .ex file to output directory
+	if (source_ex && config->ex_mod_name) {
+		NOTICE("EX     %s", config->ex_mod_name->text);
+		struct string *mod_out = string_path_join(config->output_dir, config->ex_mod_name->text);
+		ex_write_file(mod_out->text, source_ex);
+		free_string(mod_out);
+	}
+
+	if (ex)
+		ex_free(ex);
+	if (source_ex)
+		ex_free(source_ex);
 }
 
 static void pje_build_archives(struct pje_config *config)
@@ -449,8 +547,13 @@ void pje_build(const char *path)
 		ALICE_ERROR("Creating output directory '%s': %s", config.output_dir->text, strerror(errno));
 	}
 
-	pje_build_ain(&config);
-	pje_build_ex(&config);
+	struct build_job job = {0};
+	pje_read_source(&job, config.source_dir, &config.system_source, true);
+	pje_read_source(&job, config.source_dir, &config.source, false);
+
+	pje_build_ain(&config, &job);
+	pje_build_ex(&config, &job);
 	pje_build_archives(&config);
+	build_job_free(&job);
 	pje_free(&config);
 }
