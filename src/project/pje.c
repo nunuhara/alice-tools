@@ -93,6 +93,7 @@ struct build_job {
 	struct string_list source;
 	struct string_list headers;
 	struct string_list ex_source;
+	struct string_list jam_source;
 	struct batchpack_list cg;
 	struct batchpack_list sound;
 	struct batchpack_list flat;
@@ -363,6 +364,8 @@ static void pje_read_source_file(struct build_job *job, struct string *dir, stru
 		pje_read_inc(job, dir, file);
 	} else if (!strcmp(ext, "jaf")) {
 		string_list_append(system ? &job->system_source : &job->source, string_path_join(dir, file->text));
+	} else if (!strcmp(ext, "jam")) {
+		string_list_append(&job->jam_source, string_path_join(dir, file->text));
 	} else if (!strcmp(ext, "txtex") || !strcmp(ext, "x")) {
 		string_list_append(&job->ex_source, string_path_join(dir, file->text));
 	} else {
@@ -472,6 +475,7 @@ static void build_job_free(struct build_job *job)
 	free_string_list(&job->source);
 	free_string_list(&job->headers);
 	free_string_list(&job->ex_source);
+	free_string_list(&job->jam_source);
 	free_batchpack_list(&job->cg);
 	free_batchpack_list(&job->sound);
 	free_batchpack_list(&job->flat);
@@ -529,10 +533,16 @@ static void pje_build_ain(struct pje_config *config, struct build_job *job)
 	jaf_build(ain, source_files, nr_source_files, header_files, nr_header_files);
 
 	// build .jam files
+	// XXX: DEPRECATED
 	for (unsigned i = 0; i < config->mod_jam.n; i++) {
 		struct string *mod_jam = string_path_join(config->source_dir, config->mod_jam.items[i]->text);
 		asm_append_jam(mod_jam->text, ain, 0);
 		free_string(mod_jam);
+	}
+
+	// build .jam files
+	for (unsigned i = 0; i < job->jam_source.n; i++) {
+		asm_append_jam(job->jam_source.items[i]->text, ain, 0);
 	}
 
 	// write to disk
