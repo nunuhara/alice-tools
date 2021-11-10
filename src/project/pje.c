@@ -357,6 +357,61 @@ static void pje_read_inc(struct build_job *job, struct string *dir, struct strin
 	free_string(file_dir);
 }
 
+/*
+ * NOTE: This is a hack to allow specifying instructions for what to do with a
+ *       file along with the file name. If the filename begins with the '!'
+ *       character, then every character up to the final '!' character in the
+ *       path gets placed before 'dir'. E.g.
+ *
+ *           source_path_join("src/hooks", "!inject!fun!0xABC123!code.jam")
+ *           -> "!inject!fun!0xABC123!src/hooks/code.jam"
+ *
+ *       These instructions can then be interpreted once the file is read.
+ */
+struct string *source_path_join(struct string *dir, const char *path)
+{
+	if (path[0] != '!')
+		return string_path_join(dir, path);
+
+	char *p = strrchr(path, '!') + 1;
+	struct string *join_path = string_path_join(dir, p);
+	struct string *prefix = make_string(path, p - path);
+	string_append(&prefix, join_path);
+	free_string(join_path);
+	return prefix;
+}
+
+static char **source_path_decompose(char *path, int *n)
+{
+	if (path[0] != '!') {
+		char **r = xmalloc(sizeof(char*));
+		*r = path+1;
+		*n = 1;
+		return r;
+	}
+	path++;
+
+	int count = 0;
+	for (const char *p = path; *p; p++) {
+		if (*p == '!')
+			count++;
+	}
+
+	int i = 0;
+	char **r = xcalloc(count+1, sizeof(char*));
+	for (char *p = path; *p; p++) {
+		if (*p == '!') {
+			*p = '\0';
+			r[i++] = path;
+			path = p+1;
+		}
+	}
+	r[i] = path;
+
+	*n = count + 1;
+	return r;
+}
+
 static void pje_read_source_file(struct build_job *job, struct string *dir, struct string *file, bool system)
 {
 	const char *ext = extname(file->text);
@@ -365,7 +420,7 @@ static void pje_read_source_file(struct build_job *job, struct string *dir, stru
 	} else if (!strcmp(ext, "jaf")) {
 		string_list_append(system ? &job->system_source : &job->source, string_path_join(dir, file->text));
 	} else if (!strcmp(ext, "jam")) {
-		string_list_append(&job->jam_source, string_path_join(dir, file->text));
+		string_list_append(&job->jam_source, source_path_join(dir, file->text));
 	} else if (!strcmp(ext, "txtex") || !strcmp(ext, "x")) {
 		string_list_append(&job->ex_source, string_path_join(dir, file->text));
 	} else {
@@ -542,7 +597,28 @@ static void pje_build_ain(struct pje_config *config, struct build_job *job)
 
 	// build .jam files
 	for (unsigned i = 0; i < job->jam_source.n; i++) {
-		asm_append_jam(job->jam_source.items[i]->text, ain, 0);
+		int n;
+		char *tmp = strdup(job->jam_source.items[i]->text);
+		char **strings = source_path_decompose(tmp, &n);
+		if (n == 1) {
+			asm_append_jam(job->jam_source.items[i]->text, ain, 0);
+		} else {
+			if (!strcmp(strings[0], "inject")) {
+				if (n != 4)
+					ALICE_ERROR("Invalid .jam injection spec: %s", job->jam_source.items[i]->text);
+				char *endptr;
+				long off = strtol(strings[2], &endptr, 0);
+				if (errno || *endptr != '\0')
+					ALICE_ERROR("Invalid .jam injection spec: %s", job->jam_source.items[i]->text);
+				char *fun = conv_output(strings[1]);
+				asm_inject_jam(strings[3], ain, fun, off, 0);
+				free(fun);
+			} else {
+				ALICE_ERROR("Invalid .jam file path: %s", job->jam_source.items[i]->text);
+			}
+		}
+		free(strings);
+		free(tmp);
 	}
 
 	// write to disk

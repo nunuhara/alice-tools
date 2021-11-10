@@ -45,6 +45,7 @@ typedef struct {
 
 void dasm_init(struct dasm_state *dasm, FILE *out, struct ain *ain, uint32_t flags);
 void dasm_next(struct dasm_state *dasm);
+void dasm_jump(struct dasm_state *dasm, uint32_t addr);
 enum opcode dasm_peek(struct dasm_state *dasm);
 bool dasm_eof(struct dasm_state *dasm);
 void dasm_reset(struct dasm_state *dasm);

@@ -27,6 +27,7 @@
 #include "system4/instructions.h"
 #include "system4/string.h"
 #include "alice.h"
+#include "dasm.h"
 
 extern FILE *asm_in;
 extern unsigned long asm_line;
@@ -945,7 +946,7 @@ static void validate_ain(struct ain *ain)
 	}
 }
 
-static void asm_enter_function(struct asm_state *state, int32_t fno)
+static void _asm_enter_function(struct asm_state *state, int32_t fno)
 {
 	if (fno < 0 || fno >= state->ain->nr_functions)
 		ASM_ERROR(state, "Invalid function number: %d", fno);
@@ -955,7 +956,11 @@ static void asm_enter_function(struct asm_state *state, int32_t fno)
 	}
 	state->func_stack[0] = state->func;
 	state->func = fno;
+}
 
+static void asm_enter_function(struct asm_state *state, int32_t fno)
+{
+	_asm_enter_function(state, fno);
 	state->ain->functions[fno].address = state->buf_ptr + 6;
 	asm_write_opcode(state, FUNC);
 	asm_write_argument(state, fno);
@@ -987,11 +992,63 @@ static parse_instruction_list *jam_parse(const char *filename, uint32_t instr_pt
 	return parsed_code;
 }
 
-static void jam_assemble(struct asm_state *state, const char *filename)
-{
-	parse_instruction_list *code = jam_parse(filename, state->buf_ptr);
+static void jam_assemble(struct asm_state *state, const char *filename);
 
-	for (size_t i = 0; i < kv_size(*code); i++) {
+static void jam_inject(struct asm_state *state, const char *filename, int fno, unsigned offset)
+{
+	assert(fno >= 0 && fno < state->ain->nr_functions);
+	struct ain_function *f = &state->ain->functions[fno];
+	struct dasm_state dasm;
+	dasm_init(&dasm, NULL, state->ain, 0);
+
+	unsigned inject_addr = f->address + offset;
+
+	// write function up to offset (fixing label offsets)
+	asm_write_instruction1(state, FUNC, fno);
+	unsigned new_func_addr = state->buf_ptr;
+	unsigned label_offset = new_func_addr - f->address;
+	for (dasm_jump(&dasm, f->address); dasm.addr < inject_addr && !dasm_eof(&dasm); dasm_next(&dasm)) {
+		asm_write_opcode(state, dasm.instr->opcode);
+		for (int i = 0; i < dasm.instr->nr_args; i++) {
+			if (dasm.instr->args[i] == T_ADDR) {
+				unsigned addr = dasm_arg(&dasm, i);
+				asm_write_argument(state, addr + label_offset);
+			} else {
+				asm_write_argument(state, dasm_arg(&dasm, i));
+			}
+		}
+	}
+	if (dasm.addr != inject_addr)
+		ALICE_ERROR("Invalid injection offset: %u", offset);
+
+	// inject code
+	inject_addr = state->buf_ptr;
+	_asm_enter_function(state, fno);
+	jam_assemble(state, filename);
+	asm_leave_function(state);
+	label_offset += state->buf_ptr - inject_addr;
+
+	// write remainder of function (fixing label offsets)
+	for (; !dasm_eof(&dasm); dasm_next(&dasm)) {
+		asm_write_opcode(state, dasm.instr->opcode);
+		for (int i = 0; i < dasm.instr->nr_args; i++) {
+			if (dasm.instr->args[i] == T_ADDR) {
+				unsigned addr = dasm_arg(&dasm, i);
+				asm_write_argument(state, addr + label_offset);
+			} else {
+				asm_write_argument(state, dasm_arg(&dasm, i));
+			}
+		}
+		if (dasm.instr->opcode == ENDFUNC)
+			break;
+	}
+
+	f->address = new_func_addr;
+}
+
+static void _jam_assemble(struct asm_state *state, parse_instruction_list *code, size_t i)
+{
+		for (; i < kv_size(*code); i++) {
 		struct parse_instruction *instr = kv_A(*code, i);
 		if (instr->opcode >= PSEUDO_OP_OFFSET) {
 			handle_pseudo_op(state, instr);
@@ -1013,6 +1070,12 @@ static void jam_assemble(struct asm_state *state, const char *filename)
 			asm_write_argument(state, asm_resolve_arg(state, idef->opcode, idef->args[a], kv_A(*instr->args, a)->text));
 		}
 	}
+}
+
+static void jam_assemble(struct asm_state *state, const char *filename)
+{
+	parse_instruction_list *code = jam_parse(filename, state->buf_ptr);
+	_jam_assemble(state, code, 0);
 
 	for (size_t i = 0; i < kv_size(*code); i++) {
 		struct parse_instruction *instr = kv_A(*code, i);
@@ -1067,6 +1130,28 @@ void asm_append_jam(const char *filename, struct ain *ain, int32_t flags)
 	state.buf_ptr = ain->code_size;
 	jam_assemble(&state, filename);
 
+	ain->code = state.buf;
+	ain->code_size = state.buf_ptr;
+
+	validate_ain(ain);
+}
+
+/*
+ * Assemble a .jam file and inject the code into an existing function.
+ */
+void asm_inject_jam(const char *filename, struct ain *ain, char *function, unsigned offset, int32_t flags)
+{
+	struct asm_state state;
+	init_asm_state(&state, ain, flags);
+	state.buf = xmalloc(ain->code_size);
+	memcpy(state.buf, ain->code, ain->code_size);
+	state.buf_len = ain->code_size;
+	state.buf_ptr = ain->code_size;
+
+	int fno = ain_get_function(ain, function);
+	jam_inject(&state, filename, fno, offset);
+
+	free(ain->code);
 	ain->code = state.buf;
 	ain->code_size = state.buf_ptr;
 

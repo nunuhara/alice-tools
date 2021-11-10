@@ -90,6 +90,7 @@ int asm_parse(void);
 // asm.c
 void asm_assemble_jam(const char *filename, struct ain *ain, uint32_t flags);
 void asm_append_jam(const char *filename, struct ain *ain, int32_t flags);
+void asm_inject_jam(const char *filename, struct ain *ain, char *function, unsigned offset, int32_t flags);
 const struct instruction *asm_get_instruction(const char *name);
 const_pure int32_t asm_instruction_width(int opcode);
 
