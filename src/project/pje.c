@@ -607,6 +607,7 @@ static void pje_build_ain(struct pje_config *config, struct build_job *job)
 				if (n != 4)
 					ALICE_ERROR("Invalid .jam injection spec: %s", job->jam_source.items[i]->text);
 				char *endptr;
+				errno = 0;
 				long off = strtol(strings[2], &endptr, 0);
 				if (errno || *endptr != '\0')
 					ALICE_ERROR("Invalid .jam injection spec: %s", job->jam_source.items[i]->text);
