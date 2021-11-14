@@ -102,6 +102,16 @@ nunuhara@haniwa.technology, or find me on /haniho/.
 Version History
 ---------------
 
+### [Version 0.11.0](https://haniwa.technology/alice-tools/alice-tools-0.11.0.zip)
+
+* Add `--function` option to `ain dump` for dumping a specific function only
+* Add `ex edit` command for making incremental edits to .ex files
+* Allow listing .txtex files as part of .pje build process
+* Allow specifying archive source directories in .inc files
+* Allow (limited) directory wildcard patterns in .inc files
+* Allow specifying .jam source files in .inc files
+* Implement bytecode injection feature for .pje builds
+
 ### [Version 0.10.2](https://haniwa.technology/alice-tools/alice-tools-0.10.2.zip)
 
 * Fix encoding issue when using quoted strings in manifest files
