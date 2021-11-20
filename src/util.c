@@ -26,10 +26,10 @@
 #include "system4/string.h"
 #include "alice.h"
 
-static char *_escape_string(const char *str, const char *escape_chars, const char *replace_chars)
+static char *_escape_string(const char *str, const char *escape_chars, const char *replace_chars, bool need_conv)
 {
 	int escapes = 0;
-	char *u = conv_output(str);
+	char *u = need_conv ? conv_output(str) : strdup(str);
 
 	// count number of required escapes
 	for (int i = 0; u[i]; i++) {
@@ -73,7 +73,14 @@ char *escape_string(const char *str)
 {
 	const char escape_chars[]  = { '\\', '\"', '\n', '\r', 0 };
 	const char replace_chars[] = { '\\', '\"', 'n',  'r',  0 };
-	return _escape_string(str, escape_chars, replace_chars);
+	return _escape_string(str, escape_chars, replace_chars, true);
+}
+
+char *escape_string_noconv(const char *str)
+{
+	const char escape_chars[]  = { '\\', '\"', '\n', '\r', 0 };
+	const char replace_chars[] = { '\\', '\"', 'n',  'r',  0 };
+	return _escape_string(str, escape_chars, replace_chars, false);
 }
 
 FILE *checked_fopen(const char *filename, const char *mode)

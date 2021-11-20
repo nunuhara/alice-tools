@@ -87,7 +87,7 @@ static void write_section(const char *path, struct flat_archive *flat, struct fl
 static void flat_extract(struct flat_archive *flat, const char *output_file)
 {
 	FILE *out = checked_fopen(output_file, "wb");
-	char *prefix = escape_string(output_file);
+	char *prefix = escape_string_noconv(output_file);
 	char path_buf[PATH_MAX];
 
 	// ELNA section

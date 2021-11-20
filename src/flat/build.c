@@ -227,6 +227,7 @@ static struct flat_archive *build_flat(struct ex *ex, const struct string *dir)
 
 	flat->data_size = b.index;
 	flat->data = b.buf;
+	flat->needs_free = true;
 	return flat;
 }
 
