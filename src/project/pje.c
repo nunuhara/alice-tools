@@ -58,7 +58,7 @@ struct pje_config {
 	struct string_list system_source;
 	struct string_list source;
 	// alice-tools extensions
-	struct string *mod_ain;
+	struct string *ain_input;
 	struct string *mod_text;
 	struct string_list mod_jam;
 	struct string *ex_input;
@@ -70,6 +70,8 @@ struct pje_config {
 	struct string *flat_name;
 	struct string *pact_input;
 	struct string *pact_name;
+	int ain_input_size;
+	int pact_input_size;
 	int major_version;
 	int minor_version;
 };
@@ -217,8 +219,10 @@ static void pje_parse(const char *path, struct pje_config *config)
 			WARNING("SyncFolder not supported");
 		} else if (!strcmp(ini[i].name->text, "SyncLock")) {
 			WARNING("SyncLock not supported");
-		} else if (!strcmp(ini[i].name->text, "ModAin")) {
-			config->mod_ain = pje_string(&ini[i]);
+		} else if (!strcmp(ini[i].name->text, "AinInput") || !strcmp(ini[i].name->text, "ModAin")) {
+			config->ain_input = string_path_join(pje_dir, pje_string_ptr(&ini[i])->text);
+		} else if (!strcmp(ini[i].name->text, "AinInputSize")) {
+			config->ain_input_size = pje_integer(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "ModText")) {
 			config->mod_text = pje_string(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "ModJam")) {
@@ -231,6 +235,8 @@ static void pje_parse(const char *path, struct pje_config *config)
 			config->ex_mod_name = pje_string(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "PactInput")) {
 			config->pact_input = string_path_join(pje_dir, pje_string_ptr(&ini[i])->text);
+		} else if (!strcmp(ini[i].name->text, "PactInputSize")) {
+			config->pact_input_size = pje_integer(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "PactName")) {
 			config->pact_name = pje_string(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "Archives")) {
@@ -520,8 +526,8 @@ static void pje_free(struct pje_config *config)
 		free_string(config->obj_dir);
 	if (config->output_dir)
 		free_string(config->output_dir);
-	if (config->mod_ain)
-		free_string(config->mod_ain);
+	if (config->ain_input)
+		free_string(config->ain_input);
 	if (config->ex_input)
 		free_string(config->ex_input);
 	if (config->ex_name)
@@ -559,6 +565,14 @@ static void build_job_free(struct build_job *job)
 
 static void pje_build_ain(struct pje_config *config, struct build_job *job)
 {
+	if (config->ain_input && config->ain_input_size) {
+		int size = file_size(config->ain_input->text);
+		if (size != config->ain_input_size) {
+			ALICE_ERROR("Size of AinInput file '%s' doesn't match expected size (expected %d; got %d)",
+				    config->ain_input->text, config->ain_input_size, size);
+		}
+	}
+
 	struct string *output_file = string_path_join(config->output_dir, config->code_name->text);
 	NOTICE("AIN    %s", output_file->text);
 
@@ -586,14 +600,12 @@ static void pje_build_ain(struct pje_config *config, struct build_job *job)
 
 	// open/create ain object
 	struct ain *ain;
-	if (config->mod_ain) {
+	if (config->ain_input) {
 		int err;
-		struct string *mod_ain = string_path_join(config->pje_dir, config->mod_ain->text);
-		if (!(ain = ain_open(mod_ain->text, &err))) {
+		if (!(ain = ain_open(config->ain_input->text, &err))) {
 			ALICE_ERROR("Failed to open ain file: %s", ain_strerror);
 		}
 		ain_init_member_functions(ain, conv_output_utf8);
-		free_string(mod_ain);
 	} else {
 		ain = ain_new(config->major_version, config->minor_version);
 	}
@@ -717,8 +729,9 @@ static void pje_build_ex(struct pje_config *config, struct build_job *job)
 			ALICE_ERROR("'%s': Ex source files found but ExName/ExModName not given", config->pje_path);
 		return;
 	}
-	if (config->ex_mod_name && job->ex_source.n == 0)
+	if (config->ex_mod_name && job->ex_source.n == 0) {
 		ALICE_ERROR("'%s': ExModName present but no .txtex files found in source directory", config->pje_path);
+	}
 
 	// Read ExInput file; this can be either a .txtex file or a .ex file
 	struct ex *ex = read_input_ex(config->ex_input);
@@ -778,6 +791,13 @@ static void pje_build_pact(struct pje_config *config, struct build_job *job)
 		ALICE_ERROR("'%s': Pact source files found but PactInput was not given", config->pje_path);
 	if (!config->pact_name)
 		ALICE_ERROR("'%s': Pact source files found but PactName was not given", config->pje_path);
+
+	if (config->pact_input_size) {
+		int size = file_size(config->pact_input->text);
+		if (size != config->pact_input_size)
+			ALICE_ERROR("Size of PactInput file '%s' doesn't match expected size (expected %d; got %d)",
+				    config->pact_input->text, config->pact_input_size, (int)size);
+	}
 
 	// open input pact .afa
 	int error;
