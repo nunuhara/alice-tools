@@ -21,6 +21,7 @@
 #include <libgen.h>
 #include <sys/stat.h>
 #include "system4.h"
+#include "system4/afa.h"
 #include "system4/ain.h"
 #include "system4/ex.h"
 #include "system4/file.h"
@@ -67,6 +68,8 @@ struct pje_config {
 	struct string *cg_name;
 	struct string *sound_name;
 	struct string *flat_name;
+	struct string *pact_input;
+	struct string *pact_name;
 	int major_version;
 	int minor_version;
 };
@@ -81,6 +84,7 @@ struct inc_config {
 	struct string_list cg;
 	struct string_list sound;
 	struct string_list flat;
+	struct string *pact;
 };
 
 struct batchpack_list {
@@ -97,6 +101,7 @@ struct build_job {
 	struct batchpack_list cg;
 	struct batchpack_list sound;
 	struct batchpack_list flat;
+	struct string_list pact;
 };
 
 static void string_list_append(struct string_list *list, struct string *str)
@@ -224,6 +229,10 @@ static void pje_parse(const char *path, struct pje_config *config)
 			config->ex_name = pje_string(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "ExModName")) {
 			config->ex_mod_name = pje_string(&ini[i]);
+		} else if (!strcmp(ini[i].name->text, "PactInput")) {
+			config->pact_input = string_path_join(pje_dir, pje_string_ptr(&ini[i])->text);
+		} else if (!strcmp(ini[i].name->text, "PactName")) {
+			config->pact_name = pje_string(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "Archives")) {
 			pje_string_list(&ini[i], &config->archives);
 		} else if (!strcmp(ini[i].name->text, "CgName")) {
@@ -285,6 +294,8 @@ static void pje_parse_inc(const char *path, struct inc_config *config)
 			pje_string_list(&ini[i], &config->copy_to_dp);
 		} else if (!strcmp(ini[i].name->text, "LoadDLL")) {
 			pje_string_list(&ini[i], &config->load_dll);
+		} else if (!strcmp(ini[i].name->text, "Pact")) {
+			config->pact = pje_string(&ini[i]);
 		} else if (!strcmp(ini[i].name->text, "CG")) {
 			pje_string_list(&ini[i], &config->cg);
 		} else if (!strcmp(ini[i].name->text, "Sound")) {
@@ -310,6 +321,8 @@ static void pje_free_inc(struct inc_config *config)
 	free_string_list(&config->cg);
 	free_string_list(&config->sound);
 	free_string_list(&config->flat);
+	if (config->pact)
+		free_string(config->pact);
 }
 
 static const char *extname(const char *s)
@@ -347,6 +360,9 @@ static void pje_read_inc(struct build_job *job, struct string *dir, struct strin
 
 	pje_read_source(job, file_dir, &config.system_source, true);
 	pje_read_source(job, file_dir, &config.source, false);
+
+	if (config.pact)
+		string_list_append(&job->pact, string_path_join(file_dir, config.pact->text));
 
 	pje_read_archive(&job->cg, &config.cg, file_dir);
 	pje_read_archive(&job->sound, &config.sound, file_dir);
@@ -512,6 +528,10 @@ static void pje_free(struct pje_config *config)
 		free_string(config->ex_name);
 	if (config->ex_mod_name)
 		free_string(config->ex_mod_name);
+	if (config->pact_input)
+		free_string(config->pact_input);
+	if (config->pact_name)
+		free_string(config->pact_name);
 	if (config->cg_name)
 		free_string(config->cg_name);
 	if (config->sound_name)
@@ -531,6 +551,7 @@ static void build_job_free(struct build_job *job)
 	free_string_list(&job->headers);
 	free_string_list(&job->ex_source);
 	free_string_list(&job->jam_source);
+	free_string_list(&job->pact);
 	free_batchpack_list(&job->cg);
 	free_batchpack_list(&job->sound);
 	free_batchpack_list(&job->flat);
@@ -749,6 +770,92 @@ static void pje_build_ex(struct pje_config *config, struct build_job *job)
 		ex_free(source_ex);
 }
 
+static void pje_build_pact(struct pje_config *config, struct build_job *job)
+{
+	if (!job->pact.n)
+		return;
+	if (!config->pact_input)
+		ALICE_ERROR("'%s': Pact source files found but PactInput was not given", config->pje_path);
+	if (!config->pact_name)
+		ALICE_ERROR("'%s': Pact source files found but PactName was not given", config->pje_path);
+
+	// open input pact .afa
+	int error;
+	struct afa_archive *ar = afa_open(config->pact_input->text, ARCHIVE_MMAP, &error);
+	if (!ar)
+		ALICE_ERROR("Error opening archive file '%s': %s", config->pact_name->text, archive_strerror(error));
+
+	// copy input .pactex files
+	ar_file_list dst_files;
+	kv_init(dst_files);
+	ar_to_file_list(&ar->ar, &dst_files);
+
+	// close input pact .afa
+	archive_free(&ar->ar);
+
+	// get list of .txtex source files
+	ar_file_list src_files;
+	kv_init(src_files);
+	for (unsigned i = 0; i < job->pact.n; i++) {
+		ar_dir_to_file_list(job->pact.items[i], &src_files, AR_FT_TXTEX);
+	}
+
+	// for each .txtex source file
+	for (unsigned i = 0; i < src_files.n; i++) {
+		// pack .txtex to .ex
+		assert(src_files.a[i]->type == AR_FILE_SPEC_DISK);
+		NOTICE("TXTEX  %s", src_files.a[i]->disk.path->text);
+		struct ex *src_ex = ex_parse_file(src_files.a[i]->disk.path->text);
+
+		// search for matching file in dst_files
+		struct string *dst_name = replace_extension(src_files.a[i]->name->text, "pactex");
+		struct ar_file_spec *dst = NULL;
+		for (unsigned j = 0; j < dst_files.n; j++) {
+			if (strcmp(dst_name->text, dst_files.a[j]->name->text))
+				continue;
+			dst = dst_files.a[j];
+			break;
+		}
+		// if matching file was found, append .ex data to it
+		if (dst) {
+			assert(dst->type == AR_FILE_SPEC_MEM);
+			// append src file to dst file
+			struct ex *dst_ex = ex_read(dst->mem.data, dst->mem.size);
+			ex_append(dst_ex, src_ex);
+			// update dst file in file list
+			free(dst->mem.data);
+			dst->mem.data = ex_write_mem(dst_ex, &dst->mem.size);
+			ex_free(dst_ex);
+		}
+		// if no matching file was found, add new file to list
+		else {
+			WARNING("!!!");
+			struct ar_file_spec *spec = xmalloc(sizeof(struct ar_file_spec));
+			spec->type = AR_FILE_SPEC_MEM;
+			spec->name = string_ref(dst_name);
+			spec->mem.data = ex_write_mem(src_ex, &spec->mem.size);
+			kv_push(struct ar_file_spec*, dst_files, spec);
+		}
+
+		free_string(dst_name);
+		ex_free(src_ex);
+	}
+
+	// sort file list before writing archive
+	ar_file_list_sort(&dst_files);
+
+	// write dst_files to new .afa
+	struct string *out = string_path_join(config->output_dir, config->pact_name->text);
+	NOTICE("AFA    %s", out->text);
+	write_afa(out, dst_files.a, dst_files.n, 2);
+
+	free_string(out);
+	ar_file_list_free(&dst_files);
+	ar_file_list_free(&src_files);
+	kv_destroy(dst_files);
+	kv_destroy(src_files);
+}
+
 static struct ar_manifest *pje_make_manifest(struct string *out, struct batchpack_list *list)
 {
 	struct ar_manifest *ar = xcalloc(1, sizeof(struct ar_manifest));
@@ -815,6 +922,7 @@ void pje_build(const char *path)
 
 	pje_build_ain(&config, &job);
 	pje_build_ex(&config, &job);
+	pje_build_pact(&config, &job);
 	pje_build_archives(&config, &job);
 	build_job_free(&job);
 	pje_free(&config);

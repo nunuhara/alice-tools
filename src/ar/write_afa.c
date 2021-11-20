@@ -47,9 +47,13 @@ void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_f
 	off_t *sizes = xcalloc(nr_files, sizeof(off_t));
 	size_t data_size = 0;
 	for (size_t i = 0; i < nr_files; i++) {
-		sizes[i] = file_size(files[i]->path->text);
+		if (files[i]->type == AR_FILE_SPEC_DISK) {
+			sizes[i] = file_size(files[i]->disk.path->text);
+		} else if (files[i]->type == AR_FILE_SPEC_MEM) {
+			sizes[i] = files[i]->mem.size;
+		}
 		if (sizes[i] <= 0) {
-			ALICE_ERROR("can't determine size of file: %s", files[i]->path->text);
+			ALICE_ERROR("can't determine size of file: %s", files[i]->name->text);
 		}
 		data_size += align8(sizes[i]);
 	}
@@ -122,12 +126,16 @@ void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_f
 	buffer_write_int32(&buf, data_size+8);
 	checked_fwrite(buf.buf, buf.index, f);
 	for (size_t i = 0; i < nr_files; i++) {
-		FILE *in = checked_fopen(files[i]->path->text, "rb");
-		uint8_t *tmp = xmalloc(sizes[i]);
-		checked_fread(tmp, sizes[i], in);
-		checked_fwrite(tmp, sizes[i], f);
-		free(tmp);
-		fclose(in);
+		if (files[i]->type == AR_FILE_SPEC_DISK) {
+			FILE *in = checked_fopen(files[i]->disk.path->text, "rb");
+			uint8_t *tmp = xmalloc(sizes[i]);
+			checked_fread(tmp, sizes[i], in);
+			checked_fwrite(tmp, sizes[i], f);
+			free(tmp);
+			fclose(in);
+		} else if (files[i]->type == AR_FILE_SPEC_MEM) {
+			checked_fwrite(files[i]->mem.data, sizes[i], f);
+		}
 
 		int pad = align8(sizes[i]) - sizes[i];
 		if (pad)

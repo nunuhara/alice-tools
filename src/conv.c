@@ -53,6 +53,7 @@ static char *convert_text(iconv_t cd, const char *str)
 static const char *input_encoding = "CP932";
 static const char *output_encoding = "UTF-8";
 static iconv_t output_conv = (iconv_t)-1;
+static iconv_t input_conv = (iconv_t)-1;
 static iconv_t utf8_conv = (iconv_t)-1;
 static iconv_t output_utf8_conv = (iconv_t)-1;
 static iconv_t utf8_input_conv = (iconv_t)-1;
@@ -72,6 +73,13 @@ char *conv_output(const char *str)
 	if (output_conv == (iconv_t)-1 && (output_conv = iconv_open(output_encoding, input_encoding)) == (iconv_t)-1)
 		ALICE_ERROR("iconv_open: %s", strerror(errno));
 	return convert_text(output_conv, str);
+}
+
+char *conv_input(const char *str)
+{
+	if (input_conv == (iconv_t)-1 && (input_conv = iconv_open(input_encoding, output_encoding)) == (iconv_t)-1)
+		ALICE_ERROR("iconv_open: %s", strerror(errno));
+	return convert_text(input_conv, str);
 }
 
 char *conv_utf8(const char *str)

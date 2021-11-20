@@ -240,6 +240,16 @@ uint8_t *ex_flatten(struct ex *ex, size_t *size_out)
 	return out.buf;
 }
 
+uint8_t *ex_write_mem(struct ex *ex, size_t *size_out)
+{
+	size_t size;
+	uint8_t *flat = ex_flatten(ex, &size);
+	ex_encode(flat+32, size-32);
+
+	*size_out = size;
+	return flat;
+}
+
 void ex_write(FILE *out, struct ex *ex)
 {
 	size_t size;

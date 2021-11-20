@@ -56,6 +56,7 @@ FILE *alice_open_output_file(const char *path);
 void set_input_encoding(const char *enc);
 void set_output_encoding(const char *enc);
 char *conv_output(const char *str);
+char *conv_input(const char *str);
 char *conv_utf8(const char *str);
 char *conv_output_utf8(const char *str);
 char *conv_utf8_input(const char *str);
@@ -65,6 +66,7 @@ struct stat;
 
 /* util.c */
 char *escape_string(const char *str);
+char *escape_string_noconv(const char *str);
 FILE *checked_fopen(const char *filename, const char *mode);
 void checked_fwrite(void *ptr, size_t size, FILE *stream);
 void checked_fread(void *ptr, size_t size, FILE *stream);
@@ -79,6 +81,7 @@ bool parse_version(const char *str, int *major, int *minor);
 // ex/...
 struct ex *ex_parse_file(const char *path);
 void ex_write(FILE *out, struct ex *ex);
+uint8_t *ex_write_mem(struct ex *ex, size_t *size_out);
 void ex_write_file(const char *path, struct ex *ex);
 
 // ar/...

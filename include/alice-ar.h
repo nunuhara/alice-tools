@@ -101,18 +101,44 @@ struct ar_manifest {
 	};
 };
 
+enum ar_file_spec_type {
+	AR_FILE_SPEC_DISK,
+	AR_FILE_SPEC_MEM,
+};
+
 struct ar_file_spec {
-	struct string *path;
+	enum ar_file_spec_type type;
+	union {
+		// AR_FILE_SPEC_DISK
+		struct {
+			struct string *path;
+		} disk;
+		// AR_FILE_SPEC_MEM
+		struct {
+			void *data;
+			size_t size;
+		} mem;
+	};
 	struct string *name;
 };
 
+kv_decl(ar_file_list, struct ar_file_spec*);
 kv_decl(ar_string_list, struct string*);
 kv_decl(ar_row_list, ar_string_list*);
+
+void ar_file_spec_free(struct ar_file_spec *spec);
+void ar_file_list_free(ar_file_list *list);
+void ar_file_list_sort(ar_file_list *list);
 
 struct ar_manifest *ar_make_manifest(struct string *magic, struct string *output_path, ar_row_list *rows);
 struct ar_manifest *ar_parse_manifest(const char *path);
 
+void ar_to_file_list(struct archive *ar, ar_file_list *files);
+void ar_dir_to_file_list(struct string *dir, ar_file_list *files, enum ar_filetype fmt);
+
 enum ar_filetype ar_parse_filetype(struct string *str);
 void ar_pack_manifest(struct ar_manifest *ar, int afa_version);;
+void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_files, int version);
+
 
 #endif /* ALICEAR_H_ */

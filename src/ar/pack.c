@@ -33,8 +33,6 @@
 #include "alice.h"
 #include "alice-ar.h"
 
-void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_files, int version);
-
 static char path_separator = '/';
 
 const char * const ar_ft_extensions[] = {
@@ -73,7 +71,8 @@ static struct ar_file_spec **alicepack_to_file_list(struct ar_manifest *mf, size
 
 	for (size_t i = 0; i < mf->nr_rows; i++) {
 		files[i] = xmalloc(sizeof(struct ar_file_spec));
-		files[i]->path = string_ref(mf->alicepack[i].filename);
+		files[i]->type = AR_FILE_SPEC_DISK;
+		files[i]->disk.path = string_ref(mf->alicepack[i].filename);
 		files[i]->name = string_dup(mf->alicepack[i].filename);
 	}
 
@@ -166,6 +165,7 @@ static void convert_flat(struct string *src, enum ar_filetype src_fmt,
 		free_string(tmp);
 	}
 
+	mkdir_for_file(output_path->text);
 	FILE *out = checked_fopen(output_path->text, "wb");
 	checked_fwrite(flat->data, flat->data_size, out);
 	fclose(out);
@@ -243,9 +243,7 @@ static void batchpack_convert(struct batchpack_line *line)
 	convert_dir(line->src, line->src_fmt, line->dst, line->dst_fmt);
 }
 
-kv_decl(filelist, struct ar_file_spec*);
-
-static void dir_to_file_list(struct string *dst, struct string *base_name, filelist *files, enum ar_filetype fmt)
+static void dir_to_file_list(struct string *dst, struct string *base_name, ar_file_list *files, enum ar_filetype fmt)
 {
 	// add all files in dst to file list
 	// TODO: filter by file extension?
@@ -280,13 +278,19 @@ static void dir_to_file_list(struct string *dst, struct string *base_name, filel
 		}
 
 		struct ar_file_spec *spec = xmalloc(sizeof(struct ar_file_spec));
-		spec->path = path;
+		spec->type = AR_FILE_SPEC_DISK;
+		spec->disk.path = path;
 		spec->name = name;
 		kv_push(struct ar_file_spec*, *files, spec);
 loop_next:
 		free(d_name);
 	}
 	closedir_utf8(d);
+}
+
+void ar_dir_to_file_list(struct string *dir, ar_file_list *files, enum ar_filetype fmt)
+{
+	dir_to_file_list(dir, &EMPTY_STRING, files, fmt);
 }
 
 static int file_spec_compare(const void *_a, const void *_b)
@@ -296,9 +300,14 @@ static int file_spec_compare(const void *_a, const void *_b)
 	return strcmp(a->name->text, b->name->text);
 }
 
+void ar_file_list_sort(ar_file_list *list)
+{
+	qsort(list->a, list->n, sizeof(struct ar_file_spec*), file_spec_compare);
+}
+
 static struct ar_file_spec **batchpack_to_file_list(struct ar_manifest *mf, size_t *size_out)
 {
-	filelist files;
+	ar_file_list files;
 	kv_init(files);
 	for (size_t i = 0; i < mf->nr_rows; i++) {
 		struct string *src = mf->batchpack[i].src;
@@ -317,7 +326,7 @@ static struct ar_file_spec **batchpack_to_file_list(struct ar_manifest *mf, size
 		dir_to_file_list(dst, string_ref(&EMPTY_STRING), &files, mf->batchpack[i].dst_fmt);
 	}
 
-	qsort(files.a, files.n, sizeof(struct ar_file_spec*), file_spec_compare);
+	ar_file_list_sort(&files);
 
 	*size_out = files.n;
 	return files.a;
@@ -335,6 +344,30 @@ static void alicecg2_to_batchpack(struct ar_manifest *mf)
 	free(mf->alicecg2);
 	mf->batchpack = lines;
 	mf->type = AR_MF_BATCHPACK;
+}
+
+static void ar_to_file_spec_iter(struct archive_data *data, void *user)
+{
+	ar_file_list *files = user;
+	if (!archive_load_file(data))
+		ALICE_ERROR("Error loading archive file: %s", data->name);
+
+	struct ar_file_spec *spec = xmalloc(sizeof(struct ar_file_spec));
+	spec->type = AR_FILE_SPEC_MEM;
+	spec->mem.data = xmalloc(data->size);
+	spec->mem.size = data->size;
+	memcpy(spec->mem.data, data->data, data->size);
+
+	char *tmp = conv_input(data->name);
+	spec->name = cstr_to_string(tmp);
+	free(tmp);
+
+	kv_push(struct ar_file_spec*, *files, spec);
+}
+
+void ar_to_file_list(struct archive *ar, ar_file_list *files)
+{
+	archive_for_each(ar, ar_to_file_spec_iter, files);
 }
 
 static struct ar_file_spec **manifest_to_file_list(struct ar_manifest *mf, size_t *size_out)
@@ -405,15 +438,34 @@ static void free_manifest(struct ar_manifest *mf)
 	free(mf);
 }
 
+void ar_file_spec_free(struct ar_file_spec *spec)
+{
+	free_string(spec->name);
+	switch (spec->type) {
+	case AR_FILE_SPEC_DISK:
+		free_string(spec->disk.path);
+		break;
+	case AR_FILE_SPEC_MEM:
+		free(spec->mem.data);
+		break;
+	}
+	free(spec);
+}
+
+void ar_file_list_free(ar_file_list *list)
+{
+	for (unsigned i = 0; i < list->n; i++) {
+		ar_file_spec_free(list->a[i]);
+	}
+}
+
 void ar_pack_manifest(struct ar_manifest *ar, int afa_version)
 {
 	size_t nr_files;
 	struct ar_file_spec **files = manifest_to_file_list(ar, &nr_files);
 	write_afa(ar->output_path, files, nr_files, afa_version);
 	for (size_t i = 0; i < nr_files; i++) {
-		free_string(files[i]->path);
-		free_string(files[i]->name);
-		free(files[i]);
+		ar_file_spec_free(files[i]);
 	}
 	free(files);
 }
