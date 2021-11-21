@@ -102,6 +102,12 @@ nunuhara@haniwa.technology, or find me on /haniho/.
 Version History
 ---------------
 
+### [Version 0.11.1](https://haniwa.technology/alice-tools/alice-tools-0.11.1.zip)
+
+* Implement file size check for AinInput and PactInput in .pje files
+* Implement support for pact archive modding
+* Fix issues affecting .flat files
+
 ### [Version 0.11.0](https://haniwa.technology/alice-tools/alice-tools-0.11.0.zip)
 
 * Add `--function` option to `ain dump` for dumping a specific function only
