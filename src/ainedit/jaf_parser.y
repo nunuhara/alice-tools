@@ -270,6 +270,7 @@ postfix_expression
 	| atomic_type_specifier '(' expression ')'               { $$ = jaf_cast_expression($1, $3); }
 	| postfix_expression '(' argument_expression_list ')'    { $$ = jaf_function_call($1, $3); }
 	| SYM_NEW TYPEDEF_NAME '(' argument_expression_list ')'  { $$ = jaf_new(jaf_typedef($2), $4); }
+	| SYM_NEW TYPEDEF_NAME '(' ')'                           { $$ = jaf_new(jaf_typedef($2), NULL); }
 	| postfix_expression '.' IDENTIFIER                      { $$ = jaf_member_expr($1, $3); }
 	| postfix_expression INC_OP                              { $$ = jaf_unary_expr(JAF_POST_INC, $1); }
 	| postfix_expression DEC_OP                              { $$ = jaf_unary_expr(JAF_POST_DEC, $1); }
