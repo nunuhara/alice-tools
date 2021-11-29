@@ -20,6 +20,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include "system4/instructions.h"
 
 struct ain;
 struct ain_function;

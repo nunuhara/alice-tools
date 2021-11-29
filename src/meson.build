@@ -52,6 +52,11 @@ core_sources += bisongen.process('core/ex/txtex_parser.y')
 core_sources += flexgen.process('core/jaf/jaf_lexer.l')
 core_sources += bisongen.process('core/jaf/jaf_parser.y')
 
+libalice = static_library('alice', core_sources,
+                          dependencies : tool_deps,
+                          c_args : ['-Wno-unused-parameter'],
+                          include_directories : incdir)
+
 cli_sources = ['cli/alice.c',
                'cli/acx_build.c',
                'cli/acx_dump.c',
@@ -72,13 +77,35 @@ cli_sources = ['cli/alice.c',
                'cli/project_build.c',
 ]
 
-libalice = static_library('alice', core_sources,
-                          dependencies : tool_deps,
-                          c_args : ['-Wno-unused-parameter'],
-                          include_directories : incdir)
-
 executable('alice', cli_sources,
            dependencies : tool_deps,
            c_args : ['-Wno-unused-parameter'],
+           link_with : libalice,
+           include_directories : incdir)
+
+gui_sources = ['gui/galice.cpp',
+               'gui/ain_functions_model.cpp',
+               'gui/ain_objects_model.cpp',
+               'gui/file_manager.cpp',
+               'gui/mainwindow.cpp',
+               'gui/navigator.cpp',
+]
+
+gui_moc = ['gui/ain_functions_model.hpp',
+           'gui/ain_objects_model.hpp',
+           'gui/file_manager.hpp',
+           'gui/mainwindow.hpp',
+           'gui/navigator.hpp',
+]
+
+qt5 = import('qt5')
+qt5_dep = dependency('qt5', modules : ['Core', 'Gui', 'Widgets'])
+
+generated_files = qt5.preprocess(moc_headers : gui_moc,
+                                 dependencies : [qt5_dep])
+
+
+executable('galice', gui_sources, generated_files,
+           dependencies : [tool_deps, qt5_dep],
            link_with : libalice,
            include_directories : incdir)

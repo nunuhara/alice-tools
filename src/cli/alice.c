@@ -28,17 +28,6 @@
 #include <io.h>
 #endif
 
-static unsigned long _current_line_nr = 0;
-static const char *_current_file_name = NULL;
-
-/*
- * These should be set by subcommands to point to variables tracking
- * the current line-number/file being processed, so that they can be
- * referenced in generic error messages.
- */
-unsigned long *current_line_nr = &_current_line_nr;
-const char **current_file_name = &_current_file_name;
-
 struct command cmd_alice;
 struct command cmd_acx;
 struct command cmd_ain;

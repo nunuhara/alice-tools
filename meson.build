@@ -1,4 +1,4 @@
-project('alice-tools', 'c',
+project('alice-tools', 'c', 'cpp',
         default_options : ['c_std=c11'])
 add_project_arguments('-D_DEFAULT_SOURCE', language : 'c')
 
