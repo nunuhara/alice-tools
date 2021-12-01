@@ -31,6 +31,7 @@ core_sources = ['core/acx.c',
                 'core/pje.c',
                 'core/cJSON.c',
                 'core/conv.c',
+                'core/port.c',
                 'core/util.c',
 ]
 

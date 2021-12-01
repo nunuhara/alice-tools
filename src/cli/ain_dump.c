@@ -29,204 +29,205 @@
 #include "system4/string.h"
 #include "alice.h"
 #include "alice/ain.h"
+#include "alice/port.h"
 #include "cli.h"
 
-static void print_sjis(FILE *f, const char *s)
+static void print_sjis(struct port *port, const char *s)
 {
 	char *u = conv_output(s);
-	fprintf(f, "%s", u);
+	port_printf(port, "%s", u);
 	free(u);
 }
 
-static void ain_dump_version(FILE *f, struct ain *ain)
+static void ain_dump_version(struct port *port, struct ain *ain)
 {
 	if (ain->minor_version) {
-		fprintf(f, "%d.%d\n", ain->version, ain->minor_version);
+		port_printf(port, "%d.%d\n", ain->version, ain->minor_version);
 	} else {
-		fprintf(f, "%d\n", ain->version);
+		port_printf(port, "%d\n", ain->version);
 	}
 }
 
-static void ain_dump_functions(FILE *f, struct ain *ain)
+static void ain_dump_functions(struct port *port, struct ain *ain)
 {
 	for (int i = 0; i < ain->nr_functions; i++) {
-		fprintf(f, "/* 0x%08x */\t", i);
-		ain_dump_function(f, ain, &ain->functions[i]);
-		fprintf(f, ";\n");
+		port_printf(port, "/* 0x%08x */\t", i);
+		ain_dump_function(port, ain, &ain->functions[i]);
+		port_printf(port, ";\n");
 	}
 }
 
-static void ain_dump_globals(FILE *f, struct ain *ain)
+static void ain_dump_globals(struct port *port, struct ain *ain)
 {
 	for (int i = 0; i < ain->nr_globals; i++) {
-		fprintf(f, "/* 0x%08x */\t", i);
-		ain_dump_global(f, ain, i);
+		port_printf(port, "/* 0x%08x */\t", i);
+		ain_dump_global(port, ain, i);
 	}
 }
 
-static void ain_dump_structures(FILE *f, struct ain *ain)
+static void ain_dump_structures(struct port *port, struct ain *ain)
 {
 	for (int i = 0; i < ain->nr_structures; i++) {
-		fprintf(f, "// %d\n", i);
-		ain_dump_structure(f, ain, i);
-		fprintf(f, "\n");
+		port_printf(port, "// %d\n", i);
+		ain_dump_structure(port, ain, i);
+		port_printf(port, "\n");
 	}
 }
 
-static void ain_dump_messages(FILE *f, struct ain *ain)
+static void ain_dump_messages(struct port *port, struct ain *ain)
 {
 	for (int i = 0; i < ain->nr_messages; i++) {
-		print_sjis(f, ain->messages[i]->text);
-		fputc('\n', f);
+		print_sjis(port, ain->messages[i]->text);
+		port_putc(port, '\n');
 	}
 }
 
-static void ain_dump_libraries(FILE *out, struct ain *ain)
+static void ain_dump_libraries(struct port *port, struct ain *ain)
 {
 	for (int i = 0; i < ain->nr_libraries; i++) {
-		fprintf(out, "--- ");
-		print_sjis(out, ain->libraries[i].name);
-		fprintf(out, " ---\n");
-		ain_dump_library(out, ain, i);
+		port_printf(port, "--- ");
+		print_sjis(port, ain->libraries[i].name);
+		port_printf(port, " ---\n");
+		ain_dump_library(port, ain, i);
 	}
 }
 
-static void ain_dump_hll(FILE *out, struct ain *ain)
+static void ain_dump_hll(struct port *port, struct ain *ain)
 {
-	fprintf(out, "SystemSource = {\n");
+	port_printf(port, "SystemSource = {\n");
 	for (int i = 0; i < ain->nr_libraries; i++) {
 		char *name = conv_output(ain->libraries[i].name);
 		size_t name_len = strlen(name);
-		fprintf(out, "\"%s.hll\", \"%s\",\n", name, name);
+		port_printf(port, "\"%s.hll\", \"%s\",\n", name, name);
 
 		char *file_name = xmalloc(name_len + 5);
 		memcpy(file_name, name, name_len);
 		memcpy(file_name+name_len, ".hll", 5);
 
-		FILE *f = fopen(file_name, "wb");
-		if (!f) {
+		struct port file_port;
+		if (!port_file_open(&file_port, file_name)) {
 			ALICE_ERROR("fopen: %s", strerror(errno));
 		}
-		ain_dump_library(f, ain, i);
-		fclose(f);
+		ain_dump_library(&file_port, ain, i);
+		port_close(&file_port);
 		free(file_name);
 		free(name);
 	}
-	fprintf(out, "}\n");
+	port_printf(port, "}\n");
 }
 
-static void ain_dump_strings(FILE *f, struct ain *ain)
+static void ain_dump_strings(struct port *port, struct ain *ain)
 {
 	for (int i = 0; i < ain->nr_strings; i++) {
-		fprintf(f, "0x%08x:\t", i);
-		print_sjis(f, ain->strings[i]->text);
-		fputc('\n', f);
+		port_printf(port, "0x%08x:\t", i);
+		print_sjis(port, ain->strings[i]->text);
+		port_putc(port, '\n');
 	}
 }
 
-static void ain_dump_filenames(FILE *f, struct ain *ain)
+static void ain_dump_filenames(struct port *port, struct ain *ain)
 {
 	if (!ain->FNAM.present)
 		ain_guess_filenames(ain);
 
 	for (int i = 0; i < ain->nr_filenames; i++) {
-		fprintf(f, "0x%08x:\t", i);
-		print_sjis(f, ain->filenames[i]);
-		fputc('\n', f);
+		port_printf(port, "0x%08x:\t", i);
+		print_sjis(port, ain->filenames[i]);
+		port_putc(port, '\n');
 	}
 }
 
-static void ain_dump_functypes(FILE *f, struct ain *ain, bool delegates)
+static void ain_dump_functypes(struct port *port, struct ain *ain, bool delegates)
 {
 	int n = delegates ? ain->nr_delegates : ain->nr_function_types;
 	for (int i = 0; i < n; i++) {
-		fprintf(f, "/* 0x%08x */\t", i);
-		ain_dump_functype(f, ain, i, delegates);
+		port_printf(port, "/* 0x%08x */\t", i);
+		ain_dump_functype(port, ain, i, delegates);
 	}
 }
 
-static void ain_dump_global_group_names(FILE *f, struct ain *ain)
+static void ain_dump_global_group_names(struct port *port, struct ain *ain)
 {
 	for (int i = 0; i < ain->nr_global_groups; i++) {
-		fprintf(f, "0x%08x:\t", i);
-		print_sjis(f, ain->global_group_names[i]);
-		fputc('\n', f);
+		port_printf(port, "0x%08x:\t", i);
+		print_sjis(port, ain->global_group_names[i]);
+		port_putc(port, '\n');
 	}
 }
 
-static void ain_dump_enums(FILE *f, struct ain *ain)
+static void ain_dump_enums(struct port *port, struct ain *ain)
 {
 	for (int i = 0; i < ain->nr_enums; i++) {
-		fprintf(f, "// %d\n", i);
-		ain_dump_enum(f, ain, i);
-		fputc('\n', f);
+		port_printf(port, "// %d\n", i);
+		ain_dump_enum(port, ain, i);
+		port_putc(port, '\n');
 	}
 }
 
-static void ain_dump_keycode(FILE *f, struct ain *ain)
+static void ain_dump_keycode(struct port *port, struct ain *ain)
 {
-	fprintf(f, "KEYCODE: 0x%x\n", ain->keycode);
+	port_printf(port, "KEYCODE: 0x%x\n", ain->keycode);
 }
 
-static void ain_dump_main(FILE *f, struct ain *ain)
+static void ain_dump_main(struct port *port, struct ain *ain)
 {
-	fprintf(f, "MAIN: 0x%x\n", ain->main);
+	port_printf(port, "MAIN: 0x%x\n", ain->main);
 }
 
-static void ain_dump_msgf(FILE *f, struct ain *ain)
+static void ain_dump_msgf(struct port *port, struct ain *ain)
 {
-	fprintf(f, "MSGF: 0x%x\n", ain->msgf);
+	port_printf(port, "MSGF: 0x%x\n", ain->msgf);
 }
 
-static void ain_dump_game_version(FILE *f, struct ain *ain)
+static void ain_dump_game_version(struct port *port, struct ain *ain)
 {
-	fprintf(f, "GAME VERSION: 0x%x\n", ain->game_version);
+	port_printf(port, "GAME VERSION: 0x%x\n", ain->game_version);
 }
 
-static void ain_dump_ojmp(FILE *f, struct ain *ain)
+static void ain_dump_ojmp(struct port *port, struct ain *ain)
 {
-	fprintf(f, "OJMP: 0x%x\n", ain->ojmp);
+	port_printf(port, "OJMP: 0x%x\n", ain->ojmp);
 }
 
-static void ain_dump_slbl(FILE *f, struct ain *ain)
+static void ain_dump_slbl(struct port *port, struct ain *ain)
 {
 	for (int i = 0; i < ain->nr_scenario_labels; i++) {
-		fprintf(f, "0x%08x:\t", ain->scenario_labels[i].address);
-		print_sjis(f, ain->scenario_labels[i].name);
-		fputc('\n', f);
+		port_printf(port, "0x%08x:\t", ain->scenario_labels[i].address);
+		print_sjis(port, ain->scenario_labels[i].name);
+		port_putc(port, '\n');
 	}
 }
 
-static void print_section(FILE *f, const char *name, struct ain_section *section)
+static void print_section(struct port *port, const char *name, struct ain_section *section)
 {
 	if (section->present)
-		fprintf(f, "%s: %08x -> %08x\n", name, section->addr, section->addr + section->size);
+		port_printf(port, "%s: %08x -> %08x\n", name, section->addr, section->addr + section->size);
 }
 
-static void ain_dump_map(FILE *f, struct ain *ain)
+static void ain_dump_map(struct port *port, struct ain *ain)
 {
-	print_section(f, "VERS", &ain->VERS);
-	print_section(f, "KEYC", &ain->KEYC);
-	print_section(f, "CODE", &ain->CODE);
-	print_section(f, "FUNC", &ain->FUNC);
-	print_section(f, "GLOB", &ain->GLOB);
-	print_section(f, "GSET", &ain->GSET);
-	print_section(f, "STRT", &ain->STRT);
-	print_section(f, "MSG0", &ain->MSG0);
-	print_section(f, "MSG1", &ain->MSG1);
-	print_section(f, "MAIN", &ain->MAIN);
-	print_section(f, "MSGF", &ain->MSGF);
-	print_section(f, "HLL0", &ain->HLL0);
-	print_section(f, "SWI0", &ain->SWI0);
-	print_section(f, "GVER", &ain->GVER);
-	print_section(f, "SLBL", &ain->SLBL);
-	print_section(f, "STR0", &ain->STR0);
-	print_section(f, "FNAM", &ain->FNAM);
-	print_section(f, "OJMP", &ain->OJMP);
-	print_section(f, "FNCT", &ain->FNCT);
-	print_section(f, "DELG", &ain->DELG);
-	print_section(f, "OBJG", &ain->OBJG);
-	print_section(f, "ENUM", &ain->ENUM);
+	print_section(port, "VERS", &ain->VERS);
+	print_section(port, "KEYC", &ain->KEYC);
+	print_section(port, "CODE", &ain->CODE);
+	print_section(port, "FUNC", &ain->FUNC);
+	print_section(port, "GLOB", &ain->GLOB);
+	print_section(port, "GSET", &ain->GSET);
+	print_section(port, "STRT", &ain->STRT);
+	print_section(port, "MSG0", &ain->MSG0);
+	print_section(port, "MSG1", &ain->MSG1);
+	print_section(port, "MAIN", &ain->MAIN);
+	print_section(port, "MSGF", &ain->MSGF);
+	print_section(port, "HLL0", &ain->HLL0);
+	print_section(port, "SWI0", &ain->SWI0);
+	print_section(port, "GVER", &ain->GVER);
+	print_section(port, "SLBL", &ain->SLBL);
+	print_section(port, "STR0", &ain->STR0);
+	print_section(port, "FNAM", &ain->FNAM);
+	print_section(port, "OJMP", &ain->OJMP);
+	print_section(port, "FNCT", &ain->FNCT);
+	print_section(port, "DELG", &ain->DELG);
+	print_section(port, "OBJG", &ain->OBJG);
+	print_section(port, "ENUM", &ain->ENUM);
 }
 
 static void dump_decrypted(FILE *f, const char *path)
@@ -408,6 +409,8 @@ int command_ain_dump(int argc, char *argv[])
 	}
 
 	FILE *output = alice_open_output_file(output_file);
+	struct port port;
+	port_file_init(&port, output);
 
 	if (decrypt) {
 		dump_decrypted(output, argv[0]);
@@ -433,33 +436,34 @@ int command_ain_dump(int argc, char *argv[])
 
 	for (int i = 0; i < dump_ptr; i++) {
 		switch (dump_targets[i]) {
-		case LOPT_CODE:           ain_disassemble(output, ain, flags); break;
+		case LOPT_CODE:           ain_disassemble(&port, ain, flags); break;
 		case LOPT_JSON:           ain_dump_json(output, ain); break;
-		case LOPT_TEXT:           ain_dump_text(output, ain); break;
-		case LOPT_AIN_VERSION:    ain_dump_version(output, ain); break;
-		case LOPT_FUNCTIONS:      ain_dump_functions(output, ain); break;
-		case LOPT_FUNCTION:       ain_disassemble_function(output, ain, dump_args[i], flags); free(dump_args[i]); break;
-		case LOPT_GLOBALS:        ain_dump_globals(output, ain); break;
-		case LOPT_STRUCTURES:     ain_dump_structures(output, ain); break;
-		case LOPT_MESSAGES:       ain_dump_messages(output, ain); break;
-		case LOPT_STRINGS:        ain_dump_strings(output, ain); break;
-		case LOPT_LIBRARIES:      ain_dump_libraries(output, ain); break;
-		case LOPT_HLL:            ain_dump_hll(output, ain); break;
-		case LOPT_FILENAMES:      ain_dump_filenames(output, ain); break;
-		case LOPT_FUNCTION_TYPES: ain_dump_functypes(output, ain, false); break;
-		case LOPT_DELEGATES:      ain_dump_functypes(output, ain, true); break;
-		case LOPT_GLOBAL_GROUPS:  ain_dump_global_group_names(output, ain); break;
-		case LOPT_ENUMS:          ain_dump_enums(output, ain); break;
-		case LOPT_KEYCODE:        ain_dump_keycode(output, ain); break;
-		case LOPT_MAIN:           ain_dump_main(output, ain); break;
-		case LOPT_MSGF:           ain_dump_msgf(output, ain); break;
-		case LOPT_GAME_VERSION:   ain_dump_game_version(output, ain); break;
-		case LOPT_OJMP:           ain_dump_ojmp(output, ain); break;
-		case LOPT_SLBL:           ain_dump_slbl(output, ain); break;
-		case LOPT_MAP:            ain_dump_map(output, ain); break;
+		case LOPT_TEXT:           ain_dump_text(&port, ain); break;
+		case LOPT_AIN_VERSION:    ain_dump_version(&port, ain); break;
+		case LOPT_FUNCTIONS:      ain_dump_functions(&port, ain); break;
+		case LOPT_FUNCTION:       ain_disassemble_function(&port, ain, dump_args[i], flags); free(dump_args[i]); break;
+		case LOPT_GLOBALS:        ain_dump_globals(&port, ain); break;
+		case LOPT_STRUCTURES:     ain_dump_structures(&port, ain); break;
+		case LOPT_MESSAGES:       ain_dump_messages(&port, ain); break;
+		case LOPT_STRINGS:        ain_dump_strings(&port, ain); break;
+		case LOPT_LIBRARIES:      ain_dump_libraries(&port, ain); break;
+		case LOPT_HLL:            ain_dump_hll(&port, ain); break;
+		case LOPT_FILENAMES:      ain_dump_filenames(&port, ain); break;
+		case LOPT_FUNCTION_TYPES: ain_dump_functypes(&port, ain, false); break;
+		case LOPT_DELEGATES:      ain_dump_functypes(&port, ain, true); break;
+		case LOPT_GLOBAL_GROUPS:  ain_dump_global_group_names(&port, ain); break;
+		case LOPT_ENUMS:          ain_dump_enums(&port, ain); break;
+		case LOPT_KEYCODE:        ain_dump_keycode(&port, ain); break;
+		case LOPT_MAIN:           ain_dump_main(&port, ain); break;
+		case LOPT_MSGF:           ain_dump_msgf(&port, ain); break;
+		case LOPT_GAME_VERSION:   ain_dump_game_version(&port, ain); break;
+		case LOPT_OJMP:           ain_dump_ojmp(&port, ain); break;
+		case LOPT_SLBL:           ain_dump_slbl(&port, ain); break;
+		case LOPT_MAP:            ain_dump_map(&port, ain); break;
 		}
 	}
 
+	port_close(&port);
 	ain_free(ain);
 	return 0;
 }

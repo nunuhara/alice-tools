@@ -22,110 +22,111 @@
 #include "system4/string.h"
 #include "alice.h"
 #include "alice/ain.h"
+#include "alice/port.h"
 
-static void print_sjis(FILE *f, const char *s)
+static void print_sjis(struct port *port, const char *s)
 {
 	char *u = conv_output(s);
-	fprintf(f, "%s", u);
+	port_printf(port, "%s", u);
 	free(u);
 }
 
-static void print_type(FILE *f, struct ain *ain, struct ain_type *t)
+static void print_type(struct port *port, struct ain *ain, struct ain_type *t)
 {
 	char *str = ain_strtype_d(ain, t);
-	print_sjis(f, str);
+	print_sjis(port, str);
 	free(str);
 }
 
-static void print_arglist(FILE *f, struct ain *ain, struct ain_variable *args, int nr_args)
+static void print_arglist(struct port *port, struct ain *ain, struct ain_variable *args, int nr_args)
 {
 	if (!nr_args) {
-		fprintf(f, "(void)");
+		port_printf(port, "(void)");
 		return;
 	}
-	fputc('(', f);
+	port_putc(port, '(');
 	for (int i = 0; i < nr_args; i++) {
 		if (args[i].type.data == AIN_VOID)
 			continue;
 		if (i > 0)
-			fprintf(f, ", ");
-		print_sjis(f, ain_variable_to_string(ain, &args[i]));
+			port_printf(port, ", ");
+		print_sjis(port, ain_variable_to_string(ain, &args[i]));
 	}
-	fputc(')', f);
+	port_putc(port, ')');
 }
 
-static void print_varlist(FILE *f, struct ain *ain, struct ain_variable *vars, int nr_vars)
+static void print_varlist(struct port *port, struct ain *ain, struct ain_variable *vars, int nr_vars)
 {
 	for (int i = 0; i < nr_vars; i++) {
 		if (i > 0)
-			fputc(',', f);
-		fputc(' ', f);
-		print_sjis(f, ain_variable_to_string(ain, &vars[i]));
+			port_putc(port, ',');
+		port_putc(port, ' ');
+		print_sjis(port, ain_variable_to_string(ain, &vars[i]));
 	}
 }
 
-void ain_dump_function(FILE *out, struct ain *ain, struct ain_function *f)
+void ain_dump_function(struct port *port, struct ain *ain, struct ain_function *f)
 {
-	print_type(out, ain, &f->return_type);
-	fputc(' ', out);
-	print_sjis(out, f->name);
-	print_arglist(out, ain, f->vars, f->nr_args);
-	print_varlist(out, ain, f->vars+f->nr_args, f->nr_vars - f->nr_args);
+	print_type(port, ain, &f->return_type);
+	port_putc(port, ' ');
+	print_sjis(port, f->name);
+	print_arglist(port, ain, f->vars, f->nr_args);
+	print_varlist(port, ain, f->vars+f->nr_args, f->nr_vars - f->nr_args);
 }
 
-void ain_dump_global(FILE *out, struct ain *ain, int i)
+void ain_dump_global(struct port *port, struct ain *ain, int i)
 {
 	assert(i >= 0 && i < ain->nr_globals);
 	if (ain->globals[i].type.data == AIN_VOID)
 		return;
-	print_sjis(out, ain_variable_to_string(ain, &ain->globals[i]));
-	fprintf(out, ";\n");
+	print_sjis(port, ain_variable_to_string(ain, &ain->globals[i]));
+	port_printf(port, ";\n");
 }
 
-void ain_dump_structure(FILE *f, struct ain *ain, int i)
+void ain_dump_structure(struct port *port, struct ain *ain, int i)
 {
 	assert(i >= 0 && i < ain->nr_structures);
 	struct ain_struct *s = &ain->structures[i];
 
-	fprintf(f, "struct ");
-	print_sjis(f, s->name);
+	port_printf(port, "struct ");
+	print_sjis(port, s->name);
 
 	if (s->nr_interfaces) {
-		fprintf(f, " implements");
+		port_printf(port, " implements");
 		for (int i = 0; i < s->nr_interfaces; i++) {
 			if (i > 0)
-				fputc(',', f);
-			fputc(' ', f);
-			print_sjis(f, ain->structures[s->interfaces[i].struct_type].name);
+				port_putc(port, ',');
+			port_putc(port, ' ');
+			print_sjis(port, ain->structures[s->interfaces[i].struct_type].name);
 		}
 	}
 
-	fprintf(f, " {\n");
+	port_printf(port, " {\n");
 	for (int i = 0; i < s->nr_members; i++) {
 		struct ain_variable *m = &s->members[i];
-		fprintf(f, "    ");
+		port_printf(port, "    ");
 		if (m->type.data == AIN_VOID) {
-			fprintf(f, "// ");
+			port_printf(port, "// ");
 		}
-		print_sjis(f, ain_variable_to_string(ain, m));
-		fprintf(f, ";\n");
+		print_sjis(port, ain_variable_to_string(ain, m));
+		port_printf(port, ";\n");
 	}
-	fprintf(f, "};\n");
+	port_printf(port, "};\n");
 }
 
-static void dump_text_function(FILE *out, struct ain_function **fun)
+static void dump_text_function(struct port *port, struct ain_function **fun)
 {
 	if (!*fun)
 		return;
 
 	char *u = conv_output((*fun)->name);
-	fprintf(out, "\n; %s\n", u);
+	port_printf(port, "\n; %s\n", u);
 	free(u);
 
 	*fun = NULL;
 }
 
-static void dump_text_string(FILE *out, struct ain_function **fun, struct ain *ain, int no)
+static void dump_text_string(struct port *port, struct ain_function **fun, struct ain *ain, int no)
 {
 	if (no < 0 || no >= ain->nr_strings)
 		ERROR("Invalid string index: %d", no);
@@ -134,26 +135,26 @@ static void dump_text_string(FILE *out, struct ain_function **fun, struct ain *a
 	if (!ain->strings[no]->size)
 		return;
 
-	dump_text_function(out, fun);
+	dump_text_function(port, fun);
 
 	char *u = escape_string(ain->strings[no]->text);
-	fprintf(out, ";s[%d] = \"%s\"\n", no, u);
+	port_printf(port, ";s[%d] = \"%s\"\n", no, u);
 	free(u);
 }
 
-static void dump_text_message(FILE *out, struct ain_function **fun, struct ain *ain, int no)
+static void dump_text_message(struct port *port, struct ain_function **fun, struct ain *ain, int no)
 {
-	dump_text_function(out, fun);
+	dump_text_function(port, fun);
 
 	if (no < 0 || no >= ain->nr_messages)
 		ERROR("Invalid message index: %d", no);
 
 	char *u = escape_string(ain->messages[no]->text);
-	fprintf(out, ";m[%d] = \"%s\"\n", no, u);
+	port_printf(port, ";m[%d] = \"%s\"\n", no, u);
 	free(u);
 }
 
-void ain_dump_text(FILE *f, struct ain *ain)
+void ain_dump_text(struct port *port, struct ain *ain)
 {
 	struct dasm_state dasm;
 	dasm_init(&dasm, NULL, ain, 0);
@@ -170,11 +171,11 @@ void ain_dump_text(FILE *f, struct ain *ain)
 			break;
 		}
 		case S_PUSH:
-			dump_text_string(f, &fun, ain, dasm_arg(&dasm, 0));
+			dump_text_string(port, &fun, ain, dasm_arg(&dasm, 0));
 			break;
 			// TODO: other instructions with string arguments
 		case MSG:
-			dump_text_message(f, &fun, ain, dasm_arg(&dasm, 0));
+			dump_text_message(port, &fun, ain, dasm_arg(&dasm, 0));
 			break;
 		default:
 			break;
@@ -182,70 +183,70 @@ void ain_dump_text(FILE *f, struct ain *ain)
 	}
 }
 
-void ain_dump_library(FILE *out, struct ain *ain, int lib)
+void ain_dump_library(struct port *port, struct ain *ain, int lib)
 {
 	for (int i = 0; i < ain->libraries[lib].nr_functions; i++) {
 		struct ain_hll_function *f = &ain->libraries[lib].functions[i];
-		print_sjis(out, ain_strtype(ain, f->return_type.data, f->return_type.struc));
-		fputc(' ', out);
-		print_sjis(out, f->name);
-		fputc('(', out);
+		print_sjis(port, ain_strtype(ain, f->return_type.data, f->return_type.struc));
+		port_putc(port, ' ');
+		print_sjis(port, f->name);
+		port_putc(port, '(');
 		for (int j = 0; j < f->nr_arguments; j++) {
 			struct ain_hll_argument *a = &f->arguments[j];
 			if (j > 0) {
-				fprintf(out, ", ");
+				port_printf(port, ", ");
 			}
 			if (a->type.data == AIN_VOID) {
-				fprintf(out, "/* void */");
+				port_printf(port, "/* void */");
 				continue;
 			}
 			char *type = ain_strtype_d(ain, &a->type);
-			print_sjis(out, type);
-			fputc(' ', out);
-			print_sjis(out, a->name);
+			print_sjis(port, type);
+			port_putc(port, ' ');
+			print_sjis(port, a->name);
 			free(type);
 		}
 		if (!f->nr_arguments) {
-			fprintf(out, "void");
+			port_printf(port, "void");
 		}
-		fprintf(out, ");\n");
+		port_printf(port, ");\n");
 	}
 }
 
-void ain_dump_functype(FILE *out, struct ain *ain, int i, bool delegate)
+void ain_dump_functype(struct port *port, struct ain *ain, int i, bool delegate)
 {
 	struct ain_function_type *t;
 	if (delegate) {
 		assert(i >= 0 && i < ain->nr_delegates);
 		t = &ain->delegates[i];
-		fprintf(out, "delegate ");
+		port_printf(port, "delegate ");
 	} else {
 		assert(i >= 0 && i < ain->nr_function_types);
 		t = &ain->function_types[i];
-		fprintf(out, "functype ");
+		port_printf(port, "functype ");
 	}
 
-	print_type(out, ain, &t->return_type);
-	fputc(' ', out);
-	print_sjis(out, t->name);
-	print_arglist(out, ain, t->variables, t->nr_arguments);
-	print_varlist(out, ain, t->variables + t->nr_arguments, t->nr_variables - t->nr_arguments);
-	fputc('\n', out);
+	print_type(port, ain, &t->return_type);
+	port_putc(port, ' ');
+	print_sjis(port, t->name);
+	print_arglist(port, ain, t->variables, t->nr_arguments);
+	print_varlist(port, ain, t->variables + t->nr_arguments, t->nr_variables - t->nr_arguments);
+	port_putc(port, '\n');
 }
 
-void ain_dump_enum(FILE *out, struct ain *ain, int i)
+void ain_dump_enum(struct port *port, struct ain *ain, int i)
 {
 	assert(i >= 0 && i < ain->nr_enums);
 	struct ain_enum *e = &ain->enums[i];
-	fprintf(out, "enum ");
-	print_sjis(out, e->name);
-	fprintf(out, " {");
+	port_printf(port, "enum ");
+	print_sjis(port, e->name);
+	port_printf(port, " {");
 	for (int i = 0; i < e->nr_symbols; i++) {
 		if (i > 0)
-			fputc(',', out);
-		fprintf(out, "\n\t");
-		print_sjis(out, e->symbols[i]);
-		fprintf(out, " = %d", i);
+			port_putc(port, ',');
+		port_printf(port, "\n\t");
+		print_sjis(port, e->symbols[i]);
+		port_printf(port, " = %d", i);
 	}
-	fprintf(out, "\n};\n");
+	port_printf(port, "\n};\n");
 }

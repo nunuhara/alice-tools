@@ -24,6 +24,7 @@
 #include "system4/utfsjis.h"
 #include "alice.h"
 #include "alice/ain.h"
+#include "alice/port.h"
 
 // Returns true if the current instruction can be elided.
 // We need to prevent eliding instructions that are jump targets.
@@ -156,7 +157,7 @@ static void local_emit(struct dasm_state *dasm, int32_t *args)
 static void localassign_emit(struct dasm_state *dasm, int32_t *args)
 {
 	print_local(dasm, args[0]);
-	fprintf(dasm->out, " %d", args[1]);
+	port_printf(dasm->port, " %d", args[1]);
 }
 #define LOCALASSIGN_emit   localassign_emit
 #define X_LOCALASSIGN_emit localassign_emit
@@ -167,34 +168,34 @@ static void F_LOCALASSIGN_emit(struct dasm_state *dasm, int32_t *args)
 {
 	union { int32_t i; float f; } v = { .i = args[1] };
 	print_local(dasm, args[0]);
-	fprintf(dasm->out, " %f", v.f);
+	port_printf(dasm->port, " %f", v.f);
 }
 
 static void S_LOCALASSIGN_emit(struct dasm_state *dasm, int32_t *args)
 {
 	print_local(dasm, args[0]);
-	fputc(' ', dasm->out);
+	port_putc(dasm->port, ' ');
 	dasm_print_string(dasm, dasm->ain->strings[args[1]]->text);
 }
 
 static void X_S_LOCALASSIGN_emit(struct dasm_state *dasm, int32_t *args)
 {
 	print_local(dasm, args[0]);
-	fputc(' ', dasm->out);
+	port_putc(dasm->port, ' ');
 	dasm_print_string(dasm, dasm->ain->strings[args[3]]->text);
 }
 
 static void LOCALCREATE_emit(struct dasm_state *dasm, int32_t *args)
 {
 	print_local(dasm, args[0]);
-	fputc(' ', dasm->out);
+	port_putc(dasm->port, ' ');
 	dasm_print_identifier(dasm, dasm->ain->structures[args[1]].name);
 }
 
 static void X_LOCALCREATE_emit(struct dasm_state *dasm, int32_t *args)
 {
 	print_local(dasm, args[0]);
-	fputc(' ', dasm->out);
+	port_putc(dasm->port, ' ');
 	dasm_print_identifier(dasm, dasm->ain->structures[args[3]].name);
 }
 
@@ -232,7 +233,7 @@ static void global_emit(struct dasm_state *dasm, int32_t *args)
 static void globalassign_emit(struct dasm_state *dasm, int32_t *args)
 {
 	dasm_print_identifier(dasm, dasm->ain->globals[args[0]].name);
-	fprintf(dasm->out, " %d", args[1]);
+	port_printf(dasm->port, " %d", args[1]);
 }
 #define GLOBALASSIGN_emit   globalassign_emit
 #define X_GLOBALASSIGN_emit globalassign_emit
@@ -241,7 +242,7 @@ static void F_GLOBALASSIGN_emit(struct dasm_state *dasm, int32_t *args)
 {
 	union { int32_t i; float f; } v = { .i = args[1] };
 	dasm_print_identifier(dasm, dasm->ain->globals[args[0]].name);
-	fprintf(dasm->out, " %f", v.f);
+	port_printf(dasm->port, " %f", v.f);
 }
 
 static bool struct_check(struct dasm_state *dasm, int32_t *args)
@@ -269,7 +270,7 @@ static void struct_emit(struct dasm_state *dasm, int32_t *args)
 {
 	struct ain_struct *s = &dasm->ain->structures[dasm->ain->functions[dasm->func].struct_type];
 	dasm_print_identifier(dasm, s->name);
-	fputc(' ', dasm->out);
+	port_putc(dasm->port, ' ');
 	dasm_print_identifier(dasm, s->members[args[0]].name);
 }
 #define STRUCTREF_emit    struct_emit
@@ -281,7 +282,7 @@ static void struct_emit(struct dasm_state *dasm, int32_t *args)
 static void structassign_emit(struct dasm_state *dasm, int32_t *args)
 {
 	struct_emit(dasm, args);
-	fprintf(dasm->out, " %d", args[1]);
+	port_printf(dasm->port, " %d", args[1]);
 }
 #define STRUCTASSIGN_emit   structassign_emit
 #define X_STRUCTASSIGN_emit structassign_emit
@@ -290,7 +291,7 @@ static void F_STRUCTASSIGN_emit(struct dasm_state *dasm, int32_t *args)
 {
 	union { int32_t i; float f; } v = { .i = args[1] };
 	struct_emit(dasm, args);
-	fprintf(dasm->out, " %f", v.f);
+	port_printf(dasm->port, " %f", v.f);
 }
 
 static bool PUSHVMETHOD_check(struct dasm_state *dasm, int32_t *args)
@@ -305,7 +306,7 @@ static bool PUSHVMETHOD_check(struct dasm_state *dasm, int32_t *args)
 
 static void PUSHVMETHOD_emit(struct dasm_state *dasm, int32_t *args)
 {
-	fprintf(dasm->out, "%d %d", args[0], args[2]);
+	port_printf(dasm->port, "%d %d", args[0], args[2]);
 }
 
 #define MACRO_INSTRUCTIONS_MAX 64
@@ -497,9 +498,9 @@ static bool _dasm_print_macro(struct dasm_state *dasm)
 	if (!node)
 		return false;
 
-	fprintf(dasm->out, "%s ", node->name);
+	port_printf(dasm->port, "%s ", node->name);
 	node->emit(dasm, args);
-	fputc('\n', dasm->out);
+	port_putc(dasm->port, '\n');
 	return true;
 }
 

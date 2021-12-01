@@ -21,6 +21,7 @@
 #include "system4/string.h"
 #include "alice.h"
 #include "alice/ain.h"
+#include "alice/port.h"
 #include "khash.h"
 #include "kvec.h"
 #include "little_endian.h"
@@ -60,12 +61,15 @@ static void free_jump_targets(jump_list *list)
 			free(t->label);
 		free(t);
 	}
+	kv_destroy(*list);
+	free(list);
 }
 
 static void jump_table_fini(void)
 {
 	jump_list *list;
 	kh_foreach_value(jump_table, list, free_jump_targets(list));
+	kh_destroy(jump_table, jump_table);
 }
 
 static jump_list *get_jump_targets(ain_addr_t addr)
@@ -165,14 +169,14 @@ static float arg_to_float(int32_t arg)
 static void print_sjis(struct dasm_state *dasm, const char *s)
 {
 	char *u = conv_output(s);
-	fprintf(dasm->out, "%s", u);
+	port_printf(dasm->port, "%s", u);
 	free(u);
 }
 
 void dasm_print_string(struct dasm_state *dasm, const char *str)
 {
 	char *u = escape_string(str);
-	fprintf(dasm->out, "\"%s\"", u);
+	port_printf(dasm->port, "\"%s\"", u);
 	free(u);
 }
 
@@ -246,7 +250,7 @@ static void print_hll_function_name(struct dasm_state *dasm, struct ain_library 
 static void print_argument(struct dasm_state *dasm, int32_t arg, enum instruction_argtype type, possibly_unused const char **comment)
 {
 	if (dasm->flags & DASM_RAW) {
-		fprintf(dasm->out, "0x%x", arg);
+		port_printf(dasm->port, "0x%x", arg);
 		return;
 	}
 	char *label;
@@ -254,18 +258,18 @@ static void print_argument(struct dasm_state *dasm, int32_t arg, enum instructio
 	switch (type) {
 	case T_INT:
 	case T_SWITCH:
-		fprintf(dasm->out, "%d", arg);
+		port_printf(dasm->port, "%d", arg);
 		break;
 	case T_FLOAT:
-		fprintf(dasm->out, "%f", arg_to_float(arg));
+		port_printf(dasm->port, "%f", arg_to_float(arg));
 		break;
 	case T_ADDR:
 		label = get_label(arg);
 		if (!label) {
 			WARNING("No label generated for address: 0x%x", arg);
-			fprintf(dasm->out, "0x%x", arg);
+			port_printf(dasm->port, "0x%x", arg);
 		} else {
-			fprintf(dasm->out, "%s", label);
+			port_printf(dasm->port, "%s", label);
 		}
 		break;
 	case T_FUNC:
@@ -286,7 +290,7 @@ static void print_argument(struct dasm_state *dasm, int32_t arg, enum instructio
 	case T_MSG:
 		if (arg < 0 || arg >= ain->nr_messages)
 			DASM_ERROR(dasm, "Invalid message number: %d", arg);
-		fprintf(dasm->out, "0x%x ", arg);
+		port_printf(dasm->port, "0x%x ", arg);
 		*comment = ain->messages[arg]->text;
 		break;
 	case T_LOCAL:
@@ -294,7 +298,7 @@ static void print_argument(struct dasm_state *dasm, int32_t arg, enum instructio
 			DASM_ERROR(dasm, "Attempt to access local variable outside of function");
 		if (arg < 0 || arg >= ain->functions[dasm->func].nr_vars) {
 			DASM_WARNING(dasm, "Invalid variable number: %d", arg);
-			fprintf(dasm->out, "%d", arg);
+			port_printf(dasm->port, "%d", arg);
 			break;
 		}
 		dasm_print_local_variable(dasm, &ain->functions[dasm->func], arg);
@@ -312,7 +316,7 @@ static void print_argument(struct dasm_state *dasm, int32_t arg, enum instructio
 	case T_SYSCALL:
 		if (arg < 0 || arg >= NR_SYSCALLS || !syscalls[arg].name)
 			DASM_ERROR(dasm, "Invalid/unknown syscall number: %d", arg);
-		fprintf(dasm->out, "%s", syscalls[arg].name);
+		port_printf(dasm->port, "%s", syscalls[arg].name);
 		break;
 	case T_HLL:
 		if (arg < 0 || arg >= ain->nr_libraries)
@@ -320,11 +324,11 @@ static void print_argument(struct dasm_state *dasm, int32_t arg, enum instructio
 		dasm_print_identifier(dasm, ain->libraries[arg].name);
 		break;
 	case T_HLLFUNC:
-		fprintf(dasm->out, "0x%x", arg);
+		port_printf(dasm->port, "0x%x", arg);
 		break;
 	case T_FILE:
 		if (!ain->nr_filenames) {
-			fprintf(dasm->out, "%d", arg);
+			port_printf(dasm->port, "%d", arg);
 			break;
 		}
 		if (arg < 0 || arg >= ain->nr_filenames)
@@ -332,7 +336,7 @@ static void print_argument(struct dasm_state *dasm, int32_t arg, enum instructio
 		dasm_print_identifier(dasm, ain->filenames[arg]);
 		break;
 	default:
-		fprintf(dasm->out, "<UNKNOWN ARG TYPE: %d>", type);
+		port_printf(dasm->port, "<UNKNOWN ARG TYPE: %d>", type);
 		break;
 	}
 }
@@ -342,27 +346,27 @@ static void print_arguments(struct dasm_state *dasm, const struct instruction *i
 	if (instr->opcode == CALLHLL) {
 		int32_t lib = LittleEndian_getDW(dasm->ain->code, dasm->addr + 2);
 		int32_t fun = LittleEndian_getDW(dasm->ain->code, dasm->addr + 6);
-		fprintf(dasm->out, " %s ", dasm->ain->libraries[lib].name);
+		port_printf(dasm->port, " %s ", dasm->ain->libraries[lib].name);
 		print_hll_function_name(dasm, &dasm->ain->libraries[lib], fun);
 		if (dasm->ain->version >= 11) {
-			fprintf(dasm->out, " %d", LittleEndian_getDW(dasm->ain->code, dasm->addr + 10));
+			port_printf(dasm->port, " %d", LittleEndian_getDW(dasm->ain->code, dasm->addr + 10));
 		}
 		return;
 	}
 	if (instr->opcode == FUNC) {
-		fputc(' ', dasm->out);
-		fprintf(dasm->out, "%d", dasm->func);
+		port_putc(dasm->port, ' ');
+		port_printf(dasm->port, "%d", dasm->func);
 		//ain_dump_function(dasm->out, dasm->ain, &dasm->ain->functions[dasm->func]);
 		return;
 	}
 
 	const char *comment = NULL;
 	for (int i = 0; i < instr->nr_args; i++) {
-		fputc(' ', dasm->out);
+		port_putc(dasm->port, ' ');
 		print_argument(dasm, LittleEndian_getDW(dasm->ain->code, dasm->addr + 2 + i*4), instr->args[i], &comment);
 	}
 	if (comment) {
-		fprintf(dasm->out, "; ");
+		port_printf(dasm->port, "; ");
 		dasm_print_string(dasm, comment);
 	}
 }
@@ -380,9 +384,9 @@ static const struct instruction *dasm_get_instruction(struct dasm_state *dasm)
 	return instr;
 }
 
-void dasm_init(struct dasm_state *dasm, FILE *out, struct ain *ain, uint32_t flags)
+void dasm_init(struct dasm_state *dasm, struct port *port, struct ain *ain, uint32_t flags)
 {
-	dasm->out = out;
+	dasm->port = port;
 	dasm->ain = ain;
 	dasm->flags = flags;
 	dasm->addr = 0;
@@ -445,21 +449,21 @@ int32_t dasm_arg(struct dasm_state *dasm, unsigned int n)
 static void print_function_info(struct dasm_state *dasm, int fno)
 {
 	struct ain_function *f = &dasm->ain->functions[fno];
-	fprintf(dasm->out, "\n; ");
+	port_printf(dasm->port, "\n; ");
 	print_function_name(dasm, f);
-	fprintf(dasm->out, "\n");
+	port_printf(dasm->port, "\n");
 	for (int i = 0; i < f->nr_vars; i++) {
 		char *type_sjis = ain_strtype_d(dasm->ain, &f->vars[i].type);
 		char *type = conv_output(type_sjis);
 		char *name = conv_output(f->vars[i].name);
-		fprintf(dasm->out, "; %s %2d: %s : %s\n", i < f->nr_args ? "ARG" : "VAR", i, name, type);
+		port_printf(dasm->port, "; %s %2d: %s : %s\n", i < f->nr_args ? "ARG" : "VAR", i, name, type);
 		free(type_sjis);
 		free(type);
 		free(name);
 	}
 	char *rtype_sjis = ain_strtype_d(dasm->ain, &f->return_type);
 	char *rtype = conv_output(rtype_sjis);
-	fprintf(dasm->out, "; RETURN: %s\n", rtype);
+	port_printf(dasm->port, "; RETURN: %s\n", rtype);
 	free(rtype_sjis);
 	free(rtype);
 }
@@ -489,7 +493,7 @@ static void dasm_leave_function(struct dasm_state *dasm)
 static void print_instruction(struct dasm_state *dasm)
 {
 	if (dasm->flags & DASM_RAW)
-		fprintf(dasm->out, "0x%08zX:\t", dasm->addr);
+		port_printf(dasm->port, "0x%08zX:\t", dasm->addr);
 
 	switch (dasm->instr->opcode) {
 	case FUNC:
@@ -501,16 +505,16 @@ static void print_instruction(struct dasm_state *dasm)
 	case _EOF:
 		break;
 	default:
-		fputc('\t', dasm->out);
+		port_putc(dasm->port, '\t');
 		break;
 	}
 
 	if (!(dasm->flags & DASM_NO_MACROS) && dasm_print_macro(dasm))
 		return;
 
-	fprintf(dasm->out, "%s", dasm->instr->name);
+	port_printf(dasm->port, "%s", dasm->instr->name);
 	print_arguments(dasm, dasm->instr);
-	fputc('\n', dasm->out);
+	port_putc(dasm->port, '\n');
 }
 
 static void print_switch_case(struct dasm_state *dasm, struct ain_switch_case *c)
@@ -519,19 +523,19 @@ static void print_switch_case(struct dasm_state *dasm, struct ain_switch_case *c
 	unsigned ci = (unsigned)(c - c->parent->cases);
 	switch (c->parent->case_type) {
 	case AIN_SWITCH_INT:
-		fprintf(dasm->out, ".CASE %u:%u ", swi, ci);
-		fprintf(dasm->out, "%d", c->value);
+		port_printf(dasm->port, ".CASE %u:%u ", swi, ci);
+		port_printf(dasm->port, "%d", c->value);
 		break;
 	case AIN_SWITCH_STRING:
-		fprintf(dasm->out, ".STRCASE %u:%u ", swi, ci);
+		port_printf(dasm->port, ".STRCASE %u:%u ", swi, ci);
 		dasm_print_string(dasm, dasm->ain->strings[c->value]->text);
 		break;
 	default:
 		WARNING("Unknown switch case type: %d", c->parent->case_type);
-		fprintf(dasm->out, "0x%x", c->value);
+		port_printf(dasm->port, "0x%x", c->value);
 		break;
 	}
-	fputc('\n', dasm->out);
+	port_putc(dasm->port, '\n');
 }
 
 static char *genlabel(size_t addr)
@@ -565,10 +569,10 @@ static void generate_labels(struct dasm_state *dasm)
 	}
 }
 
-void ain_disassemble(FILE *out, struct ain *ain, unsigned int flags)
+void ain_disassemble(struct port *port, struct ain *ain, unsigned int flags)
 {
 	struct dasm_state dasm;
-	dasm_init(&dasm, out, ain, flags);
+	dasm_init(&dasm, port, ain, flags);
 
 	generate_labels(&dasm);
 
@@ -579,34 +583,28 @@ void ain_disassemble(FILE *out, struct ain *ain, unsigned int flags)
 				struct jump_target *t = kv_A(*targets, i);
 				switch (t->type) {
 				case JMP_LABEL:
-					fprintf(dasm.out, "%s:\n", t->label);
+					port_printf(dasm.port, "%s:\n", t->label);
 					break;
 				case JMP_CASE:
 					print_switch_case(&dasm, t->switch_case);
 					break;
 				case JMP_DEFAULT:
-					fprintf(dasm.out, ".DEFAULT %zd\n", t->switch_default - dasm.ain->switches);
+					port_printf(dasm.port, ".DEFAULT %zd\n", t->switch_default - dasm.ain->switches);
 					break;
 				}
 			}
 		}
 		print_instruction(&dasm);
 	}
-	fflush(dasm.out);
+	//fflush(dasm.out);
 
 	jump_table_fini();
 }
 
-bool ain_disassemble_function(FILE *out, struct ain *ain, char *_name, unsigned int flags)
+bool _ain_disassemble_function(struct port *port, struct ain *ain, int fno, unsigned int flags)
 {
-	char *name = conv_utf8_input(_name);
-	int fno = ain_get_function(ain, name);
-	free(name);
-	if (fno < 0)
-		return false;
-
 	struct dasm_state dasm;
-	dasm_init(&dasm, out, ain, flags);
+	dasm_init(&dasm, port, ain, flags);
 
 	generate_labels(&dasm);
 
@@ -618,23 +616,33 @@ bool ain_disassemble_function(FILE *out, struct ain *ain, char *_name, unsigned 
 				struct jump_target *t = kv_A(*targets, i);
 				switch (t->type) {
 				case JMP_LABEL:
-					fprintf(dasm.out, "%s:\n", t->label);
+					port_printf(dasm.port, "%s:\n", t->label);
 					break;
 				case JMP_CASE:
 					print_switch_case(&dasm, t->switch_case);
 					break;
 				case JMP_DEFAULT:
-					fprintf(dasm.out, ".DEFAULT %zd\n", t->switch_default - dasm.ain->switches);
+					port_printf(dasm.port, ".DEFAULT %zd\n", t->switch_default - dasm.ain->switches);
 					break;
 				}
 			}
 		}
 		print_instruction(&dasm);
-		fflush(dasm.out);
+		//fflush(dasm.out);
 		if (dasm.instr->opcode == ENDFUNC)
 			break;
 	}
-	fflush(dasm.out);
+	//fflush(dasm.out);
 	jump_table_fini();
 	return true;
+}
+
+bool ain_disassemble_function(struct port *port, struct ain *ain, char *_name, unsigned int flags)
+{
+	char *name = conv_utf8_input(_name);
+	int fno = ain_get_function(ain, name);
+	free(name);
+	if (fno < 0)
+		return false;
+	return _ain_disassemble_function(port, ain, fno, flags);
 }

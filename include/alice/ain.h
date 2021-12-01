@@ -25,6 +25,7 @@
 struct ain;
 struct ain_function;
 struct instruction;
+struct port;
 
 enum {
 	ASM_RAW        = 1,
@@ -43,7 +44,7 @@ enum {
 struct dasm_state {
 	struct ain *ain;
 	uint32_t flags;
-	FILE *out;
+	struct port *port;
 	size_t addr;
 	int func;
 	int func_stack[DASM_FUNC_STACK_SIZE];
@@ -61,7 +62,7 @@ void ain_append_jam(const char *filename, struct ain *ain, int32_t flags);
 void ain_inject_jam(const char *filename, struct ain *ain, char *function, unsigned offset, int32_t flags);
 
 // dasm.c
-void dasm_init(struct dasm_state *dasm, FILE *out, struct ain *ain, uint32_t flags);
+void dasm_init(struct dasm_state *dasm, struct port *port, struct ain *ain, uint32_t flags);
 void dasm_next(struct dasm_state *dasm);
 void dasm_jump(struct dasm_state *dasm, uint32_t addr);
 enum opcode dasm_peek(struct dasm_state *dasm);
@@ -75,17 +76,18 @@ bool dasm_print_macro(struct dasm_state *dasm);
 void dasm_print_identifier(struct dasm_state *dasm, const char *str);
 void dasm_print_local_variable(struct dasm_state *dasm, struct ain_function *func, int varno);
 void dasm_print_string(struct dasm_state *dasm, const char *str);
-void ain_disassemble(FILE *out, struct ain *ain, unsigned int flags);;
-bool ain_disassemble_function(FILE *out, struct ain *ain, char *name, unsigned int flags);
+void ain_disassemble(struct port *port, struct ain *ain, unsigned int flags);
+bool _ain_disassemble_function(struct port *port, struct ain *ain, int fno, unsigned int flags);
+bool ain_disassemble_function(struct port *port, struct ain *ain, char *name, unsigned int flags);
 
 // dump.c
-void ain_dump_function(FILE *out, struct ain *ain, struct ain_function *f);
-void ain_dump_global(FILE *out, struct ain *ain, int i);
-void ain_dump_structure(FILE *f, struct ain *ain, int i);
-void ain_dump_text(FILE *f, struct ain *ain);
-void ain_dump_library(FILE *out, struct ain *ain, int lib);
-void ain_dump_functype(FILE *out, struct ain *ain, int i, bool delegate);
-void ain_dump_enum(FILE *out, struct ain *ain, int i);
+void ain_dump_function(struct port *port, struct ain *ain, struct ain_function *f);
+void ain_dump_global(struct port *port, struct ain *ain, int i);
+void ain_dump_structure(struct port *port, struct ain *ain, int i);
+void ain_dump_text(struct port *port, struct ain *ain);
+void ain_dump_library(struct port *port, struct ain *ain, int lib);
+void ain_dump_functype(struct port *port, struct ain *ain, int i, bool delegate);
+void ain_dump_enum(struct port *port, struct ain *ain, int i);
 
 // guess_filenames.c
 void ain_guess_filenames(struct ain *ain);

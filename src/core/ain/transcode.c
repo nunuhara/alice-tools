@@ -114,4 +114,6 @@ void ain_transcode(struct ain *ain)
 		e->name = transcode_cstr(e->name);
 		// NOTE: symbols don't matter
 	}
+
+	ain_index_functions(ain);
 }
