@@ -77,14 +77,26 @@ void Navigator::addAinFile(const QString &fileName, struct ain *ain)
                 views, &QStackedWidget::setCurrentIndex);
 
         QTreeView *classes = new QTreeView;
-        classes->setModel(new AinObjectsModel(ain, classes));
+        AinObjectsModel *obj_model = new AinObjectsModel(ain, classes);
+        classes->setModel(obj_model);
         classes->setHeaderHidden(true);
 
-        QListView *list = new QListView;
-        list->setModel(new AinFunctionsModel(ain, list));
+        QListView *functions = new QListView;
+        AinFunctionsModel *func_model = new AinFunctionsModel(ain, functions);
+        functions->setModel(func_model);
+
+        // double clicking an item opens it in the viewer
+        // FIXME: double clicking also opens/closes nodes in tree view...
+        connect(classes, &QTreeView::doubleClicked, obj_model, &AinObjectsModel::open);
+        connect(functions, &QListView::doubleClicked, func_model, &AinFunctionsModel::open);
+
+        // pass signals from model along to be handled by MainWindow
+        connect(obj_model, &AinObjectsModel::openClass, this, &Navigator::openClass);
+        connect(obj_model, &AinObjectsModel::openFunction, this, &Navigator::openFunction);
+        connect(func_model, &AinFunctionsModel::openFunction, this, &Navigator::openFunction);
 
         views->addWidget(classes);
-        views->addWidget(list);
+        views->addWidget(functions);
 
         QWidget *widget = new QWidget;
         QVBoxLayout *layout = new QVBoxLayout(widget);
@@ -94,7 +106,6 @@ void Navigator::addAinFile(const QString &fileName, struct ain *ain)
 
         addFile(fileName, widget);
 }
-
 
 void Navigator::addFile(const QString &name, QWidget *widget)
 {

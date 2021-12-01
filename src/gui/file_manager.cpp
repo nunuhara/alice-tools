@@ -21,6 +21,7 @@
 
 extern "C" {
 #include "system4/ain.h"
+#include "alice.h"
 #include "alice/ain.h"
 }
 
@@ -91,6 +92,8 @@ void FileManager::openAinFile(const QString &path)
                 return;
         }
         // convert all text to UTF-8
+        set_input_encoding("CP932");
+        set_output_encoding("UTF-8");
         ain_transcode(ain);
         // initialize method-struct mappings
         ain_init_member_functions(ain, strdup);

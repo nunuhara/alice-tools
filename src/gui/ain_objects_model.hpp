@@ -40,6 +40,13 @@ public:
         int rowCount(const QModelIndex &parent = QModelIndex()) const override;
         int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
+public slots:
+        void open(const QModelIndex &index);
+
+signals:
+        void openClass(struct ain *ainObj, int i);
+        void openFunction(struct ain *ainObj, int i);
+
 private:
         enum ObjectNodeType {
                 OBJECT_NODE_ROOT,
@@ -61,7 +68,7 @@ private:
                 QVector<ObjectNode*> children;
                 ObjectNode *parentNode;
         };
-        struct ain *ain;
+        struct ain *ainObject;
         ObjectNode *root;
 };
 

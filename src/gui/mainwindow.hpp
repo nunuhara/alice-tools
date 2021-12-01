@@ -21,13 +21,14 @@
 #include <QFileInfo>
 #include <QListWidget>
 #include <QPlainTextEdit>
-#include <QSessionManager>
+#include <QTabWidget>
 #include "navigator.hpp"
+
+struct ain;
 
 class MainWindow : public QMainWindow
 {
 	Q_OBJECT
-
 
 public:
 	MainWindow(QWidget *parent = nullptr);
@@ -39,6 +40,9 @@ private slots:
         void open();
         void about();
         void openError(const QString &filename, const QString &message);
+        void openClass(struct ain *ain, int i);
+        void openFunction(struct ain *ain, int i);
+        void closeTab(int index);
 
 private:
         void createActions();
@@ -48,9 +52,11 @@ private:
         void writeSettings();
         void setupViewer();
 
+        void openText(const QString &label, const QString &text);
+
         QMenu *viewMenu;
 
-        QTextEdit *viewer;
+        QTabWidget *tabWidget;
         Navigator *nav;
 };
 

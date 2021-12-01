@@ -28,8 +28,8 @@ class AinFunctionsModel : public QAbstractListModel
         Q_OBJECT
 
 public:
-        AinFunctionsModel(struct ain *ain, QObject *parent = nullptr)
-                : QAbstractListModel(parent), ain(ain) {}
+        AinFunctionsModel(struct ain *ainObj, QObject *parent = nullptr)
+                : QAbstractListModel(parent), ainObject(ainObj) {}
         ~AinFunctionsModel();// { ain_free(ain); };
 
         int rowCount(const QModelIndex &parent = QModelIndex()) const override;
@@ -37,8 +37,14 @@ public:
         QVariant headerData(int section, Qt::Orientation orientation,
                             int role = Qt::DisplayRole) const override;
 
+public slots:
+        void open(const QModelIndex &index);
+
+signals:
+        void openFunction(struct ain *ainObj, int i);
+
 private:
-        struct ain *ain;
+        struct ain *ainObject;
 };
 
 #endif /* GALICE_AIN_FUNCTIONS_MODEL_HPP */

@@ -58,14 +58,36 @@ static iconv_t utf8_conv = (iconv_t)-1;
 static iconv_t output_utf8_conv = (iconv_t)-1;
 static iconv_t utf8_input_conv = (iconv_t)-1;
 
+static void free_conv(iconv_t *conv)
+{
+	if (*conv != (iconv_t)-1) {
+		iconv_close(*conv);
+		*conv = (iconv_t)-1;
+	}
+}
+
 void set_input_encoding(const char *enc)
 {
-	input_encoding = enc;
+	if (strcmp(enc, input_encoding)) {
+		input_encoding = enc;
+		free_conv(&output_conv);
+		free_conv(&input_conv);
+		free_conv(&utf8_conv);
+		free_conv(&output_utf8_conv);
+		free_conv(&utf8_input_conv);
+	}
 }
 
 void set_output_encoding(const char *enc)
 {
-	output_encoding = enc;
+	if (strcmp(enc, output_encoding)) {
+		output_encoding = enc;
+		free_conv(&output_conv);
+		free_conv(&input_conv);
+		free_conv(&utf8_conv);
+		free_conv(&output_utf8_conv);
+		free_conv(&utf8_input_conv);
+	}
 }
 
 char *conv_output(const char *str)

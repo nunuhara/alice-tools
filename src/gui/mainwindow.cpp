@@ -22,7 +22,9 @@
 #include "navigator.hpp"
 
 extern "C" {
+#include "alice.h"
 #include "alice/ain.h"
+#include "alice/port.h"
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -35,7 +37,7 @@ MainWindow::MainWindow(QWidget *parent)
         readSettings();
 
         setupViewer();
-        setCentralWidget(viewer);
+        setCentralWidget(tabWidget);
 
         setUnifiedTitleAndToolBarOnMac(true);
 
@@ -95,6 +97,8 @@ void MainWindow::createDockWindows()
         nav->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 
         connect(nav, &Navigator::fileOpen, &FileManager::getInstance(), &FileManager::openFile);
+        connect(nav, &Navigator::openClass, this, &MainWindow::openClass);
+        connect(nav, &Navigator::openFunction, this, &MainWindow::openFunction);
 
         addDockWidget(Qt::LeftDockWidgetArea, nav);
         viewMenu->addAction(nav->toggleViewAction());
@@ -102,15 +106,19 @@ void MainWindow::createDockWindows()
 
 void MainWindow::setupViewer()
 {
-        QFont font;
-        font.setFamily("Courier");
-        font.setFixedPitch(true);
-        font.setPointSize(10);
+        tabWidget = new QTabWidget;
+        tabWidget->setMovable(true);
+        tabWidget->setTabsClosable(true);
 
-        viewer = new QTextEdit;
-        viewer->setFont(font);
+        connect(tabWidget, &QTabWidget::tabCloseRequested, this, &MainWindow::closeTab);
+        // TODO: display welcome page
+}
 
-        // TODO: syntax highlighter
+void MainWindow::closeTab(int index)
+{
+        QWidget *w = tabWidget->widget(index);
+        tabWidget->removeTab(index);
+        delete w;
 }
 
 void MainWindow::readSettings()
@@ -136,4 +144,44 @@ void MainWindow::writeSettings()
 void MainWindow::openError(const QString &fileName, const QString &message)
 {
         QMessageBox::critical(this, "alice-tools", message, QMessageBox::Ok);
+}
+
+void MainWindow::openClass(struct ain *ainObj, int i)
+{
+        struct port port;
+        port_buffer_init(&port);
+        set_input_encoding("UTF-8");
+        set_output_encoding("UTF-8");
+        ain_dump_structure(&port, ainObj, i);
+        char *data = (char*)port_buffer_get(&port, NULL);
+        openText(ainObj->structures[i].name, data);
+        free(data);
+}
+
+void MainWindow::openFunction(struct ain *ainObj, int i)
+{
+        struct port port;
+        port_buffer_init(&port);
+        set_input_encoding("UTF-8");
+        set_output_encoding("UTF-8");
+        _ain_disassemble_function(&port, ainObj, i, 0);
+        char *data = (char*)port_buffer_get(&port, NULL);
+        openText(ainObj->functions[i].name, data);
+        free(data);
+}
+
+void MainWindow::openText(const QString &label, const QString &text)
+{
+        QFont font;
+        font.setFamily("Courier");
+        font.setFixedPitch(true);
+        font.setPointSize(10);
+
+        QTextEdit *viewer = new QTextEdit;
+        viewer->setFont(font);
+        viewer->setPlainText(text);
+
+        int index = tabWidget->currentIndex()+1;
+        tabWidget->insertTab(index, viewer, label);
+        tabWidget->setCurrentIndex(index);
 }

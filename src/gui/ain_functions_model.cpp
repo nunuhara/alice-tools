@@ -23,7 +23,7 @@ AinFunctionsModel::~AinFunctionsModel()
 
 int AinFunctionsModel::rowCount(const QModelIndex &parent) const
 {
-        return ain->nr_functions;
+        return ainObject->nr_functions;
 }
 
 QVariant AinFunctionsModel::data(const QModelIndex &index, int role) const
@@ -31,11 +31,11 @@ QVariant AinFunctionsModel::data(const QModelIndex &index, int role) const
         if (!index.isValid())
                 return QVariant();
 
-        if (index.row() >= ain->nr_functions)
+        if (index.row() >= ainObject->nr_functions)
                 return QVariant();
 
         if (role == Qt::DisplayRole) {
-                return ain->functions[index.row()].name;
+                return ainObject->functions[index.row()].name;
         }
         return QVariant();
 }
@@ -49,4 +49,12 @@ QVariant AinFunctionsModel::headerData(int section, Qt::Orientation orientation,
                 return QStringLiteral("Column %1").arg(section);
         else
                 return QStringLiteral("Row %1").arg(section);
+}
+
+void AinFunctionsModel::open(const QModelIndex &index)
+{
+        if (!index.isValid())
+                return;
+
+        emit openFunction(ainObject, index.row());
 }

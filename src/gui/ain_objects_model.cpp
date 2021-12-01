@@ -19,6 +19,8 @@
 
 extern "C" {
 #include "system4/ain.h"
+#include "alice/ain.h"
+#include "alice/port.h"
 }
 
 AinObjectsModel::ObjectNode::ObjectNode(enum ObjectNodeType type, int index)
@@ -66,16 +68,16 @@ int AinObjectsModel::ObjectNode::childCount()
 AinObjectsModel::AinObjectsModel(struct ain *data, QObject *parent)
         : QAbstractItemModel(parent)
 {
-        ain = data;
+        ainObject = data;
 
         root = new ObjectNode(OBJECT_NODE_ROOT, 0);
 
-        for (int i = 0; i < ain->nr_structures; i++) {
+        for (int i = 0; i < ainObject->nr_structures; i++) {
                 root->appendChild(new ObjectNode(OBJECT_NODE_CLASS, i));
         }
 
-        for (int i = 0; i < ain->nr_functions; i++) {
-                int struct_type = ain->functions[i].struct_type;
+        for (int i = 0; i < ainObject->nr_functions; i++) {
+                int struct_type = ainObject->functions[i].struct_type;
                 if (struct_type >= 0) {
                         root->child(struct_type)->appendChild(new ObjectNode(OBJECT_NODE_METHOD, i));
                 }
@@ -151,12 +153,12 @@ QVariant AinObjectsModel::data(const QModelIndex &index, int role) const
         case OBJECT_NODE_ROOT:
                 return QVariant();
         case OBJECT_NODE_CLASS:
-                return ain->structures[node->index].name;
+                return ainObject->structures[node->index].name;
         case OBJECT_NODE_METHOD: {
-                char *name = strchr(ain->functions[node->index].name, '@');
+                char *name = strchr(ainObject->functions[node->index].name, '@');
                 if (name)
                         return name+1;
-                return ain->functions[node->index].name;
+                return ainObject->functions[node->index].name;
         }
         }
 
@@ -173,4 +175,23 @@ Qt::ItemFlags AinObjectsModel::flags(const QModelIndex &index) const
 QVariant AinObjectsModel::headerData(int section, Qt::Orientation, int role) const
 {
         return QVariant();
+}
+
+void AinObjectsModel::open(const QModelIndex &index)
+{
+        if (!index.isValid())
+                return;
+
+        ObjectNode *node = static_cast<ObjectNode*>(index.internalPointer());
+        switch (node->type) {
+        case OBJECT_NODE_ROOT:
+                break;
+        case OBJECT_NODE_CLASS: {
+                emit openClass(ainObject, node->index);
+                break;
+        }
+        case OBJECT_NODE_METHOD:
+                emit openFunction(ainObject, node->index);
+                break;
+        }
 }

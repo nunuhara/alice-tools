@@ -38,6 +38,8 @@ private slots:
 
 signals:
         void fileOpen(const QString &path);
+        void openClass(struct ain *ainObj, int i);
+        void openFunction(struct ain *ainObj, int i);
 
 private:
         void addFilesystem();
