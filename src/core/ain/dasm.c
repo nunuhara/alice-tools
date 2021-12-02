@@ -627,9 +627,15 @@ bool _ain_disassemble_function(struct port *port, struct ain *ain, int fno, unsi
 				}
 			}
 		}
+		// XXX: functions don't always end with ENDFUNC
+		if (dasm.instr->opcode == FUNC) {
+			int n = dasm_arg(&dasm, 0);
+			if (n != fno && !strstr(ain->functions[n].name, "<lambda"))
+				break;
+		}
 		print_instruction(&dasm);
 		//fflush(dasm.out);
-		if (dasm.instr->opcode == ENDFUNC)
+		if (dasm.instr->opcode == ENDFUNC && dasm_arg(&dasm, 0) == fno)
 			break;
 	}
 	//fflush(dasm.out);
