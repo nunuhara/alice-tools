@@ -28,28 +28,30 @@
 #include "system4/file.h"
 #include "system4/string.h"
 #include "alice.h"
+#include "alice/ex.h"
+#include "alice/port.h"
 
 int indent_level = 0;
 
-static void indent(FILE *out)
+static void indent(struct port *port)
 {
 	for (int i = 0; i < indent_level; i++) {
-		fputc('\t', out);
+		port_putc(port, '\t');
 	}
 }
 
-static void ex_dump_string(FILE *out, struct string *str)
+static void ex_dump_string(struct port *port, struct string *str)
 {
 	char *u = escape_string(str->text);
-	fprintf(out, "\"%s\"", u);
+	port_printf(port, "\"%s\"", u);
 	free(u);
 }
 
-static void ex_dump_identifier(FILE *out, struct string *s)
+static void ex_dump_identifier(struct port *port, struct string *s)
 {
 	// empty identifier
 	if (s->size == 0) {
-		fprintf(out, "\"\"");
+		port_printf(port, "\"\"");
 		return;
 	}
 
@@ -58,184 +60,184 @@ static void ex_dump_identifier(FILE *out, struct string *s)
 	// identifier beginning with a digit
 	if (s->text[0] >= '0' && s->text[0] <= '9') {
 		free(u);
-		ex_dump_string(out, s);
+		ex_dump_string(port, s);
 		return;
 	}
 
 	size_t i = strcspn(u, " \t\r\n\\()[]{}=,.;\"-*");
 	if (u[i]) {
 		free(u);
-		ex_dump_string(out, s);
+		ex_dump_string(port, s);
 		return;
 	}
 
 	// FIXME: don't reencode if output format is UTF-8 (the default)
 	free(u);
 	u = conv_output(s->text);
-	fprintf(out, "%s", u);
+	port_printf(port, "%s", u);
 	free(u);
 }
 
-static void ex_dump_table(FILE *out, struct ex_table *table);
-static void ex_dump_list(FILE *out, struct ex_list *list, bool in_line);
+static void ex_dump_table(struct port *port, struct ex_table *table);
+static void ex_dump_list(struct port *port, struct ex_list *list, bool in_line);
 
-static void ex_dump_value(FILE *out, struct ex_value *val)
+static void ex_dump_value(struct port *port, struct ex_value *val)
 {
 	switch (val->type) {
-	case EX_INT:    fprintf(out, "%d", val->i); break;
-	case EX_FLOAT:  fprintf(out, "%f", val->f); break;
-	case EX_STRING: ex_dump_string(out, val->s); break;
-	case EX_TABLE:  ex_dump_table(out, val->t); break;
-	case EX_LIST:   ex_dump_list(out, val->list, true); break;
+	case EX_INT:    port_printf(port, "%d", val->i); break;
+	case EX_FLOAT:  port_printf(port, "%f", val->f); break;
+	case EX_STRING: ex_dump_string(port, val->s); break;
+	case EX_TABLE:  ex_dump_table(port, val->t); break;
+	case EX_LIST:   ex_dump_list(port, val->list, true); break;
 	case EX_TREE:   ERROR("TODO DUMP TREE"); break;
 	}
 }
 
-static void ex_dump_field(FILE *out, struct ex_field *field)
+static void ex_dump_field(struct port *port, struct ex_field *field)
 {
-	fprintf(out, "%s%s ", field->is_index ? "indexed " : "", ex_strtype(field->type));
-	ex_dump_identifier(out, field->name);
+	port_printf(port, "%s%s ", field->is_index ? "indexed " : "", ex_strtype(field->type));
+	ex_dump_identifier(port, field->name);
 	if (field->has_value) {
-		fprintf(out, " = ");
-		ex_dump_value(out, &field->value);
+		port_printf(port, " = ");
+		ex_dump_value(port, &field->value);
 	}
 
 	if (field->nr_subfields) {
-		fprintf(out, " { ");
+		port_printf(port, " { ");
 		for (uint32_t i = 0; i < field->nr_subfields; i++) {
-			ex_dump_field(out, &field->subfields[i]);
+			ex_dump_field(port, &field->subfields[i]);
 			if (i+1 < field->nr_subfields)
-				fprintf(out, ", ");
+				port_printf(port, ", ");
 		}
-		fprintf(out, " }");
+		port_printf(port, " }");
 	}
 }
 
-static void ex_dump_row(FILE *out, struct ex_value *row, uint32_t nr_columns)
+static void ex_dump_row(struct port *port, struct ex_value *row, uint32_t nr_columns)
 {
-	fprintf(out, "{ ");
+	port_printf(port, "{ ");
 	for (uint32_t i = 0; i < nr_columns; i++) {
-		ex_dump_value(out, &row[i]);
+		ex_dump_value(port, &row[i]);
 		if (i+1 < nr_columns)
-			fprintf(out, ", ");
+			port_printf(port, ", ");
 	}
-	fprintf(out, " }");
+	port_printf(port, " }");
 }
 
-static void ex_dump_table(FILE *out, struct ex_table *table)
+static void ex_dump_table(struct port *port, struct ex_table *table)
 {
 	bool toplevel = !!table->nr_fields;
-	fputc('{', out);
+	port_putc(port, '{');
 	if (toplevel)
-		fputc('\n', out);
+		port_putc(port, '\n');
 
 	indent_level++;
 	if (table->nr_fields) {
-		indent(out);
-		fprintf(out, "{ ");
+		indent(port);
+		port_printf(port, "{ ");
 		for (uint32_t i = 0; i < table->nr_fields; i++) {
-			ex_dump_field(out, &table->fields[i]);
+			ex_dump_field(port, &table->fields[i]);
 			if (i+1 < table->nr_fields)
-				fprintf(out, ", ");
+				port_printf(port, ", ");
 		}
-		fprintf(out, " },\n");
+		port_printf(port, " },\n");
 	}
 	for (uint32_t i = 0; i < table->nr_rows; i++) {
 		if (toplevel)
-			indent(out);
+			indent(port);
 		else
-			fputc(' ', out);
-		ex_dump_row(out, table->rows[i], table->nr_columns);
+			port_putc(port, ' ');
+		ex_dump_row(port, table->rows[i], table->nr_columns);
 		if (i+1 < table->nr_rows)
-			fputc(',', out);
+			port_putc(port, ',');
 		else if (!toplevel)
-			fputc(' ', out);
+			port_putc(port, ' ');
 		if (toplevel)
-			fputc('\n', out);
+			port_putc(port, '\n');
 	}
 	indent_level--;
 
-	indent(out);
-	fputc('}', out);
+	indent(port);
+	port_putc(port, '}');
 }
 
-static void ex_dump_list(FILE *out, struct ex_list *list, bool in_line)
+static void ex_dump_list(struct port *port, struct ex_list *list, bool in_line)
 {
-	fputc('{', out);
-	fputc(in_line ? ' ' : '\n', out);
+	port_putc(port, '{');
+	port_putc(port, in_line ? ' ' : '\n');
 
 	indent_level++;
 	for (uint32_t i = 0; i < list->nr_items; i++) {
 		if (!in_line)
-			indent(out);
-		ex_dump_value(out, &list->items[i].value);
+			indent(port);
+		ex_dump_value(port, &list->items[i].value);
 		if (i+1 < list->nr_items)
-			fputc(',', out);
-		fputc(in_line ? ' ' : '\n', out);
+			port_putc(port, ',');
+		port_putc(port, in_line ? ' ' : '\n');
 	}
 	indent_level--;
 
-	fputc('}', out);
+	port_putc(port, '}');
 }
 
-static void ex_dump_tree(FILE *out, struct ex_tree *tree, int level)
+static void ex_dump_tree(struct port *port, struct ex_tree *tree, int level)
 {
 	if (tree->is_leaf) {
 		if (tree->leaf.value.type == EX_TABLE)
-			fprintf(out, "(table) ");
+			port_printf(port, "(table) ");
 		else if (tree->leaf.value.type == EX_LIST)
-			fprintf(out, "(list) ");
+			port_printf(port, "(list) ");
 		else if (tree->leaf.value.type == EX_TREE)
-			fprintf(out, "(tree) "); // shouldn't happen?
-		ex_dump_value(out, &tree->leaf.value);
+			port_printf(port, "(tree) "); // shouldn't happen?
+		ex_dump_value(port, &tree->leaf.value);
 		return;
 	}
 
-	fprintf(out, "{\n");
+	port_printf(port, "{\n");
 
 	indent_level++;
 	for (uint32_t i = 0; i < tree->nr_children; i++) {
-		indent(out);
-		ex_dump_identifier(out, tree->children[i].name);
-		fprintf(out, " = ");
-		ex_dump_tree(out, &tree->children[i], level+1);
-		fprintf(out, ",\n");
+		indent(port);
+		ex_dump_identifier(port, tree->children[i].name);
+		port_printf(port, " = ");
+		ex_dump_tree(port, &tree->children[i], level+1);
+		port_printf(port, ",\n");
 	}
 	indent_level--;
 
-	indent(out);
-	fprintf(out, "}");
+	indent(port);
+	port_printf(port, "}");
 }
 
-static void ex_dump_block(FILE *out, struct ex_block *block)
+static void ex_dump_block(struct port *port, struct ex_block *block)
 {
 	indent_level = 0;
 	// type name =
-	fprintf(out, "%s ", ex_strtype(block->val.type));
-	ex_dump_identifier(out, block->name);
-	fprintf(out, " = ");
+	port_printf(port, "%s ", ex_strtype(block->val.type));
+	ex_dump_identifier(port, block->name);
+	port_printf(port, " = ");
 
 	// rvalue
 	switch (block->val.type) {
-	case EX_INT:    fprintf(out, "%d", block->val.i); break;
-	case EX_FLOAT:  fprintf(out, "%f", block->val.f); break;
-	case EX_STRING: ex_dump_string(out, block->val.s); break;
-	case EX_TABLE:  ex_dump_table(out, block->val.t); break;
-	case EX_LIST:   ex_dump_list(out, block->val.list, false); break;
-	case EX_TREE:   ex_dump_tree(out, block->val.tree, 0); break;
+	case EX_INT:    port_printf(port, "%d", block->val.i); break;
+	case EX_FLOAT:  port_printf(port, "%f", block->val.f); break;
+	case EX_STRING: ex_dump_string(port, block->val.s); break;
+	case EX_TABLE:  ex_dump_table(port, block->val.t); break;
+	case EX_LIST:   ex_dump_list(port, block->val.list, false); break;
+	case EX_TREE:   ex_dump_tree(port, block->val.tree, 0); break;
 	}
 
-	fputc(';', out);
+	port_putc(port, ';');
 }
 
-void ex_dump(FILE *out, struct ex *ex)
+void ex_dump(struct port *port, struct ex *ex)
 {
 	for (uint32_t i = 0; i < ex->nr_blocks; i++) {
-		ex_dump_block(out, &ex->blocks[i]);
+		ex_dump_block(port, &ex->blocks[i]);
 		if (i+1 < ex->nr_blocks)
-			fprintf(out, "\n\n");
+			port_printf(port, "\n\n");
 	}
-	fputc('\n', out);
+	port_putc(port, '\n');
 }
 
 void ex_dump_split(FILE *manifest, struct ex *ex, const char *dir)
@@ -249,7 +251,10 @@ void ex_dump_split(FILE *manifest, struct ex *ex, const char *dir)
 		if (!out)
 			ERROR("Failed to open file '%s': %s", buf, strerror(errno));
 
-		ex_dump_block(out, &ex->blocks[i]);
+		struct port port;
+		port_file_init(&port, manifest);
+		ex_dump_block(&port, &ex->blocks[i]);
+		port_close(&port);
 
 		if (fclose(out))
 			ERROR("Failed to close file '%s': %s", buf, strerror(errno));

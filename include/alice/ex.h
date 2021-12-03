@@ -21,12 +21,13 @@
 #include <stdio.h>
 
 struct ex;
+struct port;
 
 struct ex *ex_parse_file(const char *path);
 void ex_write(FILE *out, struct ex *ex);
 uint8_t *ex_write_mem(struct ex *ex, size_t *size_out);
 void ex_write_file(const char *path, struct ex *ex);
-int ex_dump(FILE *out, struct ex *ex);
-int ex_dump_split(FILE *out, struct ex *ex, const char *dir);
+void ex_dump(struct port *port, struct ex *ex);
+void ex_dump_split(FILE *out, struct ex *ex, const char *dir);
 
 #endif /* ALICE_EX_H */

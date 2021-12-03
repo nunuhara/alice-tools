@@ -29,6 +29,7 @@
 #include "system4/string.h"
 #include "alice.h"
 #include "alice/ex.h"
+#include "alice/port.h"
 #include "cli.h"
 
 enum {
@@ -98,7 +99,10 @@ int command_ex_dump(int argc, char *argv[])
 			dir = ".";
 		ex_dump_split(out, ex, dir);
 	} else {
-		ex_dump(out, ex);
+		struct port port;
+		port_file_init(&port, out);
+		ex_dump(&port, ex);
+		port_close(&port);
 		fclose(out);
 	}
 	ex_free(ex);
