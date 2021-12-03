@@ -21,14 +21,9 @@
 
 extern "C" {
 #include "system4/ain.h"
+#include "system4/ex.h"
 #include "alice.h"
 #include "alice/ain.h"
-}
-
-FileManager::AliceFile::AliceFile(struct ain *ain)
-        : type(FILE_TYPE_AIN)
-        , ain(ain)
-{
 }
 
 FileManager::AliceFile::~AliceFile()
@@ -38,6 +33,7 @@ FileManager::AliceFile::~AliceFile()
                 ain_free(ain);
                 break;
         case FILE_TYPE_EX:
+                ex_free(ex);
                 // TODO
                 break;
         case FILE_TYPE_ACX:
@@ -65,15 +61,15 @@ void FileManager::openFile(const QString &path)
 
         if (!suffix.compare("ain")) {
                 openAinFile(path);
-        } else if (suffix.compare("ex")) {
+        } else if (!suffix.compare("ex")) {
                 openExFile(path);
-        } else if (suffix.compare("acx")) {
+        } else if (!suffix.compare("acx")) {
                 openAcxFile(path);
-        } else if (suffix.compare("afa")) {
+        } else if (!suffix.compare("afa")) {
                 openAfaFile(path);
-        } else if (suffix.compare("ald")) {
+        } else if (!suffix.compare("ald")) {
                 openAldFile(path);
-        } else if (suffix.compare("alk")) {
+        } else if (!suffix.compare("alk")) {
                 openAlkFile(path);
         } else {
                 emit openFileError(path, tr("Unsupported file type"));
@@ -85,16 +81,14 @@ void FileManager::openAinFile(const QString &path)
         QGuiApplication::setOverrideCursor(Qt::WaitCursor);
 
         int error = AIN_SUCCESS;
-        struct ain *ain = ain_open(path.toUtf8(), &error);
+        set_input_encoding("CP932");
+        set_output_encoding("UTF-8");
+        struct ain *ain = ain_open_conv(path.toUtf8(), conv_output, &error);
         if (!ain) {
                 QGuiApplication::restoreOverrideCursor();
                 emit openFileError(path, tr("Failed to read .ain file"));
                 return;
         }
-        // convert all text to UTF-8
-        set_input_encoding("CP932");
-        set_output_encoding("UTF-8");
-        ain_transcode(ain);
         // initialize method-struct mappings
         ain_init_member_functions(ain, strdup);
 
@@ -105,7 +99,20 @@ void FileManager::openAinFile(const QString &path)
 
 void FileManager::openExFile(const QString &path)
 {
-        emit openFileError(path, tr(".ex files not yet supported"));
+        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+
+        set_input_encoding("CP932");
+        set_output_encoding("UTF-8");
+        struct ex *ex = ex_read_file_conv(path.toUtf8(), string_conv_output);
+        if (!ex) {
+                QGuiApplication::restoreOverrideCursor();
+                emit openFileError(path, tr("Failed to read .ex file"));
+                return;
+        }
+
+        files.append(new AliceFile(ex));
+        emit openedExFile(path, ex);
+        QGuiApplication::restoreOverrideCursor();
 }
 
 void FileManager::openAcxFile(const QString &path)

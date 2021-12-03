@@ -54,7 +54,8 @@ private:
         };
         class AliceFile {
         public:
-                AliceFile(struct ain *ain);
+                AliceFile(struct ain *ain) : type(FILE_TYPE_AIN), ain(ain) {}
+                AliceFile(struct ex *ex) : type(FILE_TYPE_EX), ex(ex) {}
                 ~AliceFile();
                 enum FileType type;
                 union {

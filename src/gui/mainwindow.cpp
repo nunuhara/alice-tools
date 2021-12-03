@@ -99,6 +99,7 @@ void MainWindow::createDockWindows()
         connect(nav, &Navigator::fileOpen, &FileManager::getInstance(), &FileManager::openFile);
         connect(nav, &Navigator::openClass, this, &MainWindow::openClass);
         connect(nav, &Navigator::openFunction, this, &MainWindow::openFunction);
+        connect(nav, &Navigator::openExValue, this, &MainWindow::openExValue);
 
         addDockWidget(Qt::LeftDockWidgetArea, nav);
         viewMenu->addAction(nav->toggleViewAction());
@@ -168,6 +169,11 @@ void MainWindow::openFunction(struct ain *ainObj, int i)
         char *data = (char*)port_buffer_get(&port, NULL);
         openText(ainObj->functions[i].name, data);
         free(data);
+}
+
+void MainWindow::openExValue(const QString &name, struct ex_value *value)
+{
+        // TODO
 }
 
 void MainWindow::openText(const QString &label, const QString &text)

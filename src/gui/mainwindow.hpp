@@ -25,6 +25,7 @@
 #include "navigator.hpp"
 
 struct ain;
+struct ex_value;
 
 class MainWindow : public QMainWindow
 {
@@ -42,6 +43,7 @@ private slots:
         void openError(const QString &filename, const QString &message);
         void openClass(struct ain *ain, int i);
         void openFunction(struct ain *ain, int i);
+        void openExValue(const QString &name, struct ex_value *value);
         void closeTab(int index);
 
 private:

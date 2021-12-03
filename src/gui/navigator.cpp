@@ -20,6 +20,7 @@
 #include "navigator.hpp"
 #include "ain_functions_model.hpp"
 #include "ain_objects_model.hpp"
+#include "ex_model.hpp"
 
 Navigator::Navigator(QWidget *parent)
         : QDockWidget(tr("Navigation"), parent)
@@ -40,6 +41,13 @@ Navigator::Navigator(QWidget *parent)
         addFilesystem();
 
         connect(&FileManager::getInstance(), &FileManager::openedAinFile, this, &Navigator::addAinFile);
+        connect(&FileManager::getInstance(), &FileManager::openedExFile, this, &Navigator::addExFile);
+        //connect(&FileManager::getInstance(), &FileManager::openedArchive, this, &Navigator::addArchive);
+}
+
+Navigator::~Navigator()
+{
+        qDeleteAll(models);
 }
 
 void Navigator::addFilesystem()
@@ -80,10 +88,12 @@ void Navigator::addAinFile(const QString &fileName, struct ain *ain)
         AinObjectsModel *obj_model = new AinObjectsModel(ain, classes);
         classes->setModel(obj_model);
         classes->setHeaderHidden(true);
+        models.append(obj_model);
 
         QListView *functions = new QListView;
         AinFunctionsModel *func_model = new AinFunctionsModel(ain, functions);
         functions->setModel(func_model);
+        models.append(func_model);
 
         // double clicking an item opens it in the viewer
         // FIXME: double clicking also opens/closes nodes in tree view...
@@ -106,6 +116,24 @@ void Navigator::addAinFile(const QString &fileName, struct ain *ain)
 
         addFile(fileName, widget);
 }
+
+void Navigator::addExFile(const QString &fileName, struct ex *ex)
+{
+        QTreeView *view = new QTreeView;
+        ExModel *model = new ExModel(ex);
+        view->setModel(model);
+        //view->setHeaderHidden(true);
+        models.append(model);
+
+        connect(view, &QTreeView::doubleClicked, model, &ExModel::open);
+        connect(model, &ExModel::openExValue, this, &Navigator::openExValue);
+
+        addFile(fileName, view);
+}
+
+//void Navigator::addArchive(const QString &fileName, struct archive *ar)
+//{
+//}
 
 void Navigator::addFile(const QString &name, QWidget *widget)
 {

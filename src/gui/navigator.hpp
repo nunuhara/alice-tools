@@ -20,8 +20,15 @@
 #include <QDockWidget>
 #include <QComboBox>
 #include <QStackedWidget>
+#include <QVector>
 
 struct ain;
+struct ex;
+
+extern "C" {
+#include "system4/ain.h"
+#include "system4/ex.h"
+}
 
 class Navigator : public QDockWidget
 {
@@ -29,17 +36,19 @@ class Navigator : public QDockWidget
 
 public:
         Navigator(QWidget *parent = nullptr);
+        ~Navigator();
 
 private slots:
         void addAinFile(const QString &fileName, struct ain *ain);
-        //void addExFile(const QString &fileName, struct ex *ex);
-        //void addArchiveFile(const QString &fileName, struct archive *ar);
+        void addExFile(const QString &fileName, struct ex *ex);
+        //void addArchive(const QString &fileName, struct archive *ar);
         void filesystemOpen(const QModelIndex &index);
 
 signals:
         void fileOpen(const QString &path);
         void openClass(struct ain *ainObj, int i);
         void openFunction(struct ain *ainObj, int i);
+        void openExValue(const QString &name, struct ex_value *val);
 
 private:
         void addFilesystem();
@@ -47,6 +56,11 @@ private:
 
         QComboBox *fileSelector;
         QStackedWidget *stack;
+
+        // XXX: Models aren't automatically deleted with the view, so we need
+        //      to keep track of them somehow. This solution is simple but will
+        //      make closing files more difficult.
+        QVector<QAbstractItemModel*> models;
 };
 
 #endif /* GALICE_NAVIGATOR_HPP */
