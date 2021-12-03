@@ -19,11 +19,46 @@
 #include <errno.h>
 #include <iconv.h>
 #include "system4.h"
+#include "system4/string.h"
 #include "alice.h"
 
-static char *convert_text(iconv_t cd, const char *str)
+static struct string *string_conv(iconv_t cd, const char *str, size_t len)
 {
-	size_t inbytesleft = strlen(str);
+	size_t inbytesleft = len > 0 ? len : strlen(str);
+	char *inbuf = (char*)str;
+
+	if (!len)
+		return string_dup(&EMPTY_STRING);
+
+	size_t outbuf_size = inbytesleft;
+	size_t outbytesleft = outbuf_size;
+	struct string *out = string_alloc(outbuf_size);
+	char *outptr = out->text;
+
+	while (inbytesleft) {
+		if (iconv(cd, &inbuf, &inbytesleft, &outptr, &outbytesleft) == (size_t)-1 && errno != E2BIG) {
+			if (*current_file_name)
+				ALICE_ERROR("%s:%lu: iconv: %s", *current_file_name, *current_line_nr, strerror(errno));
+			else
+				ALICE_ERROR("iconv: %s", strerror(errno));
+		}
+		if (!inbytesleft)
+			break;
+		// realloc
+		size_t out_index = outbuf_size - outbytesleft;
+		outbytesleft += outbuf_size;
+		outbuf_size *= 2;
+		out = string_realloc(out, outbuf_size);
+		outptr = out->text + out_index;
+	}
+	*outptr = '\0';
+	out->size = outptr - out->text;
+	return out;
+}
+
+static char *convert_text(iconv_t cd, const char *str, size_t len)
+{
+	size_t inbytesleft = len;
 	char *inbuf = (char*)str;
 
 	size_t outbuf_size = inbytesleft;
@@ -38,6 +73,8 @@ static char *convert_text(iconv_t cd, const char *str)
 			else
 				ALICE_ERROR("iconv: %s", strerror(errno));
 		}
+		if (!inbytesleft)
+			break;
 		// reallocate outbuf
 		size_t out_index = outbuf_size - outbytesleft;
 		outbytesleft += outbuf_size;
@@ -90,40 +127,87 @@ void set_output_encoding(const char *enc)
 	}
 }
 
+static iconv_t check_conv(iconv_t *conv, const char *out_enc, const char *in_enc)
+{
+	if (*conv == (iconv_t)-1 && (*conv = iconv_open(out_enc, in_enc)) == (iconv_t)-1)
+		ALICE_ERROR("iconv_open: %s", strerror(errno));
+	return *conv;
+}
+
+char *conv_output_len(const char *str, size_t len)
+{
+	return convert_text(check_conv(&output_conv, output_encoding, input_encoding), str, len);
+}
+
+struct string *string_conv_output(const char *str, size_t len)
+{
+	return string_conv(check_conv(&output_conv, output_encoding, input_encoding), str, len);
+}
+
 char *conv_output(const char *str)
 {
-	if (output_conv == (iconv_t)-1 && (output_conv = iconv_open(output_encoding, input_encoding)) == (iconv_t)-1)
-		ALICE_ERROR("iconv_open: %s", strerror(errno));
-	return convert_text(output_conv, str);
+	return conv_output_len(str, strlen(str));
+}
+
+char *conv_input_len(const char *str, size_t len)
+{
+	return convert_text(check_conv(&input_conv, input_encoding, output_encoding), str, len);
+}
+
+struct string *string_conv_input(const char *str, size_t len)
+{
+	return string_conv(check_conv(&input_conv, input_encoding, output_encoding), str, len);
 }
 
 char *conv_input(const char *str)
 {
-	if (input_conv == (iconv_t)-1 && (input_conv = iconv_open(input_encoding, output_encoding)) == (iconv_t)-1)
-		ALICE_ERROR("iconv_open: %s", strerror(errno));
-	return convert_text(input_conv, str);
+	return conv_input_len(str, strlen(str));
+}
+
+char *conv_utf8_len(const char *str, size_t len)
+{
+	return convert_text(check_conv(&utf8_conv, "UTF-8", input_encoding), str, len);
+}
+
+struct string *string_conv_utf8(const char *str, size_t len)
+{
+	return string_conv(check_conv(&utf8_conv, "UTF-8", input_encoding), str, len);
 }
 
 char *conv_utf8(const char *str)
 {
-	if (utf8_conv == (iconv_t)-1 && (utf8_conv = iconv_open("UTF-8", input_encoding)) == (iconv_t)-1)
-		ALICE_ERROR("iconv_open: %s", strerror(errno));
-	return convert_text(utf8_conv, str);
+	return conv_utf8_len(str, strlen(str));
+}
+
+char *conv_output_utf8_len(const char *str, size_t len)
+{
+	return convert_text(check_conv(&output_utf8_conv, "UTF-8", output_encoding), str, len);
+}
+
+struct string *string_conv_output_utf8(const char *str, size_t len)
+{
+	return string_conv(check_conv(&output_utf8_conv, "UTF-8", output_encoding), str, len);
 }
 
 char *conv_output_utf8(const char *str)
 {
-	if (output_utf8_conv == (iconv_t)-1 && (output_utf8_conv = iconv_open("UTF-8", output_encoding)) == (iconv_t)-1)
-		ALICE_ERROR("iconv_open: %s", strerror(errno));
-	return convert_text(output_utf8_conv, str);
+	return conv_output_utf8_len(str, strlen(str));
 }
 
 // convert from UTF-8 to input encoding (e.g. to convert command line parameter for ain lookup)
+char *conv_utf8_input_len(const char *str, size_t len)
+{
+	return convert_text(check_conv(&utf8_input_conv, input_encoding, "UTF-8"), str, len);
+}
+
+struct string *string_conv_utf8_input(const char *str, size_t len)
+{
+	return string_conv(check_conv(&utf8_input_conv, input_encoding, "UTF-8"), str, len);
+}
+
 char *conv_utf8_input(const char *str)
 {
-	if (utf8_input_conv == (iconv_t)-1 && (utf8_input_conv = iconv_open(input_encoding, "UTF-8")) == (iconv_t)-1)
-		ALICE_ERROR("iconv_open: %s", strerror(errno));
-	return convert_text(utf8_input_conv, str);
+	return conv_utf8_input_len(str, strlen(str));
 }
 
 #ifdef _WIN32

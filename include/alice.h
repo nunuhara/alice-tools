@@ -30,11 +30,27 @@
 /* conv.c */
 void set_input_encoding(const char *enc);
 void set_output_encoding(const char *enc);
+
 char *conv_output(const char *str);
+char *conv_output_len(const char *str, size_t len);
+struct string *string_conv_output(const char *str, size_t len);
+
 char *conv_input(const char *str);
+char *conv_input_len(const char *str, size_t len);
+struct string *string_conv_input(const char *str, size_t len);
+
 char *conv_utf8(const char *str);
+char *conv_utf8_len(const char *str, size_t len);
+struct string *string_conv_utf8(const char *str, size_t len);
+
 char *conv_output_utf8(const char *str);
+char *conv_output_utf8_len(const char *str, size_t len);
+struct string *string_conv_output_utf8(const char *str, size_t len);
+
 char *conv_utf8_input(const char *str);
+char *conv_utf8_input_len(const char *str, size_t len);
+struct string *string_conv_utf8_input(const char *str, size_t len);
+
 char *conv_cmdline_utf8(const char *str);
 
 struct stat;
