@@ -106,10 +106,11 @@ void ExModel::ExNode::appendChildren(struct ex_value *value)
         case EX_TREE:
                 if (value->tree->is_leaf) {
                         kv.key.s = value->tree->leaf.name->text;
-                        value = &value->tree->leaf.value;
+                        kv.value = &value->tree->leaf.value;
+                        appendChildren(kv.value);
                 } else {
                         for (unsigned i = 0; i < value->tree->nr_children; i++) {
-                                appendChild(new ExNode(value->tree->name->text, &value->tree->_children[i]));
+                                appendChild(new ExNode(value->tree->children[i].name->text, &value->tree->_children[i]));
                         }
                 }
                 break;

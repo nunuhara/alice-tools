@@ -21,12 +21,21 @@
 #include <stdio.h>
 
 struct ex;
+struct ex_value;
+struct ex_table;
+struct ex_list;
+struct ex_tree;
 struct port;
 
 struct ex *ex_parse_file(const char *path);
 void ex_write(FILE *out, struct ex *ex);
 uint8_t *ex_write_mem(struct ex *ex, size_t *size_out);
 void ex_write_file(const char *path, struct ex *ex);
+
+void ex_dump_value(struct port *port, struct ex_value *val);
+void ex_dump_table(struct port *port, struct ex_table *table);
+void ex_dump_list(struct port *port, struct ex_list *list);
+void ex_dump_tree(struct port *port, struct ex_tree *tree);
 void ex_dump(struct port *port, struct ex *ex);
 void ex_dump_split(FILE *out, struct ex *ex, const char *dir);
 

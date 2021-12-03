@@ -24,6 +24,7 @@
 extern "C" {
 #include "alice.h"
 #include "alice/ain.h"
+#include "alice/ex.h"
 #include "alice/port.h"
 }
 
@@ -173,7 +174,14 @@ void MainWindow::openFunction(struct ain *ainObj, int i)
 
 void MainWindow::openExValue(const QString &name, struct ex_value *value)
 {
-        // TODO
+        struct port port;
+        port_buffer_init(&port);
+        set_input_encoding("UTF-8");
+        set_output_encoding("UTF-8");
+        ex_dump_value(&port, value);
+        char *data = (char*)port_buffer_get(&port, NULL);
+        openText(name, data);
+        free(data);
 }
 
 void MainWindow::openText(const QString &label, const QString &text)
