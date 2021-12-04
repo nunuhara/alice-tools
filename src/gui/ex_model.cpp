@@ -320,23 +320,42 @@ QVariant ExModel::headerData(int section, Qt::Orientation orientation, int role)
         return QVariant();
 }
 
-void ExModel::open(const QModelIndex &index)
+struct ex_value *ExModel::exValue(const QModelIndex &index)
 {
         if (!index.isValid())
-                return;
+                return nullptr;
 
         ExNode *node = static_cast<ExNode*>(index.internalPointer());
         switch (node->type) {
         case EX_NODE_ROOT:
                 break;
         case EX_NODE_S_KEYVALUE:
-                emit openExValue(QString::fromUtf8(node->kv.key.s), node->kv.value);
-                break;
         case EX_NODE_I_KEYVALUE:
-                emit openExValue("[" + QString::number(node->kv.key.i) + "]", node->kv.value);
-                break;
+                return node->kv.value;
         case EX_NODE_ROW:
-                // TODO
                 break;
         }
+        return nullptr;
+}
+
+QString ExModel::exName(const QModelIndex &index)
+{
+        if (!index.isValid())
+                return "";
+
+        ExNode *node = static_cast<ExNode*>(index.internalPointer());
+        switch (node->type) {
+        case EX_NODE_ROOT:
+                break;
+        case EX_NODE_S_KEYVALUE:
+                return QString::fromUtf8(node->kv.key.s);
+                break;
+        case EX_NODE_I_KEYVALUE:
+                return "[" + QString::number(node->kv.key.i) + "]";
+                break;
+        case EX_NODE_ROW:
+                return "[" + QString::number(node->row.i) + "]";
+                break;
+        }
+        return "";
 }

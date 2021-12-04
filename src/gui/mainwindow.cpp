@@ -20,6 +20,7 @@
 #include "ain_functions_model.hpp"
 #include "file_manager.hpp"
 #include "navigator.hpp"
+#include "viewer.hpp"
 
 extern "C" {
 #include "alice.h"
@@ -156,7 +157,7 @@ void MainWindow::openClass(struct ain *ainObj, int i)
         set_output_encoding("UTF-8");
         ain_dump_structure(&port, ainObj, i);
         char *data = (char*)port_buffer_get(&port, NULL);
-        openText(ainObj->structures[i].name, data);
+        openText(ainObj->structures[i].name, data, false);
         free(data);
 }
 
@@ -168,11 +169,11 @@ void MainWindow::openFunction(struct ain *ainObj, int i)
         set_output_encoding("UTF-8");
         _ain_disassemble_function(&port, ainObj, i, 0);
         char *data = (char*)port_buffer_get(&port, NULL);
-        openText(ainObj->functions[i].name, data);
+        openText(ainObj->functions[i].name, data, false);
         free(data);
 }
 
-void MainWindow::openExValue(const QString &name, struct ex_value *value)
+void MainWindow::openExValue(const QString &name, struct ex_value *value, bool newTab)
 {
         struct port port;
         port_buffer_init(&port);
@@ -180,11 +181,32 @@ void MainWindow::openExValue(const QString &name, struct ex_value *value)
         set_output_encoding("UTF-8");
         ex_dump_value(&port, value);
         char *data = (char*)port_buffer_get(&port, NULL);
-        openText(name, data);
+        openText(name, data, newTab);
         free(data);
 }
 
-void MainWindow::openText(const QString &label, const QString &text)
+void MainWindow::openText(const QString &label, const QString &text, bool newTab)
+{
+        if (newTab || tabWidget->currentIndex() < 0) {
+                openTextNew(label, text);
+                return;
+        }
+
+        Viewer *tabContent = static_cast<Viewer*>(tabWidget->currentWidget());
+        tabContent->setChild(createText(text));
+        tabWidget->setTabText(tabWidget->currentIndex(), label);
+}
+
+void MainWindow::openTextNew(const QString &label, const QString &text)
+{
+        Viewer *tabContent = new Viewer(createText(text));
+
+        int index = tabWidget->currentIndex()+1;
+        tabWidget->insertTab(index, tabContent, label);
+        tabWidget->setCurrentIndex(index);
+}
+
+QWidget *MainWindow::createText(const QString &text)
 {
         QFont font;
         font.setFamily("Courier");
@@ -195,7 +217,5 @@ void MainWindow::openText(const QString &label, const QString &text)
         viewer->setFont(font);
         viewer->setPlainText(text);
 
-        int index = tabWidget->currentIndex()+1;
-        tabWidget->insertTab(index, viewer, label);
-        tabWidget->setCurrentIndex(index);
+        return viewer;
 }

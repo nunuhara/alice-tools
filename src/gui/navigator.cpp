@@ -14,13 +14,12 @@
  * along with this program; if not, see <http://gnu.org/licenses/>.
  */
 
-#include <iostream>
 #include <QtWidgets>
 #include "file_manager.hpp"
 #include "navigator.hpp"
 #include "ain_functions_model.hpp"
 #include "ain_objects_model.hpp"
-#include "ex_model.hpp"
+#include "ex_view.hpp"
 
 Navigator::Navigator(QWidget *parent)
         : QDockWidget(tr("Navigation"), parent)
@@ -97,8 +96,8 @@ void Navigator::addAinFile(const QString &fileName, struct ain *ain)
 
         // double clicking an item opens it in the viewer
         // FIXME: double clicking also opens/closes nodes in tree view...
-        connect(classes, &QTreeView::doubleClicked, obj_model, &AinObjectsModel::open);
-        connect(functions, &QListView::doubleClicked, func_model, &AinFunctionsModel::open);
+        connect(classes, &QTreeView::activated, obj_model, &AinObjectsModel::open);
+        connect(functions, &QListView::activated, func_model, &AinFunctionsModel::open);
 
         // pass signals from model along to be handled by MainWindow
         connect(obj_model, &AinObjectsModel::openClass, this, &Navigator::openClass);
@@ -119,15 +118,8 @@ void Navigator::addAinFile(const QString &fileName, struct ain *ain)
 
 void Navigator::addExFile(const QString &fileName, struct ex *ex)
 {
-        QTreeView *view = new QTreeView;
-        ExModel *model = new ExModel(ex);
-        view->setModel(model);
-        //view->setHeaderHidden(true);
-        models.append(model);
-
-        connect(view, &QTreeView::doubleClicked, model, &ExModel::open);
-        connect(model, &ExModel::openExValue, this, &Navigator::openExValue);
-
+        ExView *view = new ExView(ex);
+        connect(view, &ExView::opened, this, &Navigator::openExValue);
         addFile(fileName, view);
 }
 

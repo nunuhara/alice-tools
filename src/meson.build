@@ -88,17 +88,21 @@ gui_sources = ['gui/galice.cpp',
                'gui/ain_functions_model.cpp',
                'gui/ain_objects_model.cpp',
                'gui/ex_model.cpp',
+               'gui/ex_view.cpp',
                'gui/file_manager.cpp',
                'gui/mainwindow.cpp',
                'gui/navigator.cpp',
+               'gui/viewer.cpp',
 ]
 
 gui_moc = ['gui/ain_functions_model.hpp',
            'gui/ain_objects_model.hpp',
            'gui/ex_model.hpp',
+           'gui/ex_view.hpp',
            'gui/file_manager.hpp',
            'gui/mainwindow.hpp',
            'gui/navigator.hpp',
+           'gui/viewer.hpp',
 ]
 
 qt5 = import('qt5')

@@ -48,7 +48,7 @@ signals:
         void fileOpen(const QString &path);
         void openClass(struct ain *ainObj, int i);
         void openFunction(struct ain *ainObj, int i);
-        void openExValue(const QString &name, struct ex_value *val);
+        void openExValue(const QString &name, struct ex_value *val, bool newTab);
 
 private:
         void addFilesystem();

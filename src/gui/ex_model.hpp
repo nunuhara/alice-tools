@@ -45,8 +45,8 @@ public:
         int rowCount(const QModelIndex &parent = QModelIndex()) const override;
         int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
-public slots:
-        void open(const QModelIndex &index);
+        struct ex_value *exValue(const QModelIndex &index);
+        QString exName(const QModelIndex &index);
 
 signals:
         void openExValue(const QString &name, struct ex_value *value);

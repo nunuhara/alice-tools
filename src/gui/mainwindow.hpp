@@ -43,7 +43,7 @@ private slots:
         void openError(const QString &filename, const QString &message);
         void openClass(struct ain *ain, int i);
         void openFunction(struct ain *ain, int i);
-        void openExValue(const QString &name, struct ex_value *value);
+        void openExValue(const QString &name, struct ex_value *value, bool newTab);
         void closeTab(int index);
 
 private:
@@ -54,7 +54,9 @@ private:
         void writeSettings();
         void setupViewer();
 
-        void openText(const QString &label, const QString &text);
+        void openText(const QString &label, const QString &text, bool newTab);
+        void openTextNew(const QString &label, const QString &text);
+        QWidget *createText(const QString &text);
 
         QMenu *viewMenu;
 
