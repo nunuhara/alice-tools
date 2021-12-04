@@ -14,24 +14,22 @@
  * along with this program; if not, see <http://gnu.org/licenses/>.
  */
 
-#include <QVBoxLayout>
-#include "ex_view.hpp"
+#ifndef GALICE_NAVIGATOR_VIEW_HPP
+#define GALICE_NAVIGATOR_VIEW_HPP
+
+#include <QTreeView>
 #include "navigator_model.hpp"
-#include "navigator_view.hpp"
 
-extern "C" {
-#include "system4/ex.h"
-}
-
-ExView::ExView(struct ex *exFile, QWidget *parent)
-        : QWidget(parent)
+class NavigatorView : public QTreeView
 {
-        NavigatorModel *model = NavigatorModel::fromExFile(exFile);
-        NavigatorView *view = new NavigatorView(model);
+        Q_OBJECT
+public:
+        NavigatorView(NavigatorModel *model, QWidget *parent = nullptr);
+        ~NavigatorView();
+protected:
+        void contextMenuEvent(QContextMenuEvent *event) override;
+private:
+        NavigatorModel *model;
+};
 
-        connect(model, &NavigatorModel::requestedOpenExValue, this, &ExView::requestedOpenExValue);
-
-        QVBoxLayout *layout = new QVBoxLayout(this);
-        layout->addWidget(view);
-        layout->setContentsMargins(0, 0, 0, 0);
-}
+#endif /* GALICE_NAVIGATOR_VIEW_HPP */

@@ -17,7 +17,6 @@
 #include <iostream>
 #include <QtWidgets>
 #include "mainwindow.hpp"
-#include "ain_functions_model.hpp"
 #include "file_manager.hpp"
 #include "navigator.hpp"
 #include "viewer.hpp"
@@ -98,10 +97,10 @@ void MainWindow::createDockWindows()
         nav = new Navigator(this);
         nav->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 
-        connect(nav, &Navigator::fileOpen, &FileManager::getInstance(), &FileManager::openFile);
-        connect(nav, &Navigator::openClass, this, &MainWindow::openClass);
-        connect(nav, &Navigator::openFunction, this, &MainWindow::openFunction);
-        connect(nav, &Navigator::openExValue, this, &MainWindow::openExValue);
+        connect(nav, &Navigator::requestedOpenFile, &FileManager::getInstance(), &FileManager::openFile);
+        connect(nav, &Navigator::requestedOpenClass, this, &MainWindow::openClass);
+        connect(nav, &Navigator::requestedOpenFunction, this, &MainWindow::openFunction);
+        connect(nav, &Navigator::requestedOpenExValue, this, &MainWindow::openExValue);
 
         addDockWidget(Qt::LeftDockWidgetArea, nav);
         viewMenu->addAction(nav->toggleViewAction());
@@ -149,7 +148,7 @@ void MainWindow::openError(const QString &fileName, const QString &message)
         QMessageBox::critical(this, "alice-tools", message, QMessageBox::Ok);
 }
 
-void MainWindow::openClass(struct ain *ainObj, int i)
+void MainWindow::openClass(struct ain *ainObj, int i, bool newTab)
 {
         struct port port;
         port_buffer_init(&port);
@@ -157,11 +156,11 @@ void MainWindow::openClass(struct ain *ainObj, int i)
         set_output_encoding("UTF-8");
         ain_dump_structure(&port, ainObj, i);
         char *data = (char*)port_buffer_get(&port, NULL);
-        openText(ainObj->structures[i].name, data, false);
+        openText(ainObj->structures[i].name, data, newTab);
         free(data);
 }
 
-void MainWindow::openFunction(struct ain *ainObj, int i)
+void MainWindow::openFunction(struct ain *ainObj, int i, bool newTab)
 {
         struct port port;
         port_buffer_init(&port);
@@ -169,7 +168,7 @@ void MainWindow::openFunction(struct ain *ainObj, int i)
         set_output_encoding("UTF-8");
         _ain_disassemble_function(&port, ainObj, i, 0);
         char *data = (char*)port_buffer_get(&port, NULL);
-        openText(ainObj->functions[i].name, data, false);
+        openText(ainObj->functions[i].name, data, newTab);
         free(data);
 }
 

@@ -17,8 +17,7 @@
 #include <QtWidgets>
 #include "file_manager.hpp"
 #include "navigator.hpp"
-#include "ain_functions_model.hpp"
-#include "ain_objects_model.hpp"
+#include "ain_view.hpp"
 #include "ex_view.hpp"
 
 Navigator::Navigator(QWidget *parent)
@@ -46,7 +45,6 @@ Navigator::Navigator(QWidget *parent)
 
 Navigator::~Navigator()
 {
-        qDeleteAll(models);
 }
 
 void Navigator::addFilesystem()
@@ -66,60 +64,21 @@ void Navigator::addFilesystem()
 void Navigator::filesystemOpen(const QModelIndex &index)
 {
         const QFileSystemModel *model = static_cast<const QFileSystemModel*>(index.model());
-        emit fileOpen(model->filePath(index));
+        emit requestedOpenFile(model->filePath(index));
 }
 
 void Navigator::addAinFile(const QString &fileName, struct ain *ain)
 {
-        QComboBox *viewSelector = new QComboBox;
-        viewSelector->addItem(tr("Classes"));
-        //viewSelector->addItem(tr("Enumerations"));
-        //viewSelector->addItem(tr("Files"));
-        viewSelector->addItem(tr("Functions"));
-        //viewSelector->addItem(tr("Libraries"));
-
-        QStackedWidget *views = new QStackedWidget;
-
-        connect(viewSelector, QOverload<int>::of(&QComboBox::activated),
-                views, &QStackedWidget::setCurrentIndex);
-
-        QTreeView *classes = new QTreeView;
-        AinObjectsModel *obj_model = new AinObjectsModel(ain, classes);
-        classes->setModel(obj_model);
-        classes->setHeaderHidden(true);
-        models.append(obj_model);
-
-        QListView *functions = new QListView;
-        AinFunctionsModel *func_model = new AinFunctionsModel(ain, functions);
-        functions->setModel(func_model);
-        models.append(func_model);
-
-        // double clicking an item opens it in the viewer
-        // FIXME: double clicking also opens/closes nodes in tree view...
-        connect(classes, &QTreeView::activated, obj_model, &AinObjectsModel::open);
-        connect(functions, &QListView::activated, func_model, &AinFunctionsModel::open);
-
-        // pass signals from model along to be handled by MainWindow
-        connect(obj_model, &AinObjectsModel::openClass, this, &Navigator::openClass);
-        connect(obj_model, &AinObjectsModel::openFunction, this, &Navigator::openFunction);
-        connect(func_model, &AinFunctionsModel::openFunction, this, &Navigator::openFunction);
-
-        views->addWidget(classes);
-        views->addWidget(functions);
-
-        QWidget *widget = new QWidget;
-        QVBoxLayout *layout = new QVBoxLayout(widget);
-        layout->addWidget(viewSelector);
-        layout->addWidget(views);
-        layout->setContentsMargins(0, 0, 0, 0);
-
-        addFile(fileName, widget);
+        AinView *view = new AinView(ain);
+        connect(view, &AinView::requestedOpenClass, this, &Navigator::requestedOpenClass);
+        connect(view, &AinView::requestedOpenFunction, this, &Navigator::requestedOpenFunction);
+        addFile(fileName, view);
 }
 
 void Navigator::addExFile(const QString &fileName, struct ex *ex)
 {
         ExView *view = new ExView(ex);
-        connect(view, &ExView::opened, this, &Navigator::openExValue);
+        connect(view, &ExView::requestedOpenExValue, this, &Navigator::requestedOpenExValue);
         addFile(fileName, view);
 }
 

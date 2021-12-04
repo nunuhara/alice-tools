@@ -45,10 +45,10 @@ private slots:
         void filesystemOpen(const QModelIndex &index);
 
 signals:
-        void fileOpen(const QString &path);
-        void openClass(struct ain *ainObj, int i);
-        void openFunction(struct ain *ainObj, int i);
-        void openExValue(const QString &name, struct ex_value *val, bool newTab);
+        void requestedOpenFile(const QString &path);
+        void requestedOpenClass(struct ain *ainFile, int i, bool newTab);
+        void requestedOpenFunction(struct ain *ainFile, int i, bool newTab);
+        void requestedOpenExValue(const QString &name, struct ex_value *val, bool newTab);
 
 private:
         void addFilesystem();
@@ -56,11 +56,6 @@ private:
 
         QComboBox *fileSelector;
         QStackedWidget *stack;
-
-        // XXX: Models aren't automatically deleted with the view, so we need
-        //      to keep track of them somehow. This solution is simple but will
-        //      make closing files more difficult.
-        QVector<QAbstractItemModel*> models;
 };
 
 #endif /* GALICE_NAVIGATOR_HPP */

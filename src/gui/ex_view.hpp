@@ -17,31 +17,16 @@
 #ifndef GALICE_EX_VIEW_HPP
 #define GALICE_EX_VIEW_HPP
 
-#include <QTreeView>
-#include <QAction>
-#include <QMenu>
-#include "ex_model.hpp"
+#include <QWidget>
 
-struct ex;
-struct ex_value;
-
-class ExView : public QTreeView
+class ExView : public QWidget
 {
         Q_OBJECT
 
 public:
-        ExView(struct ex *exFile);
-        ~ExView();
+        ExView(struct ex *exFile, QWidget *parent = nullptr);
 signals:
-        void opened(const QString &name, struct ex_value *value, bool newTab);
-protected:
-        void contextMenuEvent(QContextMenuEvent *event) override;
-private slots:
-        void activate(const QModelIndex &index);
-private:
-        QAction *openAct;
-        QAction *openNewTabAct;
-        ExModel *model;
+        void requestedOpenExValue(const QString &name, struct ex_value *value, bool newTab) const;
 };
 
 #endif /* GALICE_EX_VIEW_HPP */

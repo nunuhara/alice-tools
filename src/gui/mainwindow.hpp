@@ -41,8 +41,8 @@ private slots:
         void open();
         void about();
         void openError(const QString &filename, const QString &message);
-        void openClass(struct ain *ain, int i);
-        void openFunction(struct ain *ain, int i);
+        void openClass(struct ain *ain, int i, bool newTab);
+        void openFunction(struct ain *ain, int i, bool newTab);
         void openExValue(const QString &name, struct ex_value *value, bool newTab);
         void closeTab(int index);
 

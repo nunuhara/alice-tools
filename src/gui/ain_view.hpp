@@ -14,24 +14,20 @@
  * along with this program; if not, see <http://gnu.org/licenses/>.
  */
 
-#include <QVBoxLayout>
-#include "ex_view.hpp"
-#include "navigator_model.hpp"
-#include "navigator_view.hpp"
+#ifndef GALICE_AIN_VIEW_HPP
+#define GALICE_AIN_VIEW_HPP
 
-extern "C" {
-#include "system4/ex.h"
-}
+#include <QWidget>
 
-ExView::ExView(struct ex *exFile, QWidget *parent)
-        : QWidget(parent)
+class AinView : public QWidget
 {
-        NavigatorModel *model = NavigatorModel::fromExFile(exFile);
-        NavigatorView *view = new NavigatorView(model);
+        Q_OBJECT
 
-        connect(model, &NavigatorModel::requestedOpenExValue, this, &ExView::requestedOpenExValue);
+public:
+        AinView(struct ain *ainFile, QWidget *parent = nullptr);
+signals:
+        void requestedOpenClass(struct ain *ainFile, int i, bool newTab) const;
+        void requestedOpenFunction(struct ain *ainFile, int i, bool newTab) const;
+};
 
-        QVBoxLayout *layout = new QVBoxLayout(this);
-        layout->addWidget(view);
-        layout->setContentsMargins(0, 0, 0, 0);
-}
+#endif /* GALICE_AIN_VIEW_HPP */
