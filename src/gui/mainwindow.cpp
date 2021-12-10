@@ -22,6 +22,7 @@
 #include "viewer.hpp"
 
 extern "C" {
+#include "system4/cg.h"
 #include "alice.h"
 #include "alice/ain.h"
 #include "alice/ex.h"
@@ -96,13 +97,8 @@ void MainWindow::createDockWindows()
 {
         nav = new Navigator(this);
         nav->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-
-        connect(nav, &Navigator::requestedOpenFile, &FileManager::getInstance(), &FileManager::openFile);
-        connect(nav, &Navigator::requestedOpenClass, this, &MainWindow::openClass);
-        connect(nav, &Navigator::requestedOpenFunction, this, &MainWindow::openFunction);
-        connect(nav, &Navigator::requestedOpenExValue, this, &MainWindow::openExValue);
-
         addDockWidget(Qt::LeftDockWidgetArea, nav);
+        resizeDocks({nav}, {350}, Qt::Horizontal);
         viewMenu->addAction(nav->toggleViewAction());
 }
 
@@ -184,28 +180,30 @@ void MainWindow::openExValue(const QString &name, struct ex_value *value, bool n
         free(data);
 }
 
-void MainWindow::openText(const QString &label, const QString &text, bool newTab)
+void MainWindow::openArchiveFile(struct archive_data *file, bool newTab)
 {
-        if (newTab || tabWidget->currentIndex() < 0) {
-                openTextNew(label, text);
+        if (!archive_load_file(file)) {
+                openError(file->name, "Failed to open archived file");
                 return;
         }
 
-        Viewer *tabContent = static_cast<Viewer*>(tabWidget->currentWidget());
-        tabContent->setChild(createText(text));
-        tabWidget->setTabText(tabWidget->currentIndex(), label);
+        if (cg_check_format(file->data) != ALCG_UNKNOWN) {
+                struct cg *cg = cg_load_data(file);
+                if (!cg) {
+                        openError(file->name, "Failed to load CG file");
+                        archive_release_file(file);
+                        return;
+                }
+                openImage(file->name, cg, newTab);
+                return;
+        }
+        // TODO: preview other file types
+
+        statusBar()->showMessage("No preview available");
+        archive_release_file(file);
 }
 
-void MainWindow::openTextNew(const QString &label, const QString &text)
-{
-        Viewer *tabContent = new Viewer(createText(text));
-
-        int index = tabWidget->currentIndex()+1;
-        tabWidget->insertTab(index, tabContent, label);
-        tabWidget->setCurrentIndex(index);
-}
-
-QWidget *MainWindow::createText(const QString &text)
+void MainWindow::openText(const QString &label, const QString &text, bool newTab)
 {
         QFont font;
         font.setFamily("Courier");
@@ -216,5 +214,36 @@ QWidget *MainWindow::createText(const QString &text)
         viewer->setFont(font);
         viewer->setPlainText(text);
 
-        return viewer;
+        openViewer(label, viewer, newTab);
+}
+
+void MainWindow::openImage(const QString &label, struct cg *cg, bool newTab)
+{
+        QImage image((uchar*)cg->pixels, cg->metrics.w, cg->metrics.h,
+                     cg->metrics.w*4, QImage::Format_RGBA8888,
+                     (QImageCleanupFunction)cg_free, cg);
+
+        QLabel *imageLabel = new QLabel;
+        imageLabel->setPixmap(QPixmap::fromImage(image));
+
+        QScrollArea *scrollArea = new QScrollArea;
+        scrollArea->setWidget(imageLabel);
+        scrollArea->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
+
+        openViewer(label, scrollArea, newTab);
+}
+
+void MainWindow::openViewer(const QString &label, QWidget *view, bool newTab)
+{
+        if (newTab || tabWidget->currentIndex() < 0) {
+                Viewer *tabContent = new Viewer(view);
+                int index = tabWidget->currentIndex()+1;
+                tabWidget->insertTab(index, tabContent, label);
+                tabWidget->setCurrentIndex(index);
+                return;
+        }
+
+        Viewer *tabContent = static_cast<Viewer*>(tabWidget->currentWidget());
+        tabContent->setChild(view);
+        tabWidget->setTabText(tabWidget->currentIndex(), label);
 }

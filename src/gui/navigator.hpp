@@ -24,10 +24,12 @@
 
 struct ain;
 struct ex;
+class MainWindow;
 
 extern "C" {
 #include "system4/ain.h"
 #include "system4/ex.h"
+#include "system4/archive.h"
 }
 
 class Navigator : public QDockWidget
@@ -35,25 +37,20 @@ class Navigator : public QDockWidget
         Q_OBJECT
 
 public:
-        Navigator(QWidget *parent = nullptr);
+        Navigator(MainWindow *parent = nullptr);
         ~Navigator();
 
 private slots:
         void addAinFile(const QString &fileName, struct ain *ain);
         void addExFile(const QString &fileName, struct ex *ex);
-        //void addArchive(const QString &fileName, struct archive *ar);
+        void addArchive(const QString &fileName, struct archive *ar);
         void filesystemOpen(const QModelIndex &index);
-
-signals:
-        void requestedOpenFile(const QString &path);
-        void requestedOpenClass(struct ain *ainFile, int i, bool newTab);
-        void requestedOpenFunction(struct ain *ainFile, int i, bool newTab);
-        void requestedOpenExValue(const QString &name, struct ex_value *val, bool newTab);
 
 private:
         void addFilesystem();
         void addFile(const QString &name, QWidget *widget);
 
+        MainWindow *window;
         QComboBox *fileSelector;
         QStackedWidget *stack;
 };

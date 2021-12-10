@@ -26,6 +26,7 @@ public:
         static NavigatorModel *fromExFile(struct ex *exFile, QObject *parent = nullptr);
         static NavigatorModel *fromAinClasses(struct ain *ainFile, QObject *parent = nullptr);
         static NavigatorModel *fromAinFunctions(struct ain *ainFile, QObject *parent = nullptr);
+        static NavigatorModel *fromArchive(struct archive *ar, QObject *parent = nullptr);
         ~NavigatorModel();
 
         QVariant data(const QModelIndex &index, int role) const override;
@@ -46,6 +47,7 @@ signals:
         void requestedOpenClass(struct ain *ainFile, int i, bool newTab) const;
         void requestedOpenFunction(struct ain *ainFile, int i, bool newTab) const;
         void requestedOpenExValue(const QString &name, struct ex_value *value, bool newTab) const;
+        void requestedOpenArchiveFile(struct archive_data *data, bool newTab) const;
 
 private:
         explicit NavigatorModel(QObject *parent = nullptr)
@@ -58,12 +60,14 @@ private:
                 ExStringKeyValueNode,
                 ExIntKeyValueNode,
                 ExRowNode,
+                FileNode,
         };
         class Node {
         public:
                 static Node *fromEx(struct ex *exFile);
                 static Node *fromAinClasses(struct ain *ainFile);
                 static Node *fromAinFunctions(struct ain *ainFile);
+                static Node *fromArchive(struct archive *ar);
                 ~Node();
 
                 void appendChild(Node *child);
@@ -84,6 +88,8 @@ private:
                 void appendExValueChildren(struct ex_value *value);
                 static Node *fromAinClass(struct ain *ainFile, int index);
                 static Node *fromAinFunction(struct ain *ainFile, int index);
+                static Node *fromArchiveFile(struct archive_data *file);
+                static void fromArchiveIter(struct archive_data *data, void *user);
 
                 NodeType type;
                 union {
@@ -107,6 +113,8 @@ private:
                                 unsigned i;
                                 struct ex_table *t;
                         } exRow;
+                        // FileNode
+                        struct archive_data *arFile;
                 };
                 QVector<Node*> children;
                 Node *parentNode;

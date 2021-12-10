@@ -18,8 +18,10 @@
 
 extern "C" {
 #include "system4/ain.h"
+#include "system4/archive.h"
 #include "system4/ex.h"
 #include "system4/string.h"
+#include "alice.h"
 #include "alice/ain.h"
 #include "alice/port.h"
 }
@@ -164,9 +166,28 @@ NavigatorModel::Node *NavigatorModel::Node::fromAinFunction(struct ain *ain, int
         return node;
 }
 
+void NavigatorModel::Node::fromArchiveIter(struct archive_data *data, void *user)
+{
+        Node *parent = static_cast<Node*>(user);
+        Node *child = new Node(FileNode);
+        child->arFile = archive_copy_descriptor(data);
+        parent->appendChild(child);
+}
+
+NavigatorModel::Node *NavigatorModel::Node::fromArchive(struct archive *ar)
+{
+        Node *root = new Node(RootNode);
+        archive_for_each(ar, fromArchiveIter, root);
+        return root;
+}
+
 NavigatorModel::Node::~Node()
 {
         qDeleteAll(children);
+
+        if (type == FileNode) {
+                archive_free_data(arFile);
+        }
 }
 
 NavigatorModel::Node *NavigatorModel::Node::child(int i)
@@ -220,6 +241,8 @@ QVariant NavigatorModel::Node::data(int column) const
                         return "[" + QString::number(exKV.key.i) + "]";
                 case ExRowNode:
                         return "[" + QString::number(exRow.i) + "]";
+                case FileNode:
+                        return arFile->name;
                 }
         } else if (column == 1) {
                 switch (type) {
@@ -227,6 +250,7 @@ QVariant NavigatorModel::Node::data(int column) const
                         return "Type";
                 case ClassNode:
                 case FunctionNode:
+                case FileNode:
                         break;
                 case ExStringKeyValueNode:
                 case ExIntKeyValueNode:
@@ -241,6 +265,7 @@ QVariant NavigatorModel::Node::data(int column) const
                 case ClassNode:
                 case FunctionNode:
                 case ExRowNode:
+                case FileNode:
                         break;
                 case ExStringKeyValueNode:
                 case ExIntKeyValueNode:
@@ -276,6 +301,9 @@ void NavigatorModel::Node::requestOpen(const NavigatorModel *model, bool newTab)
         case ExRowNode:
                 // TODO
                 break;
+        case FileNode:
+                emit model->requestedOpenArchiveFile(arFile, newTab);
+                break;
         }
 }
 
@@ -297,6 +325,13 @@ NavigatorModel *NavigatorModel::fromAinFunctions(struct ain *ain, QObject *paren
 {
         NavigatorModel *model = new NavigatorModel(parent);
         model->root = Node::fromAinFunctions(ain);
+        return model;
+}
+
+NavigatorModel *NavigatorModel::fromArchive(struct archive *ar, QObject *parent)
+{
+        NavigatorModel *model = new NavigatorModel(parent);
+        model->root = Node::fromArchive(ar);
         return model;
 }
 

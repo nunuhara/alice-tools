@@ -21,6 +21,7 @@
 
 extern "C" {
 #include "system4/ain.h"
+#include "system4/afa.h"
 #include "system4/ex.h"
 #include "alice.h"
 #include "alice/ain.h"
@@ -29,18 +30,17 @@ extern "C" {
 FileManager::AliceFile::~AliceFile()
 {
         switch (type) {
-        case FILE_TYPE_AIN:
+        case Ain:
                 ain_free(ain);
                 break;
-        case FILE_TYPE_EX:
+        case Ex:
                 ex_free(ex);
+                break;
+        case Acx:
                 // TODO
                 break;
-        case FILE_TYPE_ACX:
-                // TODO
-                break;
-        case FILE_TYPE_ARCHIVE:
-                // TODO
+        case Archive:
+                archive_free(ar);
                 break;
         }
 }
@@ -122,7 +122,22 @@ void FileManager::openAcxFile(const QString &path)
 
 void FileManager::openAfaFile(const QString &path)
 {
-        emit openFileError(path, tr(".afa files not yet supported"));
+        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+
+        set_input_encoding("CP932");
+        set_output_encoding("UTF-8");
+
+        int error = ARCHIVE_SUCCESS;
+        struct afa_archive *ar = afa_open_conv(path.toUtf8(), 0, &error, string_conv_output);
+        if (!ar) {
+                QGuiApplication::restoreOverrideCursor();
+                emit openFileError(path, tr("Failed to read .afa file"));
+                return;
+        }
+
+        files.append(new AliceFile(&ar->ar));
+        emit openedArchive(path, &ar->ar);
+        QGuiApplication::restoreOverrideCursor();
 }
 
 void FileManager::openAldFile(const QString &path)

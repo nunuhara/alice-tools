@@ -16,12 +16,14 @@
 
 #include <QtWidgets>
 #include "file_manager.hpp"
+#include "mainwindow.hpp"
 #include "navigator.hpp"
-#include "ain_view.hpp"
-#include "ex_view.hpp"
+#include "navigator_model.hpp"
+#include "navigator_view.hpp"
 
-Navigator::Navigator(QWidget *parent)
+Navigator::Navigator(MainWindow *parent)
         : QDockWidget(tr("Navigation"), parent)
+        , window(parent)
 {
         fileSelector = new QComboBox;
         stack = new QStackedWidget;
@@ -40,7 +42,7 @@ Navigator::Navigator(QWidget *parent)
 
         connect(&FileManager::getInstance(), &FileManager::openedAinFile, this, &Navigator::addAinFile);
         connect(&FileManager::getInstance(), &FileManager::openedExFile, this, &Navigator::addExFile);
-        //connect(&FileManager::getInstance(), &FileManager::openedArchive, this, &Navigator::addArchive);
+        connect(&FileManager::getInstance(), &FileManager::openedArchive, this, &Navigator::addArchive);
 }
 
 Navigator::~Navigator()
@@ -56,7 +58,12 @@ void Navigator::addFilesystem()
         tree->setModel(model);
         tree->setRootIndex(model->index(QDir::currentPath()));
 
-        connect(tree, &QTreeView::doubleClicked, this, &Navigator::filesystemOpen);
+        for (int i = 1; i < model->columnCount(); i++) {
+                tree->setColumnHidden(i, true);
+        }
+        tree->setHeaderHidden(true);
+
+        connect(tree, &QTreeView::activated, this, &Navigator::filesystemOpen);
 
         addFile(tr("Filesystem"), tree);
 }
@@ -64,27 +71,79 @@ void Navigator::addFilesystem()
 void Navigator::filesystemOpen(const QModelIndex &index)
 {
         const QFileSystemModel *model = static_cast<const QFileSystemModel*>(index.model());
-        emit requestedOpenFile(model->filePath(index));
+        FileManager::getInstance().openFile(model->filePath(index));
 }
 
 void Navigator::addAinFile(const QString &fileName, struct ain *ain)
 {
-        AinView *view = new AinView(ain);
-        connect(view, &AinView::requestedOpenClass, this, &Navigator::requestedOpenClass);
-        connect(view, &AinView::requestedOpenFunction, this, &Navigator::requestedOpenFunction);
+        QWidget *view = new QWidget;
+        NavigatorModel *classModel = NavigatorModel::fromAinClasses(ain);
+        NavigatorModel *functionModel = NavigatorModel::fromAinFunctions(ain);
+
+        QComboBox *viewSelector = new QComboBox;
+        QStackedWidget *views = new QStackedWidget;
+        connect(viewSelector, QOverload<int>::of(&QComboBox::activated),
+                views, &QStackedWidget::setCurrentIndex);
+
+        NavigatorView *classView = new NavigatorView(classModel);
+        classView->setHeaderHidden(true);
+
+        NavigatorView *functionView = new NavigatorView(functionModel);
+        functionView->setHeaderHidden(true);
+
+        for (int i = 1; i < classModel->columnCount(); i++) {
+                classView->setColumnHidden(i, true);
+        }
+        for (int i = 1; i < functionModel->columnCount(); i++) {
+                functionView->setColumnHidden(i, true);
+        }
+
+        connect(classModel, &NavigatorModel::requestedOpenClass, window, &MainWindow::openClass);
+        connect(classModel, &NavigatorModel::requestedOpenFunction, window, &MainWindow::openFunction);
+        connect(functionModel, &NavigatorModel::requestedOpenFunction, window, &MainWindow::openFunction);
+
+        viewSelector->addItem(tr("Classes"));
+        views->addWidget(classView);
+        viewSelector->addItem(tr("Functions"));
+        views->addWidget(functionView);
+
+        QVBoxLayout *layout = new QVBoxLayout(view);
+        layout->addWidget(viewSelector);
+        layout->addWidget(views);
+        layout->setContentsMargins(0, 0, 0, 0);
+
         addFile(fileName, view);
 }
 
 void Navigator::addExFile(const QString &fileName, struct ex *ex)
 {
-        ExView *view = new ExView(ex);
-        connect(view, &ExView::requestedOpenExValue, this, &Navigator::requestedOpenExValue);
-        addFile(fileName, view);
+        QWidget *widget = new QWidget;
+        NavigatorModel *model = NavigatorModel::fromExFile(ex);
+        NavigatorView *view = new NavigatorView(model);
+        view->setColumnWidth(0, 150);
+        view->setColumnWidth(1, 50);
+
+        connect(model, &NavigatorModel::requestedOpenExValue, window, &MainWindow::openExValue);
+
+        QVBoxLayout *layout = new QVBoxLayout(widget);
+        layout->addWidget(view);
+        layout->setContentsMargins(0, 0, 0, 0);
+        addFile(fileName, widget);
 }
 
-//void Navigator::addArchive(const QString &fileName, struct archive *ar)
-//{
-//}
+void Navigator::addArchive(const QString &fileName, struct archive *ar)
+{
+        QWidget *widget = new QWidget;
+        NavigatorModel *model = NavigatorModel::fromArchive(ar);
+        NavigatorView *view = new NavigatorView(model);
+
+        connect(model, &NavigatorModel::requestedOpenArchiveFile, window, &MainWindow::openArchiveFile);
+
+        QVBoxLayout *layout = new QVBoxLayout(widget);
+        layout->addWidget(view);
+        layout->setContentsMargins(0, 0, 0, 0);
+        addFile(fileName, widget);
+}
 
 void Navigator::addFile(const QString &name, QWidget *widget)
 {

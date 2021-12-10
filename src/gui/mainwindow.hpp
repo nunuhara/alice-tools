@@ -37,13 +37,16 @@ public:
 protected:
         void closeEvent(QCloseEvent *event) override;
 
+public slots:
+        void openClass(struct ain *ain, int i, bool newTab);
+        void openFunction(struct ain *ain, int i, bool newTab);
+        void openExValue(const QString &name, struct ex_value *value, bool newTab);
+        void openArchiveFile(struct archive_data *file, bool newTab);
+
 private slots:
         void open();
         void about();
         void openError(const QString &filename, const QString &message);
-        void openClass(struct ain *ain, int i, bool newTab);
-        void openFunction(struct ain *ain, int i, bool newTab);
-        void openExValue(const QString &name, struct ex_value *value, bool newTab);
         void closeTab(int index);
 
 private:
@@ -54,9 +57,9 @@ private:
         void writeSettings();
         void setupViewer();
 
+        void openImage(const QString &label, struct cg *image, bool newTab);
         void openText(const QString &label, const QString &text, bool newTab);
-        void openTextNew(const QString &label, const QString &text);
-        QWidget *createText(const QString &text);
+        void openViewer(const QString &label, QWidget *view, bool newTab);
 
         QMenu *viewMenu;
 

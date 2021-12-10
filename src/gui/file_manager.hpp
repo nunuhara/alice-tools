@@ -47,17 +47,18 @@ signals:
 
 private:
         enum FileType {
-                FILE_TYPE_AIN,
-                FILE_TYPE_EX,
-                FILE_TYPE_ACX,
-                FILE_TYPE_ARCHIVE,
+                Ain,
+                Ex,
+                Acx,
+                Archive,
         };
         class AliceFile {
         public:
-                AliceFile(struct ain *ain) : type(FILE_TYPE_AIN), ain(ain) {}
-                AliceFile(struct ex *ex) : type(FILE_TYPE_EX), ex(ex) {}
+                AliceFile(struct ain *ain) : type(Ain), ain(ain) {}
+                AliceFile(struct ex *ex) : type(Ex), ex(ex) {}
+                AliceFile(struct archive *ar) : type(Archive), ar(ar) {}
                 ~AliceFile();
-                enum FileType type;
+                FileType type;
                 union {
                         struct ain *ain;
                         struct ex *ex;

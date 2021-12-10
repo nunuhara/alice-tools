@@ -85,8 +85,6 @@ executable('alice', cli_sources,
            include_directories : incdir)
 
 gui_sources = ['gui/galice.cpp',
-               'gui/ain_view.cpp',
-               'gui/ex_view.cpp',
                'gui/file_manager.cpp',
                'gui/mainwindow.cpp',
                'gui/navigator.cpp',
@@ -95,9 +93,7 @@ gui_sources = ['gui/galice.cpp',
                'gui/viewer.cpp',
 ]
 
-gui_moc = ['gui/ain_view.hpp',
-           'gui/ex_view.hpp',
-           'gui/file_manager.hpp',
+gui_moc = ['gui/file_manager.hpp',
            'gui/mainwindow.hpp',
            'gui/navigator.hpp',
            'gui/navigator_model.hpp',
