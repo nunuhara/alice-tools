@@ -62,6 +62,10 @@ private:
                 ExRowNode,
                 FileNode,
         };
+        enum NodeFileType {
+                NoFile,
+                ExFile,
+        };
         class Node {
         public:
                 static Node *fromEx(struct ex *exFile);
@@ -86,6 +90,7 @@ private:
                 static Node *fromExRow(int index, struct ex_table *table, struct ex_field *fields, unsigned nFields);
                 static Node *fromExColumn(struct ex_value *value, struct ex_field *field);
                 void appendExValueChildren(struct ex_value *value);
+                void appendExFileChildren(struct ex *exFile);
                 static Node *fromAinClass(struct ain *ainFile, int index);
                 static Node *fromAinFunction(struct ain *ainFile, int index);
                 static Node *fromArchiveFile(struct archive_data *file);
@@ -114,7 +119,13 @@ private:
                                 struct ex_table *t;
                         } exRow;
                         // FileNode
-                        struct archive_data *arFile;
+                        struct {
+                                struct archive_data *file;
+                                NodeFileType type;
+                                union {
+                                        struct ex *ex;
+                                };
+                        } ar;
                 };
                 QVector<Node*> children;
                 Node *parentNode;

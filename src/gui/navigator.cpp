@@ -138,6 +138,7 @@ void Navigator::addArchive(const QString &fileName, struct archive *ar)
         NavigatorView *view = new NavigatorView(model);
 
         connect(model, &NavigatorModel::requestedOpenArchiveFile, window, &MainWindow::openArchiveFile);
+        connect(model, &NavigatorModel::requestedOpenExValue, window, &MainWindow::openExValue);
 
         QVBoxLayout *layout = new QVBoxLayout(widget);
         layout->addWidget(view);

@@ -14,12 +14,14 @@
  * along with this program; if not, see <http://gnu.org/licenses/>.
  */
 
+#include <cstring>
 #include "navigator_model.hpp"
 
 extern "C" {
 #include "system4/ain.h"
 #include "system4/archive.h"
 #include "system4/ex.h"
+#include "system4/file.h"
 #include "system4/string.h"
 #include "alice.h"
 #include "alice/ain.h"
@@ -29,11 +31,7 @@ extern "C" {
 NavigatorModel::Node *NavigatorModel::Node::fromEx(struct ex *ex)
 {
         Node *root = new Node(RootNode);
-
-        for (unsigned i = 0; i < ex->nr_blocks; i++) {
-                root->appendChild(Node::fromExKeyValue(ex->blocks[i].name->text, &ex->blocks[i].val));
-        }
-
+        root->appendExFileChildren(ex);
         return root;
 }
 
@@ -121,6 +119,13 @@ void NavigatorModel::Node::appendExValueChildren(struct ex_value *value)
         }
 }
 
+void NavigatorModel::Node::appendExFileChildren(struct ex *exFile)
+{
+        for (unsigned i = 0; i < exFile->nr_blocks; i++) {
+                appendChild(Node::fromExKeyValue(exFile->blocks[i].name->text, &exFile->blocks[i].val));
+        }
+}
+
 NavigatorModel::Node *NavigatorModel::Node::fromAinClasses(struct ain *ain)
 {
         Node *root = new Node(RootNode);
@@ -170,8 +175,24 @@ void NavigatorModel::Node::fromArchiveIter(struct archive_data *data, void *user
 {
         Node *parent = static_cast<Node*>(user);
         Node *child = new Node(FileNode);
-        child->arFile = archive_copy_descriptor(data);
+        child->ar.file = archive_copy_descriptor(data);
         parent->appendChild(child);
+
+        const char *ext = file_extension(child->ar.file->name);
+        if (!strcasecmp(ext, "pactex") || !strcasecmp(ext, "ex")) {
+                archive_load_file(data);
+                set_input_encoding("CP932");
+                set_output_encoding("UTF-8");
+                struct ex *ex = ex_read_conv(data->data, data->size, string_conv_output);
+                if (ex) {
+                        child->appendExFileChildren(ex);
+                        child->ar.type = ExFile;
+                        child->ar.ex = ex;
+                } else {
+                        // TODO: status message?
+                }
+                archive_release_file(data);
+        }
 }
 
 NavigatorModel::Node *NavigatorModel::Node::fromArchive(struct archive *ar)
@@ -186,7 +207,14 @@ NavigatorModel::Node::~Node()
         qDeleteAll(children);
 
         if (type == FileNode) {
-                archive_free_data(arFile);
+                archive_free_data(ar.file);
+                switch (ar.type) {
+                case NoFile:
+                        break;
+                case ExFile:
+                        ex_free(ar.ex);
+                        break;
+                }
         }
 }
 
@@ -242,7 +270,7 @@ QVariant NavigatorModel::Node::data(int column) const
                 case ExRowNode:
                         return "[" + QString::number(exRow.i) + "]";
                 case FileNode:
-                        return arFile->name;
+                        return ar.file->name;
                 }
         } else if (column == 1) {
                 switch (type) {
@@ -302,7 +330,7 @@ void NavigatorModel::Node::requestOpen(const NavigatorModel *model, bool newTab)
                 // TODO
                 break;
         case FileNode:
-                emit model->requestedOpenArchiveFile(arFile, newTab);
+                emit model->requestedOpenArchiveFile(ar.file, newTab);
                 break;
         }
 }
