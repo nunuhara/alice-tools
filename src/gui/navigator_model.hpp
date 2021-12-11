@@ -63,8 +63,9 @@ private:
                 FileNode,
         };
         enum NodeFileType {
-                NoFile,
+                NormalFile,
                 ExFile,
+                ArFile,
         };
         class Node {
         public:
@@ -91,6 +92,7 @@ private:
                 static Node *fromExColumn(struct ex_value *value, struct ex_field *field);
                 void appendExValueChildren(struct ex_value *value);
                 void appendExFileChildren(struct ex *exFile);
+                void appendArchiveChildren(struct archive *archive);
                 static Node *fromAinClass(struct ain *ainFile, int index);
                 static Node *fromAinFunction(struct ain *ainFile, int index);
                 static Node *fromArchiveFile(struct archive_data *file);
@@ -120,10 +122,14 @@ private:
                         } exRow;
                         // FileNode
                         struct {
+                                // Descriptor for external use
                                 struct archive_data *file;
+                                // Persistent loaded descriptor (if needed)
+                                struct archive_data *data;
                                 NodeFileType type;
                                 union {
                                         struct ex *ex;
+                                        struct archive *ar;
                                 };
                         } ar;
                 };

@@ -22,6 +22,7 @@ extern "C" {
 #include "system4/archive.h"
 #include "system4/ex.h"
 #include "system4/file.h"
+#include "system4/flat.h"
 #include "system4/string.h"
 #include "alice.h"
 #include "alice/ain.h"
@@ -175,11 +176,15 @@ void NavigatorModel::Node::fromArchiveIter(struct archive_data *data, void *user
 {
         Node *parent = static_cast<Node*>(user);
         Node *child = new Node(FileNode);
+        child->ar.type = NormalFile;
         child->ar.file = archive_copy_descriptor(data);
+        child->ar.data = NULL;
         parent->appendChild(child);
 
         const char *ext = file_extension(child->ar.file->name);
-        if (!strcasecmp(ext, "pactex") || !strcasecmp(ext, "ex")) {
+        if (!ext) {
+                // nothing
+        } else if (!strcasecmp(ext, "pactex") || !strcasecmp(ext, "ex")) {
                 archive_load_file(data);
                 set_input_encoding("CP932");
                 set_output_encoding("UTF-8");
@@ -192,14 +197,32 @@ void NavigatorModel::Node::fromArchiveIter(struct archive_data *data, void *user
                         // TODO: status message?
                 }
                 archive_release_file(data);
+        } else if (!strcasecmp(ext, "flat")) {
+                // XXX: We need to keep a second descriptor with the .flat data
+                //      persistently loaded.
+                child->ar.data = archive_copy_descriptor(child->ar.file);
+                archive_load_file(child->ar.data);
+                int error = ARCHIVE_SUCCESS;
+                child->ar.ar = (struct archive*)flat_open(child->ar.data->data, child->ar.data->size, &error);
+                if (child->ar.ar) {
+                        child->ar.type = ArFile;
+                        child->appendArchiveChildren(child->ar.ar);
+                } else {
+                        // TODO: status message?
+                }
         }
 }
 
 NavigatorModel::Node *NavigatorModel::Node::fromArchive(struct archive *ar)
 {
         Node *root = new Node(RootNode);
-        archive_for_each(ar, fromArchiveIter, root);
+        root->appendArchiveChildren(ar);
         return root;
+}
+
+void NavigatorModel::Node::appendArchiveChildren(struct archive *ar)
+{
+        archive_for_each(ar, fromArchiveIter, this);
 }
 
 NavigatorModel::Node::~Node()
@@ -209,10 +232,15 @@ NavigatorModel::Node::~Node()
         if (type == FileNode) {
                 archive_free_data(ar.file);
                 switch (ar.type) {
-                case NoFile:
+                case NormalFile:
                         break;
                 case ExFile:
                         ex_free(ar.ex);
+                        break;
+                case ArFile:
+                        archive_free(ar.ar);
+                        if (ar.data)
+                                archive_free_data(ar.data);
                         break;
                 }
         }
@@ -330,7 +358,14 @@ void NavigatorModel::Node::requestOpen(const NavigatorModel *model, bool newTab)
                 // TODO
                 break;
         case FileNode:
-                emit model->requestedOpenArchiveFile(ar.file, newTab);
+                switch (ar.type) {
+                case NormalFile:
+                        emit model->requestedOpenArchiveFile(ar.file, newTab);
+                        break;
+                case ExFile:
+                case ArFile:
+                        break;
+                }
                 break;
         }
 }
