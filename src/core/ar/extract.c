@@ -25,8 +25,8 @@
 #include "system4/utfsjis.h"
 #include "alice.h"
 #include "alice/ar.h"
-
-int ex_dump(FILE *out, struct ex *ex);
+#include "alice/ex.h"
+#include "alice/port.h"
 
 enum filetype {
 	FT_UNKNOWN,
@@ -173,8 +173,11 @@ static bool write_file(struct archive_data *data, const char *output_file, enum 
 	} else if (output_ex) {
 		struct ex *ex = ex_read(data->data, data->size);
 		if (ex) {
-			ex_dump(f, ex);
+			struct port port;
+			port_file_init(&port, f);
+			ex_dump(&port, ex);
 			ex_free(ex);
+			port_close(&port);
 		} else {
 			WARNING("Failed to load .ex file");
 		}
