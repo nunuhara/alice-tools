@@ -100,7 +100,7 @@ struct nl5_line {
 // WavLinker:  file (char), classification (0 only), wav folder, compression rate, linkno offset
 struct wavlinker_line {
 	int file_no;
-	int class;
+	int type;
 	struct string *src;
 	int compression_rate;
 	int link_no_offset;
@@ -150,6 +150,7 @@ void ar_extract_index(struct archive *ar, int file_index, char *output_file, uin
 
 // open.c
 struct archive *open_archive(const char *path, enum archive_type *type, int *error);
+struct archive *open_ald_archive(const char *path, int *error, char *(*conv)(const char*));
 
 // pack.c
 kv_decl(ar_file_list, struct ar_file_spec*);

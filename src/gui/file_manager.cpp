@@ -25,6 +25,7 @@ extern "C" {
 #include "system4/ex.h"
 #include "alice.h"
 #include "alice/ain.h"
+#include "alice/ar.h"
 }
 
 FileManager::AliceFile::~AliceFile()
@@ -142,7 +143,22 @@ void FileManager::openAfaFile(const QString &path)
 
 void FileManager::openAldFile(const QString &path)
 {
-        emit openFileError(path, tr(".ald files not yet supported"));
+        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+
+        set_input_encoding("CP932");
+        set_output_encoding("UTF-8");
+
+        int error = ARCHIVE_SUCCESS;
+        struct archive *ar = open_ald_archive(path.toUtf8(), &error, conv_output);
+        if (!ar) {
+                QGuiApplication::restoreOverrideCursor();
+                emit openFileError(path, tr("Failed to read .ald file"));
+                return;
+        }
+
+        files.append(new AliceFile(ar));
+        emit openedArchive(path, ar);
+        QGuiApplication::restoreOverrideCursor();
 }
 
 void FileManager::openAlkFile(const QString &path)

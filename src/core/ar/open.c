@@ -31,7 +31,7 @@
 #include "alice.h"
 #include "alice/ar.h"
 
-static struct archive *open_ald_archive(const char *path, int *error)
+struct archive *open_ald_archive(const char *path, int *error, char *(*conv)(const char*))
 {
 	int count = 0;
 	char *dir_name = path_dirname(path);
@@ -48,11 +48,11 @@ static struct archive *open_ald_archive(const char *path, int *error)
 	char filepath[PATH_MAX];
 
 	if (!(dir = opendir(dir_name))) {
-		ERROR("Failed to open directory: %s", path);
+		*error = ARCHIVE_FILE_ERROR;
+		return NULL;
 	}
 
 	while ((d = readdir(dir))) {
-		printf("checking %s\n", d->d_name);
 		int len = strlen(d->d_name);
 		if (len < prefix_len + 5 || strcasecmp(d->d_name+len-4, ".ald"))
 			continue;
@@ -68,7 +68,7 @@ static struct archive *open_ald_archive(const char *path, int *error)
 		count = max(count, dno+1);
 	}
 
-	struct archive *ar = ald_open(ald_filenames, count, ARCHIVE_MMAP, error);
+	struct archive *ar = ald_open_conv(ald_filenames, count, ARCHIVE_MMAP, error, conv);
 
 	for (int i = 0; i < ALD_FILEMAX; i++) {
 		free(ald_filenames[i]);
@@ -86,7 +86,7 @@ struct archive *open_archive(const char *path, enum archive_type *type, int *err
 	const char *ext = path + len - 4;
 	if (!strcasecmp(ext, ".ald")) {
 		*type = AR_ALD;
-		return open_ald_archive(path, error);
+		return open_ald_archive(path, error, strdup);
 	} else if (!strcasecmp(ext, ".afa")) {
 		*type = AR_AFA;
 		return (struct archive*)afa_open(path, ARCHIVE_MMAP, error);
