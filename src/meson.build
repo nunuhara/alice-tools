@@ -106,13 +106,16 @@ gui_moc = ['gui/ain_view.hpp',
 ]
 
 qt5 = import('qt5')
-qt5_dep = dependency('qt5', modules : ['Core', 'Gui', 'Widgets'])
+qt5_dep = dependency('qt5', modules : ['Core', 'Gui', 'Widgets'],
+                     required : false)
 
-generated_files = qt5.preprocess(moc_headers : gui_moc,
-                                 dependencies : [qt5_dep])
+if qt5_dep.found()
+    generated_files = qt5.preprocess(moc_headers : gui_moc,
+                                     dependencies : [qt5_dep])
 
 
-executable('galice', gui_sources, generated_files,
-           dependencies : [tool_deps, qt5_dep],
-           link_with : libalice,
-           include_directories : incdir)
+    executable('galice', gui_sources, generated_files,
+               dependencies : [tool_deps, qt5_dep],
+               link_with : libalice,
+               include_directories : incdir)
+endif
