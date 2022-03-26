@@ -27,7 +27,7 @@ enum {
 	AR_IMAGES_ONLY = 4,
 };
 
-#define AR_IMGENC(flags) (flags & 0xFF000000UL >> 24)
+#define AR_IMGENC(flags) ((flags & 0xFF000000UL) >> 24)
 #define AR_IMGENC_BITS(enc) (enc << 24)
 
 enum archive_type {
