@@ -22,6 +22,7 @@
 #include <limits.h>
 #include <libgen.h>
 #include "system4.h"
+#include "system4/aar.h"
 #include "system4/afa.h"
 #include "system4/ald.h"
 #include "system4/alk.h"
@@ -99,6 +100,9 @@ struct archive *open_archive(const char *path, enum archive_type *type, int *err
 	} else if (!strcasecmp(ext, ".alk")) {
 		*type = AR_ALK;
 		return (struct archive*)alk_open(path, ARCHIVE_MMAP, error);
+	} else if (!strcasecmp(ext, ".red")) {
+		*type = AR_AAR;
+		return (struct archive*)aar_open(path, ARCHIVE_MMAP, error);
 	}
 	// TODO: try to use file magic
 

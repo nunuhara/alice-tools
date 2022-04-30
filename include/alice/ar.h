@@ -31,6 +31,7 @@ enum {
 #define AR_IMGENC_BITS(enc) (enc << 24)
 
 enum archive_type {
+	AR_AAR,
 	AR_ALD,
 	AR_AFA,
 	AR_AFA3,

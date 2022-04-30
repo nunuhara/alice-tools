@@ -22,6 +22,7 @@
 #include "kvec.h"
 #include "khash.h"
 #include "system4.h"
+#include "system4/ain.h"
 #include "system4/instructions.h"
 
 #define PSEUDO_OP_OFFSET 0xF000
