@@ -19,6 +19,7 @@
 #include <string.h>
 #include <assert.h>
 #include "system4.h"
+#include "system4/ain.h"
 #include "system4/instructions.h"
 #include "system4/string.h"
 #include "alice/jaf.h"
