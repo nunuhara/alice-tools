@@ -1,0 +1,6 @@
+int main()
+{
+	string s1 = "";
+	string s2 = "あいうえお";
+	return !(s1.Empty() && !s2.Empty());
+}

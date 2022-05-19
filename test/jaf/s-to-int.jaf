@@ -1,0 +1,5 @@
+int main()
+{
+	string s = "123";
+	return !(s.Int() == 123);
+}

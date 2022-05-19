@@ -1,0 +1,5 @@
+int main()
+{
+	int i = 123;
+	return !(i.String() == "123");
+}

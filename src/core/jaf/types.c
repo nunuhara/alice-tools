@@ -651,15 +651,21 @@ static void jaf_check_types_super_call(struct jaf_env *env, struct jaf_expressio
 	expr->valuetype = env->ain->functions[method_no].return_type;
 }
 
-static struct string *builtin_type_name(enum ain_data_type type)
+static const char *_builtin_type_name(enum ain_data_type type)
 {
 	switch (type) {
-	case AIN_INT:    return make_string("Int", 3);
-	case AIN_FLOAT:  return make_string("Float", 5);
-	case AIN_STRING: return make_string("String", 6);
-	case AIN_ARRAY:  return make_string("Array", 5);
+	case AIN_INT: return "Int";
+	case AIN_FLOAT: return "Float";
+	case AIN_STRING: return "String";
+	case AIN_ARRAY: return "Array";
 	default: _COMPILER_ERROR(NULL, -1, "Invalid type for builtin");
 	}
+}
+
+static struct string *builtin_type_name(enum ain_data_type type)
+{
+	const char *name = _builtin_type_name(type);
+	return make_string(name, strlen(name));
 }
 
 /*
@@ -682,45 +688,113 @@ static void jaf_check_types_builtin_hll_call(struct jaf_env *env, struct jaf_exp
 	jaf_check_types_hll_call(env, expr, &obj->valuetype);
 }
 
-static void jaf_check_types_builtin_array_call(possibly_unused struct jaf_env *env, struct jaf_expression *expr)
-{
-	switch ((enum jaf_array_method)expr->call.fun->member.member_no) {
-	case JAF_ARRAY_NUMOF:
-		if (expr->call.args->nr_items != 0)
-			JAF_ERROR(expr, "Too many arguments to Array.Numof");
-		expr->valuetype.data = AIN_INT;
-		expr->call.func_no = A_NUMOF;
-		break;
-	case JAF_ARRAY_ALLOC:
-	case JAF_ARRAY_REALLOC:
-	case JAF_ARRAY_FREE:
-	case JAF_ARRAY_COPY:
-	case JAF_ARRAY_FILL:
-	case JAF_ARRAY_PUSHBACK:
-	case JAF_ARRAY_POPBACK:
-	case JAF_ARRAY_EMPTY:
-	case JAF_ARRAY_ERASE:
-	case JAF_ARRAY_INSERT:
-	case JAF_ARRAY_SORT:
-		JAF_ERROR(expr, "Array builtin not implemented");
-	default:
-		COMPILER_ERROR(expr, "Invalid array builtin number");
-	}
-}
+struct builtin {
+	enum ain_data_type return_type;
+	enum ain_data_type type;
+	const char *name;
+	int nr_args;
+	enum opcode opcode;
+};
+
+static struct builtin builtins[] = {
+	[JAF_INT_STRING]        = { AIN_STRING, AIN_INT, "String",        0, I_STRING },
+	[JAF_FLOAT_STRING]      = { AIN_STRING, AIN_FLOAT, "String",      0, FTOS },
+	[JAF_STRING_INT]        = { AIN_INT,    AIN_STRING, "Int",        0, STOI },
+	[JAF_STRING_LENGTH]     = { AIN_INT,    AIN_STRING, "Length",     0, S_LENGTH },
+	[JAF_STRING_LENGTHBYTE] = { AIN_INT,    AIN_STRING, "LengthByte", 0, S_LENGTHBYTE },
+	[JAF_STRING_EMPTY]      = { AIN_INT,    AIN_STRING, "Empty",      0, S_EMPTY },
+	[JAF_STRING_FIND]       = { AIN_INT,    AIN_STRING, "Find",       1, S_FIND },
+	[JAF_STRING_GETPART]    = { AIN_STRING, AIN_STRING, "GetPart",    2, S_GETPART },
+	[JAF_STRING_PUSHBACK]   = { AIN_VOID,   AIN_STRING, "PushBack",   1, S_PUSHBACK },
+	[JAF_STRING_POPBACK]    = { AIN_VOID,   AIN_STRING, "PopBack",    0, S_POPBACK },
+	[JAF_STRING_ERASE]      = { AIN_VOID,   AIN_STRING, "Erase",      1, S_ERASE },
+	[JAF_ARRAY_ALLOC]       = { AIN_VOID,   AIN_ARRAY, "Alloc",       1, A_ALLOC },
+	[JAF_ARRAY_REALLOC]     = { AIN_VOID,   AIN_ARRAY, "Realloc",     1, A_REALLOC },
+	[JAF_ARRAY_FREE]        = { AIN_VOID,   AIN_ARRAY, "Free",        0, A_FREE },
+	[JAF_ARRAY_NUMOF]       = { AIN_INT,    AIN_ARRAY, "Numof",       0, A_NUMOF },
+	[JAF_ARRAY_COPY]        = { AIN_INT,    AIN_ARRAY, "Copy",        4, A_COPY },
+	[JAF_ARRAY_FILL]        = { AIN_INT,    AIN_ARRAY, "Fill",        3, A_FILL },
+	[JAF_ARRAY_PUSHBACK]    = { AIN_VOID,   AIN_ARRAY, "PushBack",    1, A_PUSHBACK },
+	[JAF_ARRAY_POPBACK]     = { AIN_VOID,   AIN_ARRAY, "PopBack",     0, A_POPBACK },
+	[JAF_ARRAY_EMPTY]       = { AIN_INT,    AIN_ARRAY, "Empty",       0, A_EMPTY },
+	[JAF_ARRAY_ERASE]       = { AIN_INT,    AIN_ARRAY, "Erase",       1, A_ERASE },
+	[JAF_ARRAY_INSERT]      = { AIN_VOID,   AIN_ARRAY, "Insert",      2, A_INSERT },
+	[JAF_ARRAY_SORT]        = { AIN_VOID,   AIN_ARRAY, "Sort",        1, A_SORT },
+};
 
 static void jaf_check_types_builtin_call(struct jaf_env *env, struct jaf_expression *expr)
 {
+	struct builtin *builtin = &builtins[expr->call.fun->member.member_no];
+	if (expr->call.args->nr_items != builtin->nr_args) {
+		JAF_ERROR(expr, "Too many arguments to builtin method: %s.%s",
+				_builtin_type_name(builtin->type), builtin->name);
+	}
+
 	expr->type = JAF_EXP_BUILTIN_CALL;
-	switch ((enum jaf_builtin_lib)expr->call.fun->member.object_no) {
-	case JAF_BUILTIN_INT:
-	case JAF_BUILTIN_FLOAT:
-	case JAF_BUILTIN_STRING:
-		JAF_ERROR(expr, "Builtin lib not implemented");
-	case JAF_BUILTIN_ARRAY:
-		jaf_check_types_builtin_array_call(env, expr);
+	expr->valuetype.data = builtin->return_type;
+	expr->call.func_no = builtin->opcode;
+
+	struct ain_type int_type = { .data = AIN_INT };
+	struct ain_type str_type = { .data = AIN_STRING };
+	struct jaf_argument_list *args = expr->call.args;
+	switch ((enum jaf_builtin_method)expr->call.fun->member.member_no) {
+	case JAF_STRING_FIND:
+		jaf_check_type(args->items[0], &str_type);
+		break;
+	case JAF_STRING_GETPART:
+		jaf_check_type(args->items[0], &int_type);
+		jaf_check_type(args->items[1], &int_type);
+		break;
+	case JAF_STRING_PUSHBACK:
+		jaf_check_type(args->items[0], &int_type);
+		break;
+	case JAF_STRING_ERASE:
+		jaf_check_type(args->items[0], &int_type);
+		break;
+	case JAF_ARRAY_ALLOC:
+		jaf_check_type(args->items[0], &int_type);
+		break;
+	case JAF_ARRAY_REALLOC:
+		jaf_check_type(args->items[0], &int_type);
+		break;
+	case JAF_ARRAY_COPY:
+		jaf_check_type(args->items[0], &int_type);
+		// array lvalue of same type
+		jaf_check_type(args->items[2], &int_type);
+		jaf_check_type(args->items[3], &int_type);
+		break;
+	case JAF_ARRAY_FILL:
+		jaf_check_type(args->items[0], &int_type);
+		jaf_check_type(args->items[1], &int_type);
+		// type of array data
+		break;
+	case JAF_ARRAY_PUSHBACK:
+		// type of array data
+		break;
+	case JAF_ARRAY_ERASE:
+		jaf_check_type(args->items[0], &int_type);
+		break;
+	case JAF_ARRAY_INSERT:
+		jaf_check_type(args->items[0], &int_type);
+		// type of array data
+		break;
+	case JAF_ARRAY_SORT:
+		// comparator function
+		break;
+	case JAF_INT_STRING:
+	case JAF_FLOAT_STRING:
+	case JAF_STRING_INT:
+	case JAF_STRING_LENGTH:
+	case JAF_STRING_LENGTHBYTE:
+	case JAF_STRING_EMPTY:
+	case JAF_STRING_POPBACK:
+	case JAF_ARRAY_FREE:
+	case JAF_ARRAY_NUMOF:
+	case JAF_ARRAY_POPBACK:
+	case JAF_ARRAY_EMPTY:
 		break;
 	default:
-		COMPILER_ERROR(expr, "Invalid builtin lib number");
+		COMPILER_ERROR(expr, "Invalid builtin");
 	}
 }
 
@@ -828,6 +902,30 @@ static int get_system_call_no(possibly_unused struct ain *ain, const char *name)
 	return -1;
 }
 
+static enum jaf_builtin_method get_builtin_no(enum ain_data_type type, const char *name)
+{
+	for (int i = 0; i < JAF_NR_BUILTINS; i++) {
+		if (builtins[i].type == type && !strcmp(name, builtins[i].name))
+			return i;
+	}
+	return -1;
+}
+
+static void jaf_check_types_hll_builtin(struct jaf_env *env, struct jaf_expression *expr)
+{
+	struct jaf_expression *obj = expr->member.struc;
+	const char *name = expr->member.name->text;
+	int lib_no = get_builtin_lib(env->ain, obj->valuetype.data, expr);
+	int no = get_library_function_no(env->ain, lib_no, name);
+	if (no >= 0) {
+		expr->valuetype.data = AIN_BUILTIN;
+		expr->member.object_no = lib_no;
+		expr->member.member_no = no;
+	} else {
+		JAF_ERROR(expr, "Undefined built-in method: %s.%s", env->ain->libraries[lib_no].name, name);
+	}
+}
+
 static void jaf_check_types_member(struct jaf_env *env, struct jaf_expression *expr)
 {
 	struct jaf_expression *obj = expr->member.struc;
@@ -853,48 +951,52 @@ static void jaf_check_types_member(struct jaf_env *env, struct jaf_expression *e
 		}
 		break;
 	}
+	case AIN_INT:
+	case AIN_REF_INT: {
+		if (AIN_VERSION_GTE(env->ain, 8, 0)) {
+			jaf_check_types_hll_builtin(env, expr);
+			break;
+		}
+		if ((expr->member.member_no = get_builtin_no(AIN_INT, name)) < 0) {
+			JAF_ERROR(expr, "Invalid integer builtin: %s", name);
+		}
+		expr->valuetype.data = AIN_BUILTIN;
+		expr->member.object_no = JAF_BUILTIN_INT;
+		break;
+	}
+	case AIN_FLOAT:
+	case AIN_REF_FLOAT: {
+		if (AIN_VERSION_GTE(env->ain, 8, 0)) {
+			jaf_check_types_hll_builtin(env, expr);
+			break;
+		}
+		if ((expr->member.member_no = get_builtin_no(AIN_FLOAT, name)) < 0) {
+			JAF_ERROR(expr, "Invalid float builtin: %s", name);
+		}
+		expr->valuetype.data = AIN_BUILTIN;
+		expr->member.object_no = JAF_BUILTIN_FLOAT;
+		break;
+	}
 	case AIN_ARRAY_TYPE:
 	case AIN_REF_ARRAY_TYPE: {
-		if (!strcmp(name, "Alloc")) {
-			expr->member.member_no = JAF_ARRAY_ALLOC;
-			JAF_ERROR(expr, "Array.Alloc not implemented");
-		} else if (!strcmp(name, "Realloc")) {
-			expr->member.member_no = JAF_ARRAY_REALLOC;
-			JAF_ERROR(expr, "Array.Realloc not implemented");
-		} else if (!strcmp(name, "Free")) {
-			expr->member.member_no = JAF_ARRAY_FREE;
-			JAF_ERROR(expr, "Array.Free not implemented");
-		} else if (!strcmp(name, "Numof")) {
-			expr->member.member_no = JAF_ARRAY_NUMOF;
-		} else if (!strcmp(name, "Copy")) {
-			expr->member.member_no = JAF_ARRAY_COPY;
-			JAF_ERROR(expr, "Array.Copy not implemented");
-		} else if (!strcmp(name, "Fill")) {
-			expr->member.member_no = JAF_ARRAY_FILL;
-			JAF_ERROR(expr, "Array.Fill not implemented");
-		} else if (!strcmp(name, "PushBack")) {
-			expr->member.member_no = JAF_ARRAY_PUSHBACK;
-			JAF_ERROR(expr, "Array.PushBack not implemented");
-		} else if (!strcmp(name, "PopBack")) {
-			expr->member.member_no = JAF_ARRAY_POPBACK;
-			JAF_ERROR(expr, "Array.PopBack not implemented");
-		} else if (!strcmp(name, "Empty")) {
-			expr->member.member_no = JAF_ARRAY_EMPTY;
-			JAF_ERROR(expr, "Array.Empty not implemented");
-		} else if (!strcmp(name, "Erase")) {
-			expr->member.member_no = JAF_ARRAY_ERASE;
-			JAF_ERROR(expr, "Array.Erase not implemented");
-		} else if (!strcmp(name, "Insert")) {
-			expr->member.member_no = JAF_ARRAY_INSERT;
-			JAF_ERROR(expr, "Array.Insert not implemented");
-		} else if (!strcmp(name, "Sort")) {
-			expr->member.member_no = JAF_ARRAY_SORT;
-			JAF_ERROR(expr, "Array.Sort not implemented");
-		} else {
+		if ((expr->member.member_no = get_builtin_no(AIN_ARRAY, name)) < 0) {
 			JAF_ERROR(expr, "Invalid array builtin: %s", name);
 		}
 		expr->valuetype.data = AIN_BUILTIN;
 		expr->member.object_no = JAF_BUILTIN_ARRAY;
+		break;
+	}
+	case AIN_STRING:
+	case AIN_REF_STRING: {
+		if (AIN_VERSION_GTE(env->ain, 8, 0)) {
+			jaf_check_types_hll_builtin(env, expr);
+			break;
+		}
+		if ((expr->member.member_no = get_builtin_no(AIN_STRING, name)) < 0) {
+			JAF_ERROR(expr, "Invalid string builtin: %s", name);
+		}
+		expr->valuetype.data = AIN_BUILTIN;
+		expr->member.object_no = JAF_BUILTIN_STRING;
 		break;
 	}
 	case AIN_LIBRARY: {
@@ -921,23 +1023,9 @@ static void jaf_check_types_member(struct jaf_env *env, struct jaf_expression *e
 		}
 		break;
 	}
-	case AIN_INT:
-	case AIN_FLOAT:
-	case AIN_STRING:
 	case AIN_ARRAY:
-	case AIN_REF_INT:
-	case AIN_REF_FLOAT:
-	case AIN_REF_STRING:
 	case AIN_REF_ARRAY: {
-		int lib_no = get_builtin_lib(env->ain, obj->valuetype.data, expr);
-		int no = get_library_function_no(env->ain, lib_no, name);
-		if (no >= 0) {
-			expr->valuetype.data = AIN_BUILTIN;
-			expr->member.object_no = lib_no;
-			expr->member.member_no = no;
-		} else {
-			JAF_ERROR(expr, "Undefined built-in method: %s.%s", env->ain->libraries[lib_no].name, name);
-		}
+		jaf_check_types_hll_builtin(env, expr);
 		break;
 	}
 	default:

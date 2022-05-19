@@ -870,6 +870,66 @@ static void compile_super_call(struct compiler_state *state, struct jaf_expressi
 static void compile_builtin_call(possibly_unused struct compiler_state *state, struct jaf_expression *expr)
 {
 	switch (expr->call.func_no) {
+	case I_STRING:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction0(state, REF);
+		write_instruction0(state, I_STRING);
+		break;
+	case FTOS:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction0(state, REF);
+		write_instruction1(state, PUSH, -1);
+		write_instruction0(state, FTOS);
+		break;
+	case STOI:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction0(state, S_REF);
+		write_instruction0(state, STOI);
+		break;
+	case S_LENGTH:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction0(state, S_LENGTH);
+		break;
+	case S_LENGTHBYTE:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction0(state, S_LENGTHBYTE);
+		break;
+	case S_EMPTY:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction0(state, S_REF);
+		write_instruction0(state, S_EMPTY);
+		break;
+	case S_FIND:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction0(state, S_REF);
+		compile_expression(state, expr->call.args->items[0]);
+		write_instruction0(state, S_FIND);
+		break;
+	case S_GETPART:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction0(state, S_REF);
+		compile_expression(state, expr->call.args->items[0]);
+		compile_expression(state, expr->call.args->items[1]);
+		write_instruction0(state, S_GETPART);
+		break;
+	case S_PUSHBACK:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction0(state, REF);
+		compile_expression(state, expr->call.args->items[0]);
+		write_instruction0(state, S_PUSHBACK2);
+		break;
+	case S_POPBACK:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction0(state, REF);
+		write_instruction0(state, S_POPBACK2);
+		break;
+	case S_ERASE:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction0(state, REF);
+		compile_expression(state, expr->call.args->items[0]);
+		write_instruction1(state, PUSH, 1); // number of chars?
+		write_instruction0(state, S_ERASE2);
+		break;
 	case A_NUMOF:
 		compile_variable(state, expr->call.fun->member.struc);
 		write_instruction1(state, PUSH, 1); // TODO: push actual rank?

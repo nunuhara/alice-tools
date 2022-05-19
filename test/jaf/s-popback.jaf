@@ -1,0 +1,6 @@
+int main()
+{
+	string s = "あいうえお";
+	s.PopBack();
+	return !(s == "あいうえ");
+}

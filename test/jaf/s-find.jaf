@@ -1,0 +1,5 @@
+int main()
+{
+	string s = "あいうえお";
+	return !(s.Find("うえ") == 2);
+}

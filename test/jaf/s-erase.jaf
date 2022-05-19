@@ -1,0 +1,6 @@
+int main()
+{
+	string s = "あいうえお";
+	s.Erase(1);
+	return !(s == "あうえお");
+}

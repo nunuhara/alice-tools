@@ -1,0 +1,5 @@
+int main()
+{
+	string s = "あいうえお";
+	return !(s.GetPart(1, 3) == "いうえ");
+}

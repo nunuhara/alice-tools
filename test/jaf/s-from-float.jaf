@@ -1,0 +1,5 @@
+int main()
+{
+	float f = 123.0;
+	return !(f.String() == "123.000000");
+}

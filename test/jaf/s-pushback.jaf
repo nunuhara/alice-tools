@@ -1,0 +1,6 @@
+int main()
+{
+	string s = "あいうえお";
+	s.PushBack('a');
+	return !(s == "あいうえおa");
+}
