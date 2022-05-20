@@ -17,6 +17,8 @@
 #include <iostream>
 #include <QtWidgets>
 #include "mainwindow.hpp"
+#include "ex_table_model.hpp"
+#include "ex_table_view.hpp"
 #include "file_manager.hpp"
 #include "navigator.hpp"
 #include "viewer.hpp"
@@ -170,6 +172,12 @@ void MainWindow::openFunction(struct ain *ainObj, int i, bool newTab)
 
 void MainWindow::openExValue(const QString &name, struct ex_value *value, bool newTab)
 {
+	if (value->type == EX_TABLE) {
+		ExTableModel *model = new ExTableModel(value->t);
+		ExTableView *view = new ExTableView(model);
+		openViewer(name, view, newTab);
+		return;
+	}
         struct port port;
         port_buffer_init(&port);
         set_input_encoding("UTF-8");
