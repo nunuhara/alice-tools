@@ -25,6 +25,7 @@ extern "C" {
 #include "system4/ex.h"
 #include "alice.h"
 #include "alice/ain.h"
+#include "alice/acx.h"
 #include "alice/ar.h"
 }
 
@@ -38,7 +39,7 @@ FileManager::AliceFile::~AliceFile()
                 ex_free(ex);
                 break;
         case Acx:
-                // TODO
+		acx_free(acx);
                 break;
         case Archive:
                 archive_free(ar);
@@ -118,7 +119,22 @@ void FileManager::openExFile(const QString &path)
 
 void FileManager::openAcxFile(const QString &path)
 {
-        emit openFileError(path, tr(".acx files not yet supported"));
+	QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+
+	set_input_encoding("CP932");
+	set_output_encoding("UTF-8");
+
+	int error = ACX_SUCCESS;
+	struct acx *acx = acx_load_conv(path.toUtf8(), &error, string_conv_output);
+	if (!acx) {
+		QGuiApplication::restoreOverrideCursor();
+		emit openFileError(path, tr("Failed to read .acx file"));
+		return;
+	}
+
+	files.append(new AliceFile(acx));
+	emit openedAcxFile(path, acx);
+	QGuiApplication::restoreOverrideCursor();
 }
 
 void FileManager::openAfaFile(const QString &path)

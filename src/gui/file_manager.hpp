@@ -21,6 +21,7 @@
 
 struct ain;
 struct ex;
+struct acx;
 struct archive;
 
 class FileManager : public QObject
@@ -42,6 +43,7 @@ public slots:
 signals:
         void openedAinFile(const QString &fileName, struct ain *ain);
         void openedExFile(const QString &fileName, struct ex *ex);
+	void openedAcxFile(const QString &filename, struct acx *acx);
         void openedArchive(const QString &fileName, struct archive *ar);
         void openFileError(const QString &fileName, const QString &message);
 
@@ -56,12 +58,14 @@ private:
         public:
                 AliceFile(struct ain *ain) : type(Ain), ain(ain) {}
                 AliceFile(struct ex *ex) : type(Ex), ex(ex) {}
+		AliceFile(struct acx *acx) : type(Acx), acx(acx) {}
                 AliceFile(struct archive *ar) : type(Archive), ar(ar) {}
                 ~AliceFile();
                 FileType type;
                 union {
                         struct ain *ain;
                         struct ex *ex;
+			struct acx *acx;
                         struct archive *ar;
                 };
         };

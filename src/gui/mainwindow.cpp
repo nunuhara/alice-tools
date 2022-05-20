@@ -17,6 +17,8 @@
 #include <iostream>
 #include <QtWidgets>
 #include "mainwindow.hpp"
+#include "acx_model.hpp"
+#include "acx_view.hpp"
 #include "ex_table_model.hpp"
 #include "ex_table_view.hpp"
 #include "file_manager.hpp"
@@ -25,6 +27,7 @@
 
 extern "C" {
 #include "system4/cg.h"
+#include "system4/acx.h"
 #include "alice.h"
 #include "alice/ain.h"
 #include "alice/ex.h"
@@ -46,6 +49,7 @@ MainWindow::MainWindow(QWidget *parent)
         setUnifiedTitleAndToolBarOnMac(true);
 
         connect(&FileManager::getInstance(), &FileManager::openFileError, this, &MainWindow::openError);
+	connect(&FileManager::getInstance(), &FileManager::openedAcxFile, this, &MainWindow::openAcxFile);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -186,6 +190,13 @@ void MainWindow::openExValue(const QString &name, struct ex_value *value, bool n
         char *data = (char*)port_buffer_get(&port, NULL);
         openText(name, data, newTab);
         free(data);
+}
+
+void MainWindow::openAcxFile(const QString &name, struct acx *acx)
+{
+	AcxModel *model = new AcxModel(acx);
+	AcxView *view = new AcxView(model);
+	openViewer(QFileInfo(name).fileName(), view, true);
 }
 
 void MainWindow::openArchiveFile(struct archive_data *file, bool newTab)
