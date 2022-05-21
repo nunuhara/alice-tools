@@ -39,34 +39,65 @@ public:
         int rowCount(const QModelIndex &parent = QModelIndex()) const override;
         int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
-public slots:
-        void requestOpen(const QModelIndex &index) const;
-        void requestOpenNewTab(const QModelIndex &index) const;
+	enum NodeType {
+		RootNode,
+		ClassNode,
+		FunctionNode,
+		ExStringKeyValueNode,
+		ExIntKeyValueNode,
+		ExRowNode,
+		FileNode,
+	};
+	enum NodeFileType {
+		NormalFile,
+		ExFile,
+		ArFile,
+	};
 
-signals:
-        void requestedOpenClass(struct ain *ainFile, int i, bool newTab) const;
-        void requestedOpenFunction(struct ain *ainFile, int i, bool newTab) const;
-        void requestedOpenExValue(const QString &name, struct ex_value *value, bool newTab) const;
-        void requestedOpenArchiveFile(struct archive_data *data, bool newTab) const;
+	struct NavigatorNode {
+		NodeType type;
+		union {
+			// ClassNode
+			// FunctionNode
+			struct {
+				struct ain *ainFile;
+				int i;
+			} ainItem;
+			// ExStringKeyValueNode
+			// ExIntKeyValueNode
+			struct {
+				struct {
+					const char *s;
+					unsigned i;
+				} key;
+				struct ex_value *value;
+			} exKV;
+			// ExRowNode
+			struct {
+				unsigned i;
+				struct ex_table *t;
+			} exRow;
+			// FileNode
+			struct {
+				// Descriptor for external use
+				struct archive_data *file;
+				// Persistent loaded descriptor (if needed)
+				struct archive_data *data;
+				NodeFileType type;
+				union {
+					struct ex *ex;
+					struct archive *ar;
+				};
+			} ar;
+		};
+	};
+
+	NavigatorNode *getNode(const QModelIndex &index) const;
 
 private:
         explicit NavigatorModel(QObject *parent = nullptr)
                 : QAbstractItemModel(parent) {}
 
-        enum NodeType {
-                RootNode,
-                ClassNode,
-                FunctionNode,
-                ExStringKeyValueNode,
-                ExIntKeyValueNode,
-                ExRowNode,
-                FileNode,
-        };
-        enum NodeFileType {
-                NormalFile,
-                ExFile,
-                ArFile,
-        };
         class Node {
         public:
                 static Node *fromEx(struct ex *exFile);
@@ -84,8 +115,10 @@ private:
                 Node *parent();
                 void requestOpen(const NavigatorModel *model, bool newTab);
 
+		NavigatorNode node;
+
         private:
-                Node(NodeType type) : type(type), parentNode(nullptr) {}
+		Node(NodeType type);
                 static Node *fromExKeyValue(const char *key, struct ex_value *value);
                 static Node *fromExKeyValue(int key, struct ex_value *value);
                 static Node *fromExRow(int index, struct ex_table *table, struct ex_field *fields, unsigned nFields);
@@ -98,41 +131,6 @@ private:
                 static Node *fromArchiveFile(struct archive_data *file);
                 static void fromArchiveIter(struct archive_data *data, void *user);
 
-                NodeType type;
-                union {
-                        // ClassNode
-                        // FunctionNode
-                        struct {
-                                struct ain *ainFile;
-                                int i;
-                        } ainItem;
-                        // ExStringKeyValueNode
-                        // ExIntKeyValueNode
-                        struct {
-                                struct {
-                                        const char *s;
-                                        unsigned i;
-                                } key;
-                                struct ex_value *value;
-                        } exKV;
-                        // ExRowNode
-                        struct {
-                                unsigned i;
-                                struct ex_table *t;
-                        } exRow;
-                        // FileNode
-                        struct {
-                                // Descriptor for external use
-                                struct archive_data *file;
-                                // Persistent loaded descriptor (if needed)
-                                struct archive_data *data;
-                                NodeFileType type;
-                                union {
-                                        struct ex *ex;
-                                        struct archive *ar;
-                                };
-                        } ar;
-                };
                 QVector<Node*> children;
                 Node *parentNode;
         };

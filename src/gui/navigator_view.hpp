@@ -22,14 +22,25 @@
 
 class NavigatorView : public QTreeView
 {
-        Q_OBJECT
+	Q_OBJECT
 public:
-        NavigatorView(NavigatorModel *model, QWidget *parent = nullptr);
-        ~NavigatorView();
+	NavigatorView(NavigatorModel *model, QWidget *parent = nullptr);
+	~NavigatorView();
+
+signals:
+	void requestedOpenClass(struct ain *ainFile, int i, bool newTab) const;
+	void requestedOpenFunction(struct ain *ainFile, int i, bool newTab) const;
+	void requestedOpenExValue(const QString &name, struct ex_value *value, bool newTab) const;
+	void requestedOpenArchiveFile(struct archive_data *data, bool newTab) const;
+
+private slots:
+	void requestOpen(const QModelIndex &index) const;
+
 protected:
-        void contextMenuEvent(QContextMenuEvent *event) override;
+	void contextMenuEvent(QContextMenuEvent *event) override;
 private:
-        NavigatorModel *model;
+	void openNode(NavigatorModel::NavigatorNode *node, bool newTab) const;
+	NavigatorModel *model;
 };
 
 #endif /* GALICE_NAVIGATOR_VIEW_HPP */

@@ -23,7 +23,7 @@ NavigatorView::NavigatorView(NavigatorModel *model, QWidget *parent)
         , model(model)
 {
         setModel(model);
-        connect(this, &QTreeView::activated, model, &NavigatorModel::requestOpen);
+	connect(this, &QTreeView::activated, this, &NavigatorView::requestOpen);
 }
 
 NavigatorView::~NavigatorView()
@@ -31,23 +31,55 @@ NavigatorView::~NavigatorView()
         delete model;
 }
 
-// NOTE: This is a completely braindead construct to allow passing the CONTEXT
-//       when executing actions for a CONTEXT menu. I would like to think there
-//       is a better way but if so I could not find it.
-struct ContextFunctor {
-        enum ActionType { Open, OpenNew };
-        ContextFunctor(const QModelIndex &index, ActionType action)
-                : index(index), action(action) {}
-        void operator()() {
-                switch (action) {
-                case Open:    static_cast<const NavigatorModel*>(index.model())->requestOpen(index); break;
-                case OpenNew: static_cast<const NavigatorModel*>(index.model())->requestOpenNewTab(index); break;
-                }
-        }
-private:
-        const QModelIndex &index;
-        ActionType action;
-};
+static NavigatorModel::NavigatorNode *getNode(const QModelIndex &index)
+{
+	return static_cast<const NavigatorModel*>(index.model())->getNode(index);
+}
+
+void NavigatorView::requestOpen(const QModelIndex &index) const
+{
+	if (!index.isValid())
+		return;
+
+	NavigatorModel::NavigatorNode *node = getNode(index);
+	if (!node)
+		return;
+
+	openNode(node, false);
+}
+
+void NavigatorView::openNode(NavigatorModel::NavigatorNode *node, bool newTab) const
+{
+	switch (node->type) {
+	case NavigatorModel::RootNode:
+		break;
+	case NavigatorModel::ClassNode:
+		emit requestedOpenClass(node->ainItem.ainFile, node->ainItem.i, newTab);
+		break;
+	case NavigatorModel::FunctionNode:
+		emit requestedOpenFunction(node->ainItem.ainFile, node->ainItem.i, newTab);
+		break;
+	case NavigatorModel::ExStringKeyValueNode:
+		emit requestedOpenExValue(QString::fromUtf8(node->exKV.key.s), node->exKV.value, newTab);
+		break;
+	case NavigatorModel::ExIntKeyValueNode:
+		emit requestedOpenExValue("[" + QString::number(node->exKV.key.i) + "]", node->exKV.value, newTab);
+		break;
+	case NavigatorModel::ExRowNode:
+		// TODO
+		break;
+	case NavigatorModel::FileNode:
+		switch (node->ar.type) {
+		case NavigatorModel::NormalFile:
+			emit requestedOpenArchiveFile(node->ar.file, newTab);
+			break;
+		case NavigatorModel::ExFile:
+		case NavigatorModel::ArFile:
+			break;
+		}
+		break;
+	}
+}
 
 void NavigatorView::contextMenuEvent(QContextMenuEvent *event)
 {
@@ -57,8 +89,12 @@ void NavigatorView::contextMenuEvent(QContextMenuEvent *event)
         if (!index.isValid())
                 return;
 
+	NavigatorModel::NavigatorNode *node = getNode(index);
+	if (!node)
+		return;
+
         QMenu menu(this);
-        menu.addAction(tr("Open"), ContextFunctor(index, ContextFunctor::Open));
-        menu.addAction(tr("Open in New Tab"), ContextFunctor(index, ContextFunctor::OpenNew));
+	menu.addAction(tr("Open"), [this, node]() -> void { this->openNode(node, false); });
+	menu.addAction(tr("Open in New Tab"), [this, node]() -> void { this->openNode(node, true); });
         menu.exec(event->globalPos());
 }

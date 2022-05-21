@@ -39,8 +39,8 @@ NavigatorModel::Node *NavigatorModel::Node::fromEx(struct ex *ex)
 NavigatorModel::Node *NavigatorModel::Node::fromExKeyValue(const char *key, struct ex_value *value)
 {
         Node *node = new Node(ExStringKeyValueNode);
-        node->exKV.key.s = key;
-        node->exKV.value = value;
+        node->node.exKV.key.s = key;
+        node->node.exKV.value = value;
         node->appendExValueChildren(value);
         return node;
 }
@@ -48,8 +48,8 @@ NavigatorModel::Node *NavigatorModel::Node::fromExKeyValue(const char *key, stru
 NavigatorModel::Node *NavigatorModel::Node::fromExKeyValue(int key, struct ex_value *value)
 {
         Node *node = new Node(ExIntKeyValueNode);
-        node->exKV.key.i = key;
-        node->exKV.value = value;
+        node->node.exKV.key.i = key;
+        node->node.exKV.value = value;
         node->appendExValueChildren(value);
         return node;
 }
@@ -57,8 +57,8 @@ NavigatorModel::Node *NavigatorModel::Node::fromExKeyValue(int key, struct ex_va
 NavigatorModel::Node *NavigatorModel::Node::fromExRow(int index, struct ex_table *table, struct ex_field *fields, unsigned nFields)
 {
         Node *node = new Node(ExRowNode);
-        node->exRow.i = index;
-        node->exRow.t = table;
+        node->node.exRow.i = index;
+        node->node.exRow.t = table;
 
         if (nFields != table->nr_fields) {
                 qWarning("Field/Column count mismatch");
@@ -77,8 +77,8 @@ NavigatorModel::Node *NavigatorModel::Node::fromExRow(int index, struct ex_table
 NavigatorModel::Node *NavigatorModel::Node::fromExColumn(struct ex_value *value, struct ex_field *field)
 {
         Node *node = new Node(ExStringKeyValueNode);
-        node->exKV.key.s = field->name->text;
-        node->exKV.value = value;
+        node->node.exKV.key.s = field->name->text;
+        node->node.exKV.value = value;
 
         if (value->type != EX_TABLE)
                 return node;
@@ -106,9 +106,9 @@ void NavigatorModel::Node::appendExValueChildren(struct ex_value *value)
                 break;
         case EX_TREE:
                 if (value->tree->is_leaf) {
-                        exKV.key.s = value->tree->leaf.name->text;
-                        exKV.value = &value->tree->leaf.value;
-                        appendExValueChildren(exKV.value);
+                        node.exKV.key.s = value->tree->leaf.name->text;
+                        node.exKV.value = &value->tree->leaf.value;
+                        appendExValueChildren(node.exKV.value);
                 } else {
                         for (unsigned i = 0; i < value->tree->nr_children; i++) {
                                 appendChild(Node::fromExKeyValue(value->tree->children[i].name->text, &value->tree->_children[i]));
@@ -159,16 +159,16 @@ NavigatorModel::Node *NavigatorModel::Node::fromAinFunctions(struct ain *ain)
 NavigatorModel::Node *NavigatorModel::Node::fromAinClass(struct ain *ain, int i)
 {
         Node *node = new Node(ClassNode);
-        node->ainItem.ainFile = ain;
-        node->ainItem.i = i;
+        node->node.ainItem.ainFile = ain;
+        node->node.ainItem.i = i;
         return node;
 }
 
 NavigatorModel::Node *NavigatorModel::Node::fromAinFunction(struct ain *ain, int i)
 {
         Node *node = new Node(FunctionNode);
-        node->ainItem.ainFile = ain;
-        node->ainItem.i = i;
+        node->node.ainItem.ainFile = ain;
+        node->node.ainItem.i = i;
         return node;
 }
 
@@ -176,12 +176,12 @@ void NavigatorModel::Node::fromArchiveIter(struct archive_data *data, void *user
 {
         Node *parent = static_cast<Node*>(user);
         Node *child = new Node(FileNode);
-        child->ar.type = NormalFile;
-        child->ar.file = archive_copy_descriptor(data);
-        child->ar.data = NULL;
+        child->node.ar.type = NormalFile;
+        child->node.ar.file = archive_copy_descriptor(data);
+        child->node.ar.data = NULL;
         parent->appendChild(child);
 
-        const char *ext = file_extension(child->ar.file->name);
+        const char *ext = file_extension(child->node.ar.file->name);
         if (!ext) {
                 // nothing
         } else if (!strcasecmp(ext, "pactex") || !strcasecmp(ext, "ex")) {
@@ -191,8 +191,8 @@ void NavigatorModel::Node::fromArchiveIter(struct archive_data *data, void *user
                 struct ex *ex = ex_read_conv(data->data, data->size, string_conv_output);
                 if (ex) {
                         child->appendExFileChildren(ex);
-                        child->ar.type = ExFile;
-                        child->ar.ex = ex;
+                        child->node.ar.type = ExFile;
+                        child->node.ar.ex = ex;
                 } else {
                         // TODO: status message?
                 }
@@ -200,13 +200,14 @@ void NavigatorModel::Node::fromArchiveIter(struct archive_data *data, void *user
         } else if (!strcasecmp(ext, "flat")) {
                 // XXX: We need to keep a second descriptor with the .flat data
                 //      persistently loaded.
-                child->ar.data = archive_copy_descriptor(child->ar.file);
-                archive_load_file(child->ar.data);
+                child->node.ar.data = archive_copy_descriptor(child->node.ar.file);
+                archive_load_file(child->node.ar.data);
                 int error = ARCHIVE_SUCCESS;
-                child->ar.ar = (struct archive*)flat_open(child->ar.data->data, child->ar.data->size, &error);
-                if (child->ar.ar) {
-                        child->ar.type = ArFile;
-                        child->appendArchiveChildren(child->ar.ar);
+                child->node.ar.ar = (struct archive*)flat_open(child->node.ar.data->data,
+				child->node.ar.data->size, &error);
+                if (child->node.ar.ar) {
+                        child->node.ar.type = ArFile;
+                        child->appendArchiveChildren(child->node.ar.ar);
                 } else {
                         // TODO: status message?
                 }
@@ -225,22 +226,28 @@ void NavigatorModel::Node::appendArchiveChildren(struct archive *ar)
         archive_for_each(ar, fromArchiveIter, this);
 }
 
+NavigatorModel::Node::Node(NodeType type)
+	: parentNode(nullptr)
+{
+	node.type = type;
+}
+
 NavigatorModel::Node::~Node()
 {
         qDeleteAll(children);
 
-        if (type == FileNode) {
-                archive_free_data(ar.file);
-                switch (ar.type) {
+        if (node.type == FileNode) {
+                archive_free_data(node.ar.file);
+                switch (node.ar.type) {
                 case NormalFile:
                         break;
                 case ExFile:
-                        ex_free(ar.ex);
+                        ex_free(node.ar.ex);
                         break;
                 case ArFile:
-                        archive_free(ar.ar);
-                        if (ar.data)
-                                archive_free_data(ar.data);
+                        archive_free(node.ar.ar);
+                        if (node.ar.data)
+                                archive_free_data(node.ar.data);
                         break;
                 }
         }
@@ -284,24 +291,24 @@ int NavigatorModel::Node::columnCount()
 QVariant NavigatorModel::Node::data(int column) const
 {
         if (column == 0) {
-                switch (type) {
+                switch (node.type) {
                 case RootNode:
                         return "Name";
                 case ClassNode:
-                        return QString::fromUtf8(ainItem.ainFile->structures[ainItem.i].name);
+                        return QString::fromUtf8(node.ainItem.ainFile->structures[node.ainItem.i].name);
                 case FunctionNode:
-                        return QString::fromUtf8(ainItem.ainFile->functions[ainItem.i].name);
+                        return QString::fromUtf8(node.ainItem.ainFile->functions[node.ainItem.i].name);
                 case ExStringKeyValueNode:
-                        return QString::fromUtf8(exKV.key.s);
+                        return QString::fromUtf8(node.exKV.key.s);
                 case ExIntKeyValueNode:
-                        return "[" + QString::number(exKV.key.i) + "]";
+                        return "[" + QString::number(node.exKV.key.i) + "]";
                 case ExRowNode:
-                        return "[" + QString::number(exRow.i) + "]";
+                        return "[" + QString::number(node.exRow.i) + "]";
                 case FileNode:
-                        return ar.file->name;
+                        return node.ar.file->name;
                 }
         } else if (column == 1) {
-                switch (type) {
+                switch (node.type) {
                 case RootNode:
                         return "Type";
                 case ClassNode:
@@ -310,12 +317,12 @@ QVariant NavigatorModel::Node::data(int column) const
                         break;
                 case ExStringKeyValueNode:
                 case ExIntKeyValueNode:
-                        return ex_strtype(exKV.value->type);
+                        return ex_strtype(node.exKV.value->type);
                 case ExRowNode:
                         return "row";
                 }
         } else if (column == 2) {
-                switch (type) {
+                switch (node.type) {
                 case RootNode:
                         return "Value";
                 case ClassNode:
@@ -325,49 +332,16 @@ QVariant NavigatorModel::Node::data(int column) const
                         break;
                 case ExStringKeyValueNode:
                 case ExIntKeyValueNode:
-                        switch (exKV.value->type) {
-                        case EX_INT:    return exKV.value->i;
-                        case EX_FLOAT:  return exKV.value->f;
-                        case EX_STRING: return QString::fromUtf8(exKV.value->s->text);
+                        switch (node.exKV.value->type) {
+                        case EX_INT:    return node.exKV.value->i;
+                        case EX_FLOAT:  return node.exKV.value->f;
+                        case EX_STRING: return QString::fromUtf8(node.exKV.value->s->text);
                         default:        break;
                         }
                         break;
                 }
         }
         return QVariant();
-}
-
-void NavigatorModel::Node::requestOpen(const NavigatorModel *model, bool newTab)
-{
-        switch (type) {
-        case RootNode:
-                break;
-        case ClassNode:
-                emit model->requestedOpenClass(ainItem.ainFile, ainItem.i, newTab);
-                break;
-        case FunctionNode:
-                emit model->requestedOpenFunction(ainItem.ainFile, ainItem.i, newTab);
-                break;
-        case ExStringKeyValueNode:
-                emit model->requestedOpenExValue(QString::fromUtf8(exKV.key.s), exKV.value, newTab);
-                break;
-        case ExIntKeyValueNode:
-                emit model->requestedOpenExValue("[" + QString::number(exKV.key.i) + "]", exKV.value, newTab);
-                break;
-        case ExRowNode:
-                // TODO
-                break;
-        case FileNode:
-                switch (ar.type) {
-                case NormalFile:
-                        emit model->requestedOpenArchiveFile(ar.file, newTab);
-                        break;
-                case ExFile:
-                case ArFile:
-                        break;
-                }
-                break;
-        }
 }
 
 NavigatorModel *NavigatorModel::fromExFile(struct ex *ex, QObject *parent)
@@ -481,16 +455,9 @@ QVariant NavigatorModel::headerData(int section, Qt::Orientation orientation, in
         return QVariant();
 }
 
-void NavigatorModel::requestOpen(const QModelIndex &index) const
+NavigatorModel::NavigatorNode *NavigatorModel::getNode(const QModelIndex &index) const
 {
-        if (!index.isValid())
-                return;
-        static_cast<Node*>(index.internalPointer())->requestOpen(this, false);
-}
-
-void NavigatorModel::requestOpenNewTab(const QModelIndex &index) const
-{
-        if (!index.isValid())
-                return;
-        static_cast<Node*>(index.internalPointer())->requestOpen(this, true);
+	if (!index.isValid())
+		return nullptr;
+	return &static_cast<Node*>(index.internalPointer())->node;
 }

@@ -98,9 +98,9 @@ void Navigator::addAinFile(const QString &fileName, struct ain *ain)
                 functionView->setColumnHidden(i, true);
         }
 
-        connect(classModel, &NavigatorModel::requestedOpenClass, window, &MainWindow::openClass);
-        connect(classModel, &NavigatorModel::requestedOpenFunction, window, &MainWindow::openFunction);
-        connect(functionModel, &NavigatorModel::requestedOpenFunction, window, &MainWindow::openFunction);
+	connect(classView, &NavigatorView::requestedOpenClass, window, &MainWindow::openClass);
+	connect(classView, &NavigatorView::requestedOpenFunction, window, &MainWindow::openFunction);
+	connect(functionView, &NavigatorView::requestedOpenFunction, window, &MainWindow::openFunction);
 
         viewSelector->addItem(tr("Classes"));
         views->addWidget(classView);
@@ -123,7 +123,7 @@ void Navigator::addExFile(const QString &fileName, struct ex *ex)
         view->setColumnWidth(0, 150);
         view->setColumnWidth(1, 50);
 
-        connect(model, &NavigatorModel::requestedOpenExValue, window, &MainWindow::openExValue);
+	connect(view, &NavigatorView::requestedOpenExValue, window, &MainWindow::openExValue);
 
         QVBoxLayout *layout = new QVBoxLayout(widget);
         layout->addWidget(view);
@@ -137,8 +137,8 @@ void Navigator::addArchive(const QString &fileName, struct archive *ar)
         NavigatorModel *model = NavigatorModel::fromArchive(ar);
         NavigatorView *view = new NavigatorView(model);
 
-        connect(model, &NavigatorModel::requestedOpenArchiveFile, window, &MainWindow::openArchiveFile);
-        connect(model, &NavigatorModel::requestedOpenExValue, window, &MainWindow::openExValue);
+        connect(view, &NavigatorView::requestedOpenArchiveFile, window, &MainWindow::openArchiveFile);
+        connect(view, &NavigatorView::requestedOpenExValue, window, &MainWindow::openExValue);
 
         QVBoxLayout *layout = new QVBoxLayout(widget);
         layout->addWidget(view);
