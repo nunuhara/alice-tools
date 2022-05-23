@@ -93,6 +93,7 @@ gui_sources = ['gui/galice.cpp',
                'gui/mainwindow.cpp',
                'gui/navigator.cpp',
                'gui/navigator_model.cpp',
+               'gui/navigator_node.cpp',
                'gui/navigator_view.cpp',
                'gui/viewer.cpp',
 ]

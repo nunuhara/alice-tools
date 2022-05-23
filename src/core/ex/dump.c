@@ -97,6 +97,14 @@ void ex_dump_value(struct port *port, struct ex_value *val)
 	_ex_dump_value(port, val, false, 0);
 }
 
+void ex_dump_key_value(struct port *port, struct string *key, struct ex_value *val)
+{
+	port_printf(port, "%s ", ex_strtype(val->type));
+	ex_dump_identifier(port, key);
+	port_printf(port, " = ");
+	ex_dump_value(port, val);
+}
+
 static void ex_dump_field(struct port *port, struct ex_field *field, int indent_level)
 {
 	port_printf(port, "%s%s ", field->is_index ? "indexed " : "", ex_strtype(field->type));
@@ -128,6 +136,27 @@ static void ex_dump_row(struct port *port, struct ex_value *row, uint32_t nr_col
 	port_printf(port, " }");
 }
 
+static void ex_dump_fields(struct port *port, struct ex_table *table, int indent_level)
+{
+	indent(port, indent_level);
+	port_printf(port, "{ ");
+	for (uint32_t i = 0; i < table->nr_fields; i++) {
+		ex_dump_field(port, &table->fields[i], indent_level);
+		if (i+1 < table->nr_fields)
+			port_printf(port, ", ");
+	}
+	port_printf(port, " },\n");
+}
+
+void ex_dump_table_row(struct port *port, struct ex_table *table, int row)
+{
+	port_printf(port, "{\n");
+	ex_dump_fields(port, table, 1);
+	indent(port, 1);
+	ex_dump_row(port, table->rows[row], table->nr_columns, 1);
+	port_printf(port, "\n}");
+}
+
 static void _ex_dump_table(struct port *port, struct ex_table *table, int indent_level)
 {
 	bool toplevel = !!table->nr_fields;
@@ -137,14 +166,7 @@ static void _ex_dump_table(struct port *port, struct ex_table *table, int indent
 
 	indent_level++;
 	if (table->nr_fields) {
-		indent(port, indent_level);
-		port_printf(port, "{ ");
-		for (uint32_t i = 0; i < table->nr_fields; i++) {
-			ex_dump_field(port, &table->fields[i], indent_level);
-			if (i+1 < table->nr_fields)
-				port_printf(port, ", ");
-		}
-		port_printf(port, " },\n");
+		ex_dump_fields(port, table, indent_level);
 	}
 	for (uint32_t i = 0; i < table->nr_rows; i++) {
 		if (toplevel)

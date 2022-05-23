@@ -19,6 +19,7 @@
 
 #include <QAbstractItemModel>
 #include <QVector>
+#include "navigator_node.hpp"
 
 class NavigatorModel : public QAbstractItemModel {
         Q_OBJECT
@@ -38,59 +39,6 @@ public:
         QModelIndex parent(const QModelIndex &index) const override;
         int rowCount(const QModelIndex &parent = QModelIndex()) const override;
         int columnCount(const QModelIndex &parent = QModelIndex()) const override;
-
-	enum NodeType {
-		RootNode,
-		ClassNode,
-		FunctionNode,
-		ExStringKeyValueNode,
-		ExIntKeyValueNode,
-		ExRowNode,
-		FileNode,
-	};
-	enum NodeFileType {
-		NormalFile,
-		ExFile,
-		ArFile,
-	};
-
-	struct NavigatorNode {
-		NodeType type;
-		union {
-			// ClassNode
-			// FunctionNode
-			struct {
-				struct ain *ainFile;
-				int i;
-			} ainItem;
-			// ExStringKeyValueNode
-			// ExIntKeyValueNode
-			struct {
-				struct {
-					const char *s;
-					unsigned i;
-				} key;
-				struct ex_value *value;
-			} exKV;
-			// ExRowNode
-			struct {
-				unsigned i;
-				struct ex_table *t;
-			} exRow;
-			// FileNode
-			struct {
-				// Descriptor for external use
-				struct archive_data *file;
-				// Persistent loaded descriptor (if needed)
-				struct archive_data *data;
-				NodeFileType type;
-				union {
-					struct ex *ex;
-					struct archive *ar;
-				};
-			} ar;
-		};
-	};
 
 	NavigatorNode *getNode(const QModelIndex &index) const;
 
@@ -118,8 +66,8 @@ private:
 		NavigatorNode node;
 
         private:
-		Node(NodeType type);
-                static Node *fromExKeyValue(const char *key, struct ex_value *value);
+		Node(NavigatorNode::NodeType type);
+                static Node *fromExKeyValue(struct string *key, struct ex_value *value);
                 static Node *fromExKeyValue(int key, struct ex_value *value);
                 static Node *fromExRow(int index, struct ex_table *table, struct ex_field *fields, unsigned nFields);
                 static Node *fromExColumn(struct ex_value *value, struct ex_field *field);

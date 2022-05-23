@@ -94,3 +94,14 @@ void port_putc(struct port *port, char c)
 		fputc(c, port->file);
 	}
 }
+
+bool port_write_bytes(struct port *port, uint8_t *data, size_t size)
+{
+	if (port->type == PORT_TYPE_BUFFER) {
+		buffer_write_bytes(&port->buffer, data, size);
+		return true;
+	} else if (port->type == PORT_TYPE_FILE) {
+		return fwrite(data, size, 1, port->file) == 1;
+	}
+	return false;
+}

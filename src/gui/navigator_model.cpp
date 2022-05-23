@@ -31,14 +31,14 @@ extern "C" {
 
 NavigatorModel::Node *NavigatorModel::Node::fromEx(struct ex *ex)
 {
-        Node *root = new Node(RootNode);
+        Node *root = new Node(NavigatorNode::RootNode);
         root->appendExFileChildren(ex);
         return root;
 }
 
-NavigatorModel::Node *NavigatorModel::Node::fromExKeyValue(const char *key, struct ex_value *value)
+NavigatorModel::Node *NavigatorModel::Node::fromExKeyValue(struct string *key, struct ex_value *value)
 {
-        Node *node = new Node(ExStringKeyValueNode);
+        Node *node = new Node(NavigatorNode::ExStringKeyValueNode);
         node->node.exKV.key.s = key;
         node->node.exKV.value = value;
         node->appendExValueChildren(value);
@@ -47,7 +47,7 @@ NavigatorModel::Node *NavigatorModel::Node::fromExKeyValue(const char *key, stru
 
 NavigatorModel::Node *NavigatorModel::Node::fromExKeyValue(int key, struct ex_value *value)
 {
-        Node *node = new Node(ExIntKeyValueNode);
+        Node *node = new Node(NavigatorNode::ExIntKeyValueNode);
         node->node.exKV.key.i = key;
         node->node.exKV.value = value;
         node->appendExValueChildren(value);
@@ -56,7 +56,7 @@ NavigatorModel::Node *NavigatorModel::Node::fromExKeyValue(int key, struct ex_va
 
 NavigatorModel::Node *NavigatorModel::Node::fromExRow(int index, struct ex_table *table, struct ex_field *fields, unsigned nFields)
 {
-        Node *node = new Node(ExRowNode);
+        Node *node = new Node(NavigatorNode::ExRowNode);
         node->node.exRow.i = index;
         node->node.exRow.t = table;
 
@@ -76,8 +76,8 @@ NavigatorModel::Node *NavigatorModel::Node::fromExRow(int index, struct ex_table
 
 NavigatorModel::Node *NavigatorModel::Node::fromExColumn(struct ex_value *value, struct ex_field *field)
 {
-        Node *node = new Node(ExStringKeyValueNode);
-        node->node.exKV.key.s = field->name->text;
+        Node *node = new Node(NavigatorNode::ExStringKeyValueNode);
+        node->node.exKV.key.s = field->name;
         node->node.exKV.value = value;
 
         if (value->type != EX_TABLE)
@@ -106,12 +106,12 @@ void NavigatorModel::Node::appendExValueChildren(struct ex_value *value)
                 break;
         case EX_TREE:
                 if (value->tree->is_leaf) {
-                        node.exKV.key.s = value->tree->leaf.name->text;
+                        node.exKV.key.s = value->tree->leaf.name;
                         node.exKV.value = &value->tree->leaf.value;
                         appendExValueChildren(node.exKV.value);
                 } else {
                         for (unsigned i = 0; i < value->tree->nr_children; i++) {
-                                appendChild(Node::fromExKeyValue(value->tree->children[i].name->text, &value->tree->_children[i]));
+                                appendChild(Node::fromExKeyValue(value->tree->children[i].name, &value->tree->_children[i]));
                         }
                 }
                 break;
@@ -123,13 +123,13 @@ void NavigatorModel::Node::appendExValueChildren(struct ex_value *value)
 void NavigatorModel::Node::appendExFileChildren(struct ex *exFile)
 {
         for (unsigned i = 0; i < exFile->nr_blocks; i++) {
-                appendChild(Node::fromExKeyValue(exFile->blocks[i].name->text, &exFile->blocks[i].val));
+                appendChild(Node::fromExKeyValue(exFile->blocks[i].name, &exFile->blocks[i].val));
         }
 }
 
 NavigatorModel::Node *NavigatorModel::Node::fromAinClasses(struct ain *ain)
 {
-        Node *root = new Node(RootNode);
+        Node *root = new Node(NavigatorNode::RootNode);
 
         // add classes
         for (int i = 0; i < ain->nr_structures; i++) {
@@ -147,7 +147,7 @@ NavigatorModel::Node *NavigatorModel::Node::fromAinClasses(struct ain *ain)
 
 NavigatorModel::Node *NavigatorModel::Node::fromAinFunctions(struct ain *ain)
 {
-        Node *root = new Node(RootNode);
+        Node *root = new Node(NavigatorNode::RootNode);
 
         for (int i = 0; i < ain->nr_functions; i++) {
                 root->appendChild(Node::fromAinFunction(ain, i));
@@ -158,7 +158,7 @@ NavigatorModel::Node *NavigatorModel::Node::fromAinFunctions(struct ain *ain)
 
 NavigatorModel::Node *NavigatorModel::Node::fromAinClass(struct ain *ain, int i)
 {
-        Node *node = new Node(ClassNode);
+        Node *node = new Node(NavigatorNode::ClassNode);
         node->node.ainItem.ainFile = ain;
         node->node.ainItem.i = i;
         return node;
@@ -166,7 +166,7 @@ NavigatorModel::Node *NavigatorModel::Node::fromAinClass(struct ain *ain, int i)
 
 NavigatorModel::Node *NavigatorModel::Node::fromAinFunction(struct ain *ain, int i)
 {
-        Node *node = new Node(FunctionNode);
+        Node *node = new Node(NavigatorNode::FunctionNode);
         node->node.ainItem.ainFile = ain;
         node->node.ainItem.i = i;
         return node;
@@ -175,8 +175,8 @@ NavigatorModel::Node *NavigatorModel::Node::fromAinFunction(struct ain *ain, int
 void NavigatorModel::Node::fromArchiveIter(struct archive_data *data, void *user)
 {
         Node *parent = static_cast<Node*>(user);
-        Node *child = new Node(FileNode);
-        child->node.ar.type = NormalFile;
+        Node *child = new Node(NavigatorNode::FileNode);
+        child->node.ar.type = NavigatorNode::NormalFile;
         child->node.ar.file = archive_copy_descriptor(data);
         child->node.ar.data = NULL;
         parent->appendChild(child);
@@ -191,7 +191,7 @@ void NavigatorModel::Node::fromArchiveIter(struct archive_data *data, void *user
                 struct ex *ex = ex_read_conv(data->data, data->size, string_conv_output);
                 if (ex) {
                         child->appendExFileChildren(ex);
-                        child->node.ar.type = ExFile;
+                        child->node.ar.type = NavigatorNode::ExFile;
                         child->node.ar.ex = ex;
                 } else {
                         // TODO: status message?
@@ -206,7 +206,7 @@ void NavigatorModel::Node::fromArchiveIter(struct archive_data *data, void *user
                 child->node.ar.ar = (struct archive*)flat_open(child->node.ar.data->data,
 				child->node.ar.data->size, &error);
                 if (child->node.ar.ar) {
-                        child->node.ar.type = ArFile;
+                        child->node.ar.type = NavigatorNode::ArFile;
                         child->appendArchiveChildren(child->node.ar.ar);
                 } else {
                         // TODO: status message?
@@ -216,7 +216,7 @@ void NavigatorModel::Node::fromArchiveIter(struct archive_data *data, void *user
 
 NavigatorModel::Node *NavigatorModel::Node::fromArchive(struct archive *ar)
 {
-        Node *root = new Node(RootNode);
+        Node *root = new Node(NavigatorNode::RootNode);
         root->appendArchiveChildren(ar);
         return root;
 }
@@ -226,7 +226,7 @@ void NavigatorModel::Node::appendArchiveChildren(struct archive *ar)
         archive_for_each(ar, fromArchiveIter, this);
 }
 
-NavigatorModel::Node::Node(NodeType type)
+NavigatorModel::Node::Node(NavigatorNode::NodeType type)
 	: parentNode(nullptr)
 {
 	node.type = type;
@@ -236,15 +236,15 @@ NavigatorModel::Node::~Node()
 {
         qDeleteAll(children);
 
-        if (node.type == FileNode) {
+        if (node.type == NavigatorNode::FileNode) {
                 archive_free_data(node.ar.file);
                 switch (node.ar.type) {
-                case NormalFile:
+                case NavigatorNode::NormalFile:
                         break;
-                case ExFile:
+                case NavigatorNode::ExFile:
                         ex_free(node.ar.ex);
                         break;
-                case ArFile:
+                case NavigatorNode::ArFile:
                         archive_free(node.ar.ar);
                         if (node.ar.data)
                                 archive_free_data(node.ar.data);
@@ -292,46 +292,46 @@ QVariant NavigatorModel::Node::data(int column) const
 {
         if (column == 0) {
                 switch (node.type) {
-                case RootNode:
+		case NavigatorNode::RootNode:
                         return "Name";
-                case ClassNode:
+                case NavigatorNode::ClassNode:
                         return QString::fromUtf8(node.ainItem.ainFile->structures[node.ainItem.i].name);
-                case FunctionNode:
+                case NavigatorNode::FunctionNode:
                         return QString::fromUtf8(node.ainItem.ainFile->functions[node.ainItem.i].name);
-                case ExStringKeyValueNode:
-                        return QString::fromUtf8(node.exKV.key.s);
-                case ExIntKeyValueNode:
+                case NavigatorNode::ExStringKeyValueNode:
+                        return QString::fromUtf8(node.exKV.key.s->text);
+                case NavigatorNode::ExIntKeyValueNode:
                         return "[" + QString::number(node.exKV.key.i) + "]";
-                case ExRowNode:
+                case NavigatorNode::ExRowNode:
                         return "[" + QString::number(node.exRow.i) + "]";
-                case FileNode:
+                case NavigatorNode::FileNode:
                         return node.ar.file->name;
                 }
         } else if (column == 1) {
                 switch (node.type) {
-                case RootNode:
+                case NavigatorNode::RootNode:
                         return "Type";
-                case ClassNode:
-                case FunctionNode:
-                case FileNode:
+                case NavigatorNode::ClassNode:
+                case NavigatorNode::FunctionNode:
+                case NavigatorNode::FileNode:
                         break;
-                case ExStringKeyValueNode:
-                case ExIntKeyValueNode:
+                case NavigatorNode::ExStringKeyValueNode:
+                case NavigatorNode::ExIntKeyValueNode:
                         return ex_strtype(node.exKV.value->type);
-                case ExRowNode:
+                case NavigatorNode::ExRowNode:
                         return "row";
                 }
         } else if (column == 2) {
                 switch (node.type) {
-                case RootNode:
+                case NavigatorNode::RootNode:
                         return "Value";
-                case ClassNode:
-                case FunctionNode:
-                case ExRowNode:
-                case FileNode:
+                case NavigatorNode::ClassNode:
+                case NavigatorNode::FunctionNode:
+                case NavigatorNode::ExRowNode:
+                case NavigatorNode::FileNode:
                         break;
-                case ExStringKeyValueNode:
-                case ExIntKeyValueNode:
+                case NavigatorNode::ExStringKeyValueNode:
+                case NavigatorNode::ExIntKeyValueNode:
                         switch (node.exKV.value->type) {
                         case EX_INT:    return node.exKV.value->i;
                         case EX_FLOAT:  return node.exKV.value->f;
@@ -455,7 +455,7 @@ QVariant NavigatorModel::headerData(int section, Qt::Orientation orientation, in
         return QVariant();
 }
 
-NavigatorModel::NavigatorNode *NavigatorModel::getNode(const QModelIndex &index) const
+NavigatorNode *NavigatorModel::getNode(const QModelIndex &index) const
 {
 	if (!index.isValid())
 		return nullptr;

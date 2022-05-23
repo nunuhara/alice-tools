@@ -154,8 +154,7 @@ void MainWindow::openClass(struct ain *ainObj, int i, bool newTab)
 {
         struct port port;
         port_buffer_init(&port);
-        set_input_encoding("UTF-8");
-        set_output_encoding("UTF-8");
+        set_encodings("UTF-8", "UTF-8");
         ain_dump_structure(&port, ainObj, i);
         char *data = (char*)port_buffer_get(&port, NULL);
         openText(ainObj->structures[i].name, data, newTab);
@@ -166,8 +165,7 @@ void MainWindow::openFunction(struct ain *ainObj, int i, bool newTab)
 {
         struct port port;
         port_buffer_init(&port);
-        set_input_encoding("UTF-8");
-        set_output_encoding("UTF-8");
+        set_encodings("UTF-8", "UTF-8");
         _ain_disassemble_function(&port, ainObj, i, 0);
         char *data = (char*)port_buffer_get(&port, NULL);
         openText(ainObj->functions[i].name, data, newTab);
@@ -184,8 +182,7 @@ void MainWindow::openExValue(const QString &name, struct ex_value *value, bool n
 	}
         struct port port;
         port_buffer_init(&port);
-        set_input_encoding("UTF-8");
-        set_output_encoding("UTF-8");
+        set_encodings("UTF-8", "UTF-8");
         ex_dump_value(&port, value);
         char *data = (char*)port_buffer_get(&port, NULL);
         openText(name, data, newTab);

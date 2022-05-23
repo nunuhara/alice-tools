@@ -30,6 +30,7 @@
 /* conv.c */
 void set_input_encoding(const char *enc);
 void set_output_encoding(const char *enc);
+void set_encodings(const char *input_enc, const char *output_enc);
 
 char *conv_output(const char *str);
 char *conv_output_len(const char *str, size_t len);

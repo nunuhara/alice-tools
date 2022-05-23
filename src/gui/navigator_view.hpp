@@ -39,7 +39,8 @@ private slots:
 protected:
 	void contextMenuEvent(QContextMenuEvent *event) override;
 private:
-	void openNode(NavigatorModel::NavigatorNode *node, bool newTab) const;
+	void openNode(NavigatorNode *node, bool newTab) const;
+	void exportNode(NavigatorNode *node);
 	NavigatorModel *model;
 };
 

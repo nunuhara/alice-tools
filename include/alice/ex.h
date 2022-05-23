@@ -33,7 +33,9 @@ uint8_t *ex_write_mem(struct ex *ex, size_t *size_out);
 void ex_write_file(const char *path, struct ex *ex);
 
 void ex_dump_value(struct port *port, struct ex_value *val);
+void ex_dump_key_value(struct port *port, struct string *key, struct ex_value *val);
 void ex_dump_table(struct port *port, struct ex_table *table);
+void ex_dump_table_row(struct port *port, struct ex_table *table, int row);
 void ex_dump_list(struct port *port, struct ex_list *list);
 void ex_dump_tree(struct port *port, struct ex_tree *tree);
 void ex_dump(struct port *port, struct ex *ex);

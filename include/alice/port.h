@@ -82,4 +82,9 @@ void port_printf(struct port *port, const char *fmt, ...);
  */
 void port_putc(struct port *port, char c);
 
+/*
+ * Write a series of bytes to a port.
+ */
+bool port_write_bytes(struct port *port, uint8_t *data, size_t size);
+
 #endif /* ALICE_PORT_H */

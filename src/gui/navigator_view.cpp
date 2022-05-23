@@ -16,7 +16,14 @@
 
 #include <QMenu>
 #include <QContextMenuEvent>
+#include <QFileDialog>
+#include <QMessageBox>
 #include "navigator_view.hpp"
+
+extern "C" {
+#include "system4/string.h"
+#include "alice/port.h"
+}
 
 NavigatorView::NavigatorView(NavigatorModel *model, QWidget *parent)
         : QTreeView(parent)
@@ -31,7 +38,7 @@ NavigatorView::~NavigatorView()
         delete model;
 }
 
-static NavigatorModel::NavigatorNode *getNode(const QModelIndex &index)
+static NavigatorNode *getNode(const QModelIndex &index)
 {
 	return static_cast<const NavigatorModel*>(index.model())->getNode(index);
 }
@@ -41,44 +48,104 @@ void NavigatorView::requestOpen(const QModelIndex &index) const
 	if (!index.isValid())
 		return;
 
-	NavigatorModel::NavigatorNode *node = getNode(index);
+	NavigatorNode *node = getNode(index);
 	if (!node)
 		return;
 
 	openNode(node, false);
 }
 
-void NavigatorView::openNode(NavigatorModel::NavigatorNode *node, bool newTab) const
+void NavigatorView::openNode(NavigatorNode *node, bool newTab) const
 {
 	switch (node->type) {
-	case NavigatorModel::RootNode:
+	case NavigatorNode::RootNode:
 		break;
-	case NavigatorModel::ClassNode:
+	case NavigatorNode::ClassNode:
 		emit requestedOpenClass(node->ainItem.ainFile, node->ainItem.i, newTab);
 		break;
-	case NavigatorModel::FunctionNode:
+	case NavigatorNode::FunctionNode:
 		emit requestedOpenFunction(node->ainItem.ainFile, node->ainItem.i, newTab);
 		break;
-	case NavigatorModel::ExStringKeyValueNode:
-		emit requestedOpenExValue(QString::fromUtf8(node->exKV.key.s), node->exKV.value, newTab);
+	case NavigatorNode::ExStringKeyValueNode:
+		emit requestedOpenExValue(QString::fromUtf8(node->exKV.key.s->text), node->exKV.value, newTab);
 		break;
-	case NavigatorModel::ExIntKeyValueNode:
+	case NavigatorNode::ExIntKeyValueNode:
 		emit requestedOpenExValue("[" + QString::number(node->exKV.key.i) + "]", node->exKV.value, newTab);
 		break;
-	case NavigatorModel::ExRowNode:
+	case NavigatorNode::ExRowNode:
 		// TODO
 		break;
-	case NavigatorModel::FileNode:
+	case NavigatorNode::FileNode:
 		switch (node->ar.type) {
-		case NavigatorModel::NormalFile:
+		case NavigatorNode::NormalFile:
 			emit requestedOpenArchiveFile(node->ar.file, newTab);
 			break;
-		case NavigatorModel::ExFile:
-		case NavigatorModel::ArFile:
+		case NavigatorNode::ExFile:
+		case NavigatorNode::ArFile:
 			break;
 		}
 		break;
 	}
+}
+
+static QString getSaveFileName(QWidget *parent, QString caption, QVector<FileFormat> formats)
+{
+	if (!formats.size()) {
+		return QFileDialog::getSaveFileName(parent, caption);
+	}
+
+	QString format_string = "Supported Formats (";
+	for (int i = 0; i < formats.size(); i++) {
+		if (i > 0)
+			format_string.append(" ");
+		format_string.append(".");
+		format_string.append(fileFormatToExtension(formats[i]));
+	}
+	format_string.append(") (");
+
+	for (int i = 0; i < formats.size(); i++) {
+		if (i > 0)
+			format_string.append(" ");
+		format_string.append("*.");
+		format_string.append(fileFormatToExtension(formats[i]));
+	}
+	format_string.append(") ");
+
+	return QFileDialog::getSaveFileName(parent, caption, "", format_string);
+}
+
+void NavigatorView::exportNode(NavigatorNode *node)
+{
+	QVector<FileFormat> supportedFormats = node->getSupportedFormats();
+	QString filename = getSaveFileName(this, tr("Export File"), supportedFormats);
+	if (filename.isEmpty())
+		return;
+
+	QString ext = QFileInfo(filename).suffix();
+	FileFormat format = extensionToFileFormat(ext);
+	if (!supportedFormats.contains(format)) {
+		QMessageBox::critical(this, "alice-tools",
+				QString("%1 is not a supported export format for this file type").arg(ext),
+				QMessageBox::Ok);
+		return;
+	}
+
+	struct port port;
+	QByteArray u = filename.toUtf8();
+	if (!port_file_open(&port, u)) {
+		QMessageBox::critical(this, "alice-tools",
+				QString("Failed to open file '%1'").arg(filename),
+				QMessageBox::Ok);
+		return;
+	}
+
+	if (!node->write(&port, format)) {
+		QMessageBox::critical(this, "alice-tools",
+				QString("Failed to write to file '%1'").arg(filename),
+				QMessageBox::Ok);
+	}
+
+	port_close(&port);
 }
 
 void NavigatorView::contextMenuEvent(QContextMenuEvent *event)
@@ -89,12 +156,13 @@ void NavigatorView::contextMenuEvent(QContextMenuEvent *event)
         if (!index.isValid())
                 return;
 
-	NavigatorModel::NavigatorNode *node = getNode(index);
+	NavigatorNode *node = getNode(index);
 	if (!node)
 		return;
 
         QMenu menu(this);
 	menu.addAction(tr("Open"), [this, node]() -> void { this->openNode(node, false); });
 	menu.addAction(tr("Open in New Tab"), [this, node]() -> void { this->openNode(node, true); });
+	menu.addAction(tr("Export"), [this, node]() -> void { this->exportNode(node); });
         menu.exec(event->globalPos());
 }

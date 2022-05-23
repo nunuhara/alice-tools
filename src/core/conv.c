@@ -127,6 +127,12 @@ void set_output_encoding(const char *enc)
 	}
 }
 
+void set_encodings(const char *input_enc, const char *output_enc)
+{
+	set_input_encoding(input_enc);
+	set_output_encoding(output_enc);
+}
+
 static iconv_t check_conv(iconv_t *conv, const char *out_enc, const char *in_enc)
 {
 	if (*conv == (iconv_t)-1 && (*conv = iconv_open(out_enc, in_enc)) == (iconv_t)-1)
