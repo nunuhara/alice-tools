@@ -268,12 +268,12 @@ static void check_flags(uint32_t *flags)
 	}
 }
 
-void ar_extract_all(struct archive *ar, char *output_file, uint32_t flags, char **_toc, size_t _toc_size)
+void ar_extract_all(struct archive *ar, const char *_output_file, uint32_t flags, char **_toc, size_t _toc_size)
 {
 	toc = _toc;
 	toc_size = _toc_size;
 	check_flags(&flags);
-	output_file = output_file_dir(output_file);
+	char *output_file = output_file_dir(_output_file);
 	struct extract_all_iter_data data = { .prefix = output_file, .flags = flags };
 	archive_for_each(ar, extract_all_iter, &data);
 	free(output_file);

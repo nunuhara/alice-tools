@@ -24,6 +24,29 @@ struct ex;
 struct acx;
 struct archive;
 
+enum class FileFormat {
+	NONE,
+	AIN,
+	EX,
+	TXTEX,
+	PNG,
+	WEBP,
+	QNT,
+	AJP,
+	DCF,
+	JAF,
+	JAM,
+	ALD,
+	AFA,
+	ALK,
+	ACX,
+};
+
+FileFormat extensionToFileFormat(QString extension);
+QString fileFormatToExtension(FileFormat format);
+bool isArchiveFormat(FileFormat format);
+bool isImageFormat(FileFormat format);
+
 class FileManager : public QObject
 {
         Q_OBJECT

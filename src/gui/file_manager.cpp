@@ -29,6 +29,104 @@ extern "C" {
 #include "alice/ar.h"
 }
 
+FileFormat extensionToFileFormat(QString extension)
+{
+	if (!extension.compare("ain", Qt::CaseInsensitive))
+		return FileFormat::AIN;
+	if (!extension.compare("ex", Qt::CaseInsensitive))
+		return FileFormat::EX;
+	if (!extension.compare("pactex", Qt::CaseInsensitive))
+		return FileFormat::EX;
+	if (!extension.compare("txtex", Qt::CaseInsensitive))
+		return FileFormat::TXTEX;
+	if (!extension.compare("png", Qt::CaseInsensitive))
+		return FileFormat::PNG;
+	if (!extension.compare("webp", Qt::CaseInsensitive))
+		return FileFormat::WEBP;
+	if (!extension.compare("qnt", Qt::CaseInsensitive))
+		return FileFormat::QNT;
+	if (!extension.compare("ajp", Qt::CaseInsensitive))
+		return FileFormat::AJP;
+	if (!extension.compare("dcf", Qt::CaseInsensitive))
+		return FileFormat::DCF;
+	if (!extension.compare("jaf", Qt::CaseInsensitive))
+		return FileFormat::JAF;
+	if (!extension.compare("jam", Qt::CaseInsensitive))
+		return FileFormat::JAM;
+	if (!extension.compare("ald", Qt::CaseInsensitive))
+		return FileFormat::ALD;
+	if (!extension.compare("afa", Qt::CaseInsensitive))
+		return FileFormat::AFA;
+	if (!extension.compare("alk", Qt::CaseInsensitive))
+		return FileFormat::ALK;
+	if (!extension.compare("acx", Qt::CaseInsensitive))
+		return FileFormat::ACX;
+	return FileFormat::NONE;
+}
+
+QString fileFormatToExtension(FileFormat format)
+{
+	switch (format) {
+	case FileFormat::NONE:
+		return "";
+	case FileFormat::AIN:
+		return "ain";
+	case FileFormat::EX:
+		return "ex";
+	case FileFormat::TXTEX:
+		return "txtex";
+	case FileFormat::PNG:
+		return "png";
+	case FileFormat::WEBP:
+		return "webp";
+	case FileFormat::QNT:
+		return "qnt";
+	case FileFormat::AJP:
+		return "ajp";
+	case FileFormat::DCF:
+		return "dcf";
+	case FileFormat::JAF:
+		return "jaf";
+	case FileFormat::JAM:
+		return "jam";
+	case FileFormat::ALD:
+		return "ald";
+	case FileFormat::AFA:
+		return "afa";
+	case FileFormat::ALK:
+		return "alk";
+	case FileFormat::ACX:
+		return "acx";
+	}
+	return "";
+}
+
+bool isArchiveFormat(FileFormat format)
+{
+	switch (format) {
+	case FileFormat::ALD:
+	case FileFormat::AFA:
+	case FileFormat::ALK:
+		return true;
+	default:
+		return false;
+	}
+}
+
+bool isImageFormat(FileFormat format)
+{
+	switch (format) {
+	case FileFormat::PNG:
+	case FileFormat::WEBP:
+	case FileFormat::QNT:
+	case FileFormat::AJP:
+	case FileFormat::DCF:
+		return true;
+	default:
+		return false;
+	}
+}
+
 FileManager::AliceFile::~AliceFile()
 {
         switch (type) {
@@ -60,22 +158,38 @@ FileManager::~FileManager()
 void FileManager::openFile(const QString &path)
 {
         QString suffix = QFileInfo(path).suffix();
-
-        if (!suffix.compare("ain")) {
-                openAinFile(path);
-        } else if (!suffix.compare("ex")) {
-                openExFile(path);
-        } else if (!suffix.compare("acx")) {
-                openAcxFile(path);
-        } else if (!suffix.compare("afa")) {
-                openAfaFile(path);
-        } else if (!suffix.compare("ald")) {
-                openAldFile(path);
-        } else if (!suffix.compare("alk")) {
-                openAlkFile(path);
-        } else {
-                emit openFileError(path, tr("Unsupported file type"));
-        }
+	switch (extensionToFileFormat(QFileInfo(path).suffix())) {
+	case FileFormat::NONE:
+	// TODO
+	case FileFormat::TXTEX:
+	case FileFormat::PNG:
+	case FileFormat::WEBP:
+	case FileFormat::QNT:
+	case FileFormat::AJP:
+	case FileFormat::DCF:
+	case FileFormat::JAF:
+	case FileFormat::JAM:
+		emit openFileError(path, tr("Unsupported file type"));
+		break;
+	case FileFormat::AIN:
+		openAinFile(path);
+		break;
+	case FileFormat::EX:
+		openExFile(path);
+		break;
+	case FileFormat::ALD:
+		openAldFile(path);
+		break;
+	case FileFormat::AFA:
+		openAfaFile(path);
+		break;
+	case FileFormat::ALK:
+		openAlkFile(path);
+		break;
+	case FileFormat::ACX:
+		openAcxFile(path);
+		break;
+	}
 }
 
 void FileManager::openAinFile(const QString &path)

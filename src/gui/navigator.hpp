@@ -44,7 +44,6 @@ private slots:
         void addAinFile(const QString &fileName, struct ain *ain);
         void addExFile(const QString &fileName, struct ex *ex);
         void addArchive(const QString &fileName, struct archive *ar);
-        void filesystemOpen(const QModelIndex &index);
 
 private:
         void addFilesystem();

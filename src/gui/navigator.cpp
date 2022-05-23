@@ -16,6 +16,7 @@
 
 #include <QtWidgets>
 #include "file_manager.hpp"
+#include "filesystem_view.hpp"
 #include "mainwindow.hpp"
 #include "navigator.hpp"
 #include "navigator_model.hpp"
@@ -54,8 +55,7 @@ void Navigator::addFilesystem()
         QFileSystemModel *model = new QFileSystemModel;
         model->setRootPath(QDir::currentPath());
 
-        QTreeView *tree = new QTreeView;
-        tree->setModel(model);
+	FileSystemView *tree = new FileSystemView(model);
         tree->setRootIndex(model->index(QDir::currentPath()));
 
         for (int i = 1; i < model->columnCount(); i++) {
@@ -63,15 +63,7 @@ void Navigator::addFilesystem()
         }
         tree->setHeaderHidden(true);
 
-        connect(tree, &QTreeView::activated, this, &Navigator::filesystemOpen);
-
         addFile(tr("Filesystem"), tree);
-}
-
-void Navigator::filesystemOpen(const QModelIndex &index)
-{
-        const QFileSystemModel *model = static_cast<const QFileSystemModel*>(index.model());
-        FileManager::getInstance().openFile(model->filePath(index));
 }
 
 void Navigator::addAinFile(const QString &fileName, struct ain *ain)

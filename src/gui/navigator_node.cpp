@@ -26,62 +26,15 @@ extern "C" {
 #include "alice/port.h"
 }
 
-FileFormat extensionToFileFormat(QString extension)
-{
-	if (!extension.compare("ex", Qt::CaseInsensitive))
-		return FileFormat::EX;
-	if (!extension.compare("pactex", Qt::CaseInsensitive))
-		return FileFormat::EX;
-	if (!extension.compare("txtex", Qt::CaseInsensitive))
-		return FileFormat::TXTEX;
-	if (!extension.compare("png", Qt::CaseInsensitive))
-		return FileFormat::PNG;
-	if (!extension.compare("webp", Qt::CaseInsensitive))
-		return FileFormat::WEBP;
-	if (!extension.compare("qnt", Qt::CaseInsensitive))
-		return FileFormat::QNT;
-	if (!extension.compare("ajp", Qt::CaseInsensitive))
-		return FileFormat::AJP;
-	if (!extension.compare("dcf", Qt::CaseInsensitive))
-		return FileFormat::DCF;
-	if (!extension.compare("jaf", Qt::CaseInsensitive))
-		return FileFormat::JAF;
-	if (!extension.compare("jam", Qt::CaseInsensitive))
-		return FileFormat::JAM;
-	return FileFormat::NONE;
-}
-
-QString fileFormatToExtension(FileFormat format)
-{
-	switch (format) {
-	case FileFormat::NONE:
-		return "";
-	case FileFormat::EX:
-		return "ex";
-	case FileFormat::TXTEX:
-		return "txtex";
-	case FileFormat::PNG:
-		return "png";
-	case FileFormat::WEBP:
-		return "webp";
-	case FileFormat::QNT:
-		return "qnt";
-	case FileFormat::AJP:
-		return "ajp";
-	case FileFormat::DCF:
-		return "dcf";
-	case FileFormat::JAF:
-		return "jaf";
-	case FileFormat::JAM:
-		return "jam";
-	}
-	return "";
-}
-
 static QVector<FileFormat> getSupportedConversionFormats(FileFormat from)
 {
 	switch (from) {
 	case FileFormat::NONE:
+	case FileFormat::AIN:
+	case FileFormat::ALD:
+	case FileFormat::AFA:
+	case FileFormat::ALK:
+	case FileFormat::ACX:
 		return QVector<FileFormat>();
 	case FileFormat::EX:
 	case FileFormat::TXTEX:
@@ -162,8 +115,13 @@ static bool convertFormat(struct port *port, uint8_t *data, size_t size, FileFor
 		// TODO
 		return false;
 	case FileFormat::NONE:
+	case FileFormat::AIN:
 	case FileFormat::JAF:
 	case FileFormat::JAM:
+	case FileFormat::ALD:
+	case FileFormat::AFA:
+	case FileFormat::ALK:
+	case FileFormat::ACX:
 		return false;;
 	}
 	return false;

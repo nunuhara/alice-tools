@@ -19,22 +19,7 @@
 
 #include <QString>
 #include <QVector>
-
-enum class FileFormat {
-	NONE,
-	EX,
-	TXTEX,
-	PNG,
-	WEBP,
-	QNT,
-	AJP,
-	DCF,
-	JAF,
-	JAM,
-};
-
-FileFormat extensionToFileFormat(QString extension);
-QString fileFormatToExtension(FileFormat format);
+#include "file_manager.hpp"
 
 class NavigatorNode {
 public:
