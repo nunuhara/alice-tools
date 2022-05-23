@@ -66,7 +66,7 @@ void Navigator::addFilesystem()
         addFile(tr("Filesystem"), tree);
 }
 
-void Navigator::addAinFile(const QString &fileName, struct ain *ain)
+void Navigator::addAinFile(const QString &fileName, std::shared_ptr<struct ain> ain)
 {
         QWidget *view = new QWidget;
         NavigatorModel *classModel = NavigatorModel::fromAinClasses(ain);
@@ -107,7 +107,7 @@ void Navigator::addAinFile(const QString &fileName, struct ain *ain)
         addFile(fileName, view);
 }
 
-void Navigator::addExFile(const QString &fileName, struct ex *ex)
+void Navigator::addExFile(const QString &fileName, std::shared_ptr<struct ex> ex)
 {
         QWidget *widget = new QWidget;
         NavigatorModel *model = NavigatorModel::fromExFile(ex);
@@ -123,7 +123,7 @@ void Navigator::addExFile(const QString &fileName, struct ex *ex)
         addFile(fileName, widget);
 }
 
-void Navigator::addArchive(const QString &fileName, struct archive *ar)
+void Navigator::addArchive(const QString &fileName, std::shared_ptr<struct archive> ar)
 {
         QWidget *widget = new QWidget;
         NavigatorModel *model = NavigatorModel::fromArchive(ar);

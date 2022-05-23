@@ -189,7 +189,7 @@ void MainWindow::openExValue(const QString &name, struct ex_value *value, bool n
         free(data);
 }
 
-void MainWindow::openAcxFile(const QString &name, struct acx *acx)
+void MainWindow::openAcxFile(const QString &name, std::shared_ptr<struct acx> acx)
 {
 	AcxModel *model = new AcxModel(acx);
 	AcxView *view = new AcxView(model);

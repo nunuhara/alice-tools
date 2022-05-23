@@ -22,7 +22,7 @@ extern "C" {
 #include "alice.h"
 }
 
-AcxModel::AcxModel(struct acx *acx, QObject *parent)
+AcxModel::AcxModel(std::shared_ptr<struct acx> acx, QObject *parent)
 	: QAbstractTableModel(parent)
 	, acx(acx)
 {
@@ -57,6 +57,6 @@ QVariant AcxModel::data(const QModelIndex &index, int role) const
 	if (index.row() >= acx->nr_lines || index.column() >= acx->nr_columns)
 		return QVariant();
 	if (role == Qt::DisplayRole)
-		return acxValueToString(acx, index.row(), index.column());
+		return acxValueToString(acx.get(), index.row(), index.column());
 	return QVariant();
 }

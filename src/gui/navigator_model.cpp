@@ -344,32 +344,36 @@ QVariant NavigatorModel::Node::data(int column) const
         return QVariant();
 }
 
-NavigatorModel *NavigatorModel::fromExFile(struct ex *ex, QObject *parent)
+NavigatorModel *NavigatorModel::fromExFile(std::shared_ptr<struct ex> ex, QObject *parent)
 {
-        NavigatorModel *model = new NavigatorModel(parent);
-        model->root = Node::fromEx(ex);
-        return model;
+	NavigatorModel *model = new NavigatorModel(parent);
+	model->root = Node::fromEx(ex.get());
+	model->exFile = ex;
+	return model;
 }
 
-NavigatorModel *NavigatorModel::fromAinClasses(struct ain *ain, QObject *parent)
+NavigatorModel *NavigatorModel::fromAinClasses(std::shared_ptr<struct ain> ain, QObject *parent)
 {
-        NavigatorModel *model = new NavigatorModel(parent);
-        model->root = Node::fromAinClasses(ain);
-        return model;
+	NavigatorModel *model = new NavigatorModel(parent);
+	model->root = Node::fromAinClasses(ain.get());
+	model->ainFile = ain;
+	return model;
 }
 
-NavigatorModel *NavigatorModel::fromAinFunctions(struct ain *ain, QObject *parent)
+NavigatorModel *NavigatorModel::fromAinFunctions(std::shared_ptr<struct ain> ain, QObject *parent)
 {
-        NavigatorModel *model = new NavigatorModel(parent);
-        model->root = Node::fromAinFunctions(ain);
-        return model;
+	NavigatorModel *model = new NavigatorModel(parent);
+	model->root = Node::fromAinFunctions(ain.get());
+	model->ainFile = ain;
+	return model;
 }
 
-NavigatorModel *NavigatorModel::fromArchive(struct archive *ar, QObject *parent)
+NavigatorModel *NavigatorModel::fromArchive(std::shared_ptr<struct archive> ar, QObject *parent)
 {
-        NavigatorModel *model = new NavigatorModel(parent);
-        model->root = Node::fromArchive(ar);
-        return model;
+	NavigatorModel *model = new NavigatorModel(parent);
+	model->root = Node::fromArchive(ar.get());
+	model->arFile = ar;
+	return model;
 }
 
 NavigatorModel::~NavigatorModel()

@@ -17,6 +17,7 @@
 #ifndef GALICE_ACX_MODEL_HPP
 #define GALICE_ACX_MODEL_HPP
 
+#include <memory>
 #include <QAbstractTableModel>
 #include <QVector>
 
@@ -25,14 +26,14 @@ struct acx;
 class AcxModel : public QAbstractTableModel {
 	Q_OBJECT
 public:
-	AcxModel(struct acx *acx, QObject *parent = nullptr);
+	AcxModel(std::shared_ptr<struct acx> acx, QObject *parent = nullptr);
 	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
 	int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 	QVariant headerData(int section, Qt::Orientation orientation,
 			int role = Qt::DisplayRole) const override;
 	QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 private:
-	struct acx *acx;
+	std::shared_ptr<struct acx> acx;
 };
 
 #endif /* GALICE_ACX_MODEL_HPP */

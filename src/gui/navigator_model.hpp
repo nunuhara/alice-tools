@@ -17,6 +17,7 @@
 #ifndef GALICE_NAVIGATOR_MODEL_HPP
 #define GALICE_NAVIGATOR_MODEL_HPP
 
+#include <memory>
 #include <QAbstractItemModel>
 #include <QVector>
 #include "navigator_node.hpp"
@@ -24,10 +25,10 @@
 class NavigatorModel : public QAbstractItemModel {
         Q_OBJECT
 public:
-        static NavigatorModel *fromExFile(struct ex *exFile, QObject *parent = nullptr);
-        static NavigatorModel *fromAinClasses(struct ain *ainFile, QObject *parent = nullptr);
-        static NavigatorModel *fromAinFunctions(struct ain *ainFile, QObject *parent = nullptr);
-        static NavigatorModel *fromArchive(struct archive *ar, QObject *parent = nullptr);
+        static NavigatorModel *fromExFile(std::shared_ptr<struct ex> exFile, QObject *parent = nullptr);
+        static NavigatorModel *fromAinClasses(std::shared_ptr<struct ain> ainFile, QObject *parent = nullptr);
+        static NavigatorModel *fromAinFunctions(std::shared_ptr<struct ain> ainFile, QObject *parent = nullptr);
+        static NavigatorModel *fromArchive(std::shared_ptr<struct archive> ar, QObject *parent = nullptr);
         ~NavigatorModel();
 
         QVariant data(const QModelIndex &index, int role) const override;
@@ -83,6 +84,9 @@ private:
                 Node *parentNode;
         };
         Node *root;
+	std::shared_ptr<struct ex> exFile;
+	std::shared_ptr<struct ain> ainFile;
+	std::shared_ptr<struct archive> arFile;
 };
 
 #endif /* GALICE_NAVIGATOR_MODEL_HPP */

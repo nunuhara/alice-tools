@@ -127,37 +127,18 @@ bool isImageFormat(FileFormat format)
 	}
 }
 
-FileManager::AliceFile::~AliceFile()
-{
-        switch (type) {
-        case Ain:
-                ain_free(ain);
-                break;
-        case Ex:
-                ex_free(ex);
-                break;
-        case Acx:
-		acx_free(acx);
-                break;
-        case Archive:
-                archive_free(ar);
-                break;
-        }
-}
-
 FileManager::FileManager()
-        : QObject()
+	: QObject()
 {
 }
 
 FileManager::~FileManager()
 {
-        qDeleteAll(files);
 }
 
 void FileManager::openFile(const QString &path)
 {
-        QString suffix = QFileInfo(path).suffix();
+	QString suffix = QFileInfo(path).suffix();
 	switch (extensionToFileFormat(QFileInfo(path).suffix())) {
 	case FileFormat::NONE:
 	// TODO
@@ -194,51 +175,47 @@ void FileManager::openFile(const QString &path)
 
 void FileManager::openAinFile(const QString &path)
 {
-        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+	QGuiApplication::setOverrideCursor(Qt::WaitCursor);
 
-        int error = AIN_SUCCESS;
-        set_input_encoding("CP932");
-        set_output_encoding("UTF-8");
-        struct ain *ain = ain_open_conv(path.toUtf8(), conv_output, &error);
-        if (!ain) {
-                QGuiApplication::restoreOverrideCursor();
-                emit openFileError(path, tr("Failed to read .ain file"));
-                return;
-        }
-        // initialize method-struct mappings
-        ain_init_member_functions(ain, strdup);
+	int error = AIN_SUCCESS;
+	set_encodings("CP932", "UTF-8");
+	struct ain *ain = ain_open_conv(path.toUtf8(), conv_output, &error);
+	if (!ain) {
+		QGuiApplication::restoreOverrideCursor();
+		emit openFileError(path, tr("Failed to read .ain file"));
+		return;
+	}
+	// initialize method-struct mappings
+	ain_init_member_functions(ain, strdup);
 
-        files.append(new AliceFile(ain));
-        emit openedAinFile(path, ain);
-        QGuiApplication::restoreOverrideCursor();
+	std::shared_ptr<struct ain> ptr(ain, ain_free);
+	emit openedAinFile(path, ptr);
+	QGuiApplication::restoreOverrideCursor();
 }
 
 void FileManager::openExFile(const QString &path)
 {
-        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+	QGuiApplication::setOverrideCursor(Qt::WaitCursor);
 
-        set_input_encoding("CP932");
-        set_output_encoding("UTF-8");
-        struct ex *ex = ex_read_file_conv(path.toUtf8(), string_conv_output);
-        if (!ex) {
-                QGuiApplication::restoreOverrideCursor();
-                emit openFileError(path, tr("Failed to read .ex file"));
-                return;
-        }
+	set_encodings("CP932", "UTF-8");
+	struct ex *ex = ex_read_file_conv(path.toUtf8(), string_conv_output);
+	if (!ex) {
+		QGuiApplication::restoreOverrideCursor();
+		emit openFileError(path, tr("Failed to read .ex file"));
+		return;
+	}
 
-        files.append(new AliceFile(ex));
-        emit openedExFile(path, ex);
-        QGuiApplication::restoreOverrideCursor();
+	std::shared_ptr<struct ex> ptr(ex, ex_free);
+	emit openedExFile(path, ptr);
+	QGuiApplication::restoreOverrideCursor();
 }
 
 void FileManager::openAcxFile(const QString &path)
 {
 	QGuiApplication::setOverrideCursor(Qt::WaitCursor);
 
-	set_input_encoding("CP932");
-	set_output_encoding("UTF-8");
-
 	int error = ACX_SUCCESS;
+	set_encodings("CP932", "UTF-8");
 	struct acx *acx = acx_load_conv(path.toUtf8(), &error, string_conv_output);
 	if (!acx) {
 		QGuiApplication::restoreOverrideCursor();
@@ -246,52 +223,48 @@ void FileManager::openAcxFile(const QString &path)
 		return;
 	}
 
-	files.append(new AliceFile(acx));
-	emit openedAcxFile(path, acx);
+	std::shared_ptr<struct acx> ptr(acx, acx_free);
+	emit openedAcxFile(path, ptr);
 	QGuiApplication::restoreOverrideCursor();
 }
 
 void FileManager::openAfaFile(const QString &path)
 {
-        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+	QGuiApplication::setOverrideCursor(Qt::WaitCursor);
 
-        set_input_encoding("CP932");
-        set_output_encoding("UTF-8");
+	int error = ARCHIVE_SUCCESS;
+	set_encodings("CP932", "UTF-8");
+	struct afa_archive *ar = afa_open_conv(path.toUtf8(), 0, &error, string_conv_output);
+	if (!ar) {
+		QGuiApplication::restoreOverrideCursor();
+		emit openFileError(path, tr("Failed to read .afa file"));
+		return;
+	}
 
-        int error = ARCHIVE_SUCCESS;
-        struct afa_archive *ar = afa_open_conv(path.toUtf8(), 0, &error, string_conv_output);
-        if (!ar) {
-                QGuiApplication::restoreOverrideCursor();
-                emit openFileError(path, tr("Failed to read .afa file"));
-                return;
-        }
-
-        files.append(new AliceFile(&ar->ar));
-        emit openedArchive(path, &ar->ar);
-        QGuiApplication::restoreOverrideCursor();
+	std::shared_ptr<struct archive> ptr(&ar->ar, archive_free);
+	emit openedArchive(path, ptr);
+	QGuiApplication::restoreOverrideCursor();
 }
 
 void FileManager::openAldFile(const QString &path)
 {
-        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+	QGuiApplication::setOverrideCursor(Qt::WaitCursor);
 
-        set_input_encoding("CP932");
-        set_output_encoding("UTF-8");
+	int error = ARCHIVE_SUCCESS;
+	set_encodings("CP932", "UTF-8");
+	struct archive *ar = open_ald_archive(path.toUtf8(), &error, conv_output);
+	if (!ar) {
+		QGuiApplication::restoreOverrideCursor();
+		emit openFileError(path, tr("Failed to read .ald file"));
+		return;
+	}
 
-        int error = ARCHIVE_SUCCESS;
-        struct archive *ar = open_ald_archive(path.toUtf8(), &error, conv_output);
-        if (!ar) {
-                QGuiApplication::restoreOverrideCursor();
-                emit openFileError(path, tr("Failed to read .ald file"));
-                return;
-        }
-
-        files.append(new AliceFile(ar));
-        emit openedArchive(path, ar);
-        QGuiApplication::restoreOverrideCursor();
+	std::shared_ptr<struct archive> ptr(ar, archive_free);
+	emit openedArchive(path, ptr);
+	QGuiApplication::restoreOverrideCursor();
 }
 
 void FileManager::openAlkFile(const QString &path)
 {
-        emit openFileError(path, tr(".alk files not yet supported"));
+	emit openFileError(path, tr(".alk files not yet supported"));
 }

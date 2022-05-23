@@ -17,6 +17,7 @@
 #ifndef GALICE_MAINWINDOW_HPP
 #define GALICE_MAINWINDOW_HPP
 
+#include <memory>
 #include <QMainWindow>
 #include <QFileInfo>
 #include <QListWidget>
@@ -42,7 +43,7 @@ public slots:
         void openClass(struct ain *ain, int i, bool newTab);
         void openFunction(struct ain *ain, int i, bool newTab);
         void openExValue(const QString &name, struct ex_value *value, bool newTab);
-	void openAcxFile(const QString &name, struct acx *acx);
+	void openAcxFile(const QString &name, std::shared_ptr<struct acx> acx);
         void openArchiveFile(struct archive_data *file, bool newTab);
 
 private slots:

@@ -17,6 +17,7 @@
 #ifndef GALICE_FILE_MANAGER_HPP
 #define GALICE_FILE_MANAGER_HPP
 
+#include <memory>
 #include <QObject>
 
 struct ain;
@@ -49,59 +50,36 @@ bool isImageFormat(FileFormat format);
 
 class FileManager : public QObject
 {
-        Q_OBJECT
+	Q_OBJECT
 
 public:
-        static FileManager& getInstance()
-        {
-                static FileManager instance;
-                return instance;
-        }
-        FileManager(FileManager const&) = delete;
-        void operator=(FileManager const&) = delete;
+	static FileManager& getInstance()
+	{
+		static FileManager instance;
+		return instance;
+	}
+	FileManager(FileManager const&) = delete;
+	void operator=(FileManager const&) = delete;
 
 public slots:
-        void openFile(const QString &path);
+	void openFile(const QString &path);
 
 signals:
-        void openedAinFile(const QString &fileName, struct ain *ain);
-        void openedExFile(const QString &fileName, struct ex *ex);
-	void openedAcxFile(const QString &filename, struct acx *acx);
-        void openedArchive(const QString &fileName, struct archive *ar);
-        void openFileError(const QString &fileName, const QString &message);
+	void openedAinFile(const QString &fileName, std::shared_ptr<struct ain> ain);
+	void openedExFile(const QString &fileName, std::shared_ptr<struct ex> ex);
+	void openedAcxFile(const QString &filename, std::shared_ptr<struct acx> acx);
+	void openedArchive(const QString &fileName, std::shared_ptr<struct archive> ar);
+	void openFileError(const QString &fileName, const QString &message);
 
 private:
-        enum FileType {
-                Ain,
-                Ex,
-                Acx,
-                Archive,
-        };
-        class AliceFile {
-        public:
-                AliceFile(struct ain *ain) : type(Ain), ain(ain) {}
-                AliceFile(struct ex *ex) : type(Ex), ex(ex) {}
-		AliceFile(struct acx *acx) : type(Acx), acx(acx) {}
-                AliceFile(struct archive *ar) : type(Archive), ar(ar) {}
-                ~AliceFile();
-                FileType type;
-                union {
-                        struct ain *ain;
-                        struct ex *ex;
-			struct acx *acx;
-                        struct archive *ar;
-                };
-        };
-        QVector<AliceFile*> files;
-
-        FileManager();
-        ~FileManager();
-        void openAinFile(const QString &path);
-        void openExFile(const QString &path);
-        void openAcxFile(const QString &path);
-        void openAfaFile(const QString &path);
-        void openAldFile(const QString &path);
-        void openAlkFile(const QString &path);
+	FileManager();
+	~FileManager();
+	void openAinFile(const QString &path);
+	void openExFile(const QString &path);
+	void openAcxFile(const QString &path);
+	void openAfaFile(const QString &path);
+	void openAldFile(const QString &path);
+	void openAlkFile(const QString &path);
 };
 
 #endif /* GALICE_FILE_MANAGER_HPP */

@@ -17,6 +17,7 @@
 #ifndef GALICE_NAVIGATOR_HPP
 #define GALICE_NAVIGATOR_HPP
 
+#include <memory>
 #include <QDockWidget>
 #include <QComboBox>
 #include <QStackedWidget>
@@ -41,9 +42,9 @@ public:
         ~Navigator();
 
 private slots:
-        void addAinFile(const QString &fileName, struct ain *ain);
-        void addExFile(const QString &fileName, struct ex *ex);
-        void addArchive(const QString &fileName, struct archive *ar);
+        void addAinFile(const QString &fileName, std::shared_ptr<struct ain> ain);
+        void addExFile(const QString &fileName, std::shared_ptr<struct ex> ex);
+        void addArchive(const QString &fileName, std::shared_ptr<struct archive> ar);
 
 private:
         void addFilesystem();
