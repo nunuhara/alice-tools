@@ -31,10 +31,13 @@ static QVector<FileFormat> getSupportedConversionFormats(FileFormat from)
 	switch (from) {
 	case FileFormat::NONE:
 	case FileFormat::AIN:
-	case FileFormat::ALD:
-	case FileFormat::AFA:
-	case FileFormat::ALK:
 	case FileFormat::ACX:
+	case FileFormat::AAR:
+	case FileFormat::AFA:
+	case FileFormat::ALD:
+	case FileFormat::ALK:
+	case FileFormat::DLF:
+	case FileFormat::FLAT:
 		return QVector<FileFormat>();
 	case FileFormat::EX:
 	case FileFormat::TXTEX:
@@ -116,12 +119,15 @@ static bool convertFormat(struct port *port, uint8_t *data, size_t size, FileFor
 		return false;
 	case FileFormat::NONE:
 	case FileFormat::AIN:
+	case FileFormat::ACX:
 	case FileFormat::JAF:
 	case FileFormat::JAM:
-	case FileFormat::ALD:
+	case FileFormat::AAR:
 	case FileFormat::AFA:
+	case FileFormat::ALD:
 	case FileFormat::ALK:
-	case FileFormat::ACX:
+	case FileFormat::DLF:
+	case FileFormat::FLAT:
 		return false;;
 	}
 	return false;

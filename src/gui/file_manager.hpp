@@ -28,6 +28,7 @@ struct archive;
 enum class FileFormat {
 	NONE,
 	AIN,
+	ACX,
 	EX,
 	TXTEX,
 	PNG,
@@ -37,10 +38,12 @@ enum class FileFormat {
 	DCF,
 	JAF,
 	JAM,
-	ALD,
+	AAR,
 	AFA,
+	ALD,
 	ALK,
-	ACX,
+	DLF,
+	FLAT,
 };
 
 FileFormat extensionToFileFormat(QString extension);
@@ -77,9 +80,7 @@ private:
 	void openAinFile(const QString &path);
 	void openExFile(const QString &path);
 	void openAcxFile(const QString &path);
-	void openAfaFile(const QString &path);
-	void openAldFile(const QString &path);
-	void openAlkFile(const QString &path);
+	void openArchive(const QString &path, FileFormat format);
 };
 
 #endif /* GALICE_FILE_MANAGER_HPP */

@@ -21,7 +21,11 @@
 
 extern "C" {
 #include "system4/ain.h"
+#include "system4/aar.h"
 #include "system4/afa.h"
+#include "system4/alk.h"
+#include "system4/dlf.h"
+#include "system4/flat.h"
 #include "system4/ex.h"
 #include "alice.h"
 #include "alice/ain.h"
@@ -33,6 +37,8 @@ FileFormat extensionToFileFormat(QString extension)
 {
 	if (!extension.compare("ain", Qt::CaseInsensitive))
 		return FileFormat::AIN;
+	if (!extension.compare("acx", Qt::CaseInsensitive))
+		return FileFormat::ACX;
 	if (!extension.compare("ex", Qt::CaseInsensitive))
 		return FileFormat::EX;
 	if (!extension.compare("pactex", Qt::CaseInsensitive))
@@ -53,14 +59,18 @@ FileFormat extensionToFileFormat(QString extension)
 		return FileFormat::JAF;
 	if (!extension.compare("jam", Qt::CaseInsensitive))
 		return FileFormat::JAM;
-	if (!extension.compare("ald", Qt::CaseInsensitive))
-		return FileFormat::ALD;
+	if (!extension.compare("red", Qt::CaseInsensitive))
+		return FileFormat::AAR;
 	if (!extension.compare("afa", Qt::CaseInsensitive))
 		return FileFormat::AFA;
+	if (!extension.compare("ald", Qt::CaseInsensitive))
+		return FileFormat::ALD;
 	if (!extension.compare("alk", Qt::CaseInsensitive))
 		return FileFormat::ALK;
-	if (!extension.compare("acx", Qt::CaseInsensitive))
-		return FileFormat::ACX;
+	if (!extension.compare("dlf", Qt::CaseInsensitive))
+		return FileFormat::DLF;
+	if (!extension.compare("flat", Qt::CaseInsensitive))
+		return FileFormat::FLAT;
 	return FileFormat::NONE;
 }
 
@@ -71,6 +81,8 @@ QString fileFormatToExtension(FileFormat format)
 		return "";
 	case FileFormat::AIN:
 		return "ain";
+	case FileFormat::ACX:
+		return "acx";
 	case FileFormat::EX:
 		return "ex";
 	case FileFormat::TXTEX:
@@ -89,14 +101,18 @@ QString fileFormatToExtension(FileFormat format)
 		return "jaf";
 	case FileFormat::JAM:
 		return "jam";
-	case FileFormat::ALD:
-		return "ald";
+	case FileFormat::AAR:
+		return "red";
 	case FileFormat::AFA:
 		return "afa";
+	case FileFormat::ALD:
+		return "ald";
 	case FileFormat::ALK:
 		return "alk";
-	case FileFormat::ACX:
-		return "acx";
+	case FileFormat::DLF:
+		return "dlf";
+	case FileFormat::FLAT:
+		return "flat";
 	}
 	return "";
 }
@@ -104,9 +120,12 @@ QString fileFormatToExtension(FileFormat format)
 bool isArchiveFormat(FileFormat format)
 {
 	switch (format) {
-	case FileFormat::ALD:
+	case FileFormat::AAR:
 	case FileFormat::AFA:
+	case FileFormat::ALD:
 	case FileFormat::ALK:
+	case FileFormat::DLF:
+	case FileFormat::FLAT:
 		return true;
 	default:
 		return false;
@@ -139,7 +158,8 @@ FileManager::~FileManager()
 void FileManager::openFile(const QString &path)
 {
 	QString suffix = QFileInfo(path).suffix();
-	switch (extensionToFileFormat(QFileInfo(path).suffix())) {
+	FileFormat format = extensionToFileFormat(QFileInfo(path).suffix());
+	switch (format) {
 	case FileFormat::NONE:
 	// TODO
 	case FileFormat::TXTEX:
@@ -155,20 +175,19 @@ void FileManager::openFile(const QString &path)
 	case FileFormat::AIN:
 		openAinFile(path);
 		break;
+	case FileFormat::ACX:
+		openAcxFile(path);
+		break;
 	case FileFormat::EX:
 		openExFile(path);
 		break;
-	case FileFormat::ALD:
-		openAldFile(path);
-		break;
+	case FileFormat::AAR:
 	case FileFormat::AFA:
-		openAfaFile(path);
-		break;
+	case FileFormat::ALD:
 	case FileFormat::ALK:
-		openAlkFile(path);
-		break;
-	case FileFormat::ACX:
-		openAcxFile(path);
+	case FileFormat::DLF:
+	case FileFormat::FLAT:
+		openArchive(path, format);
 		break;
 	}
 }
@@ -228,43 +247,63 @@ void FileManager::openAcxFile(const QString &path)
 	QGuiApplication::restoreOverrideCursor();
 }
 
-void FileManager::openAfaFile(const QString &path)
+static std::shared_ptr<struct archive> openArchiveFile(const QString &path, FileFormat format, int *error)
+{
+	struct archive *ar = nullptr;
+	set_encodings("CP932", "UTF-8");
+	switch (format) {
+	case FileFormat::AAR: {
+		struct aar_archive *aar = aar_open(path.toUtf8(), 0, error);
+		if (aar)
+			ar = &aar->ar;
+		break;
+	}
+	case FileFormat::AFA: {
+		struct afa_archive *afa = afa_open_conv(path.toUtf8(), 0, error, string_conv_output);
+		if (afa)
+			ar = &afa->ar;
+		break;
+	}
+	case FileFormat::ALD: {
+		ar = open_ald_archive(path.toUtf8(), error, conv_output);
+		break;
+	}
+	case FileFormat::ALK: {
+		struct alk_archive *alk = alk_open(path.toUtf8(), 0, error);
+		if (alk)
+			ar = &alk->ar;
+		break;
+	}
+	case FileFormat::DLF: {
+		struct dlf_archive *dlf = dlf_open(path.toUtf8(), 0, error);
+		if (dlf)
+			ar = &dlf->ar;
+		break;
+	}
+	case FileFormat::FLAT: {
+		struct flat_archive *flat = flat_open_file(path.toUtf8(), 0, error);
+		if (flat)
+			ar = &flat->ar;
+		break;
+	}
+	default:
+		break;
+	}
+	return std::shared_ptr<struct archive>(ar, archive_free);
+}
+
+void FileManager::openArchive(const QString &path, FileFormat format)
 {
 	QGuiApplication::setOverrideCursor(Qt::WaitCursor);
 
 	int error = ARCHIVE_SUCCESS;
-	set_encodings("CP932", "UTF-8");
-	struct afa_archive *ar = afa_open_conv(path.toUtf8(), 0, &error, string_conv_output);
+	std::shared_ptr<struct archive> ar = openArchiveFile(path, format, &error);
 	if (!ar) {
 		QGuiApplication::restoreOverrideCursor();
-		emit openFileError(path, tr("Failed to read .afa file"));
+		emit openFileError(path, tr("Failed to read .%1 file").arg(fileFormatToExtension(format)));
 		return;
 	}
 
-	std::shared_ptr<struct archive> ptr(&ar->ar, archive_free);
-	emit openedArchive(path, ptr);
+	emit openedArchive(path, ar);
 	QGuiApplication::restoreOverrideCursor();
-}
-
-void FileManager::openAldFile(const QString &path)
-{
-	QGuiApplication::setOverrideCursor(Qt::WaitCursor);
-
-	int error = ARCHIVE_SUCCESS;
-	set_encodings("CP932", "UTF-8");
-	struct archive *ar = open_ald_archive(path.toUtf8(), &error, conv_output);
-	if (!ar) {
-		QGuiApplication::restoreOverrideCursor();
-		emit openFileError(path, tr("Failed to read .ald file"));
-		return;
-	}
-
-	std::shared_ptr<struct archive> ptr(ar, archive_free);
-	emit openedArchive(path, ptr);
-	QGuiApplication::restoreOverrideCursor();
-}
-
-void FileManager::openAlkFile(const QString &path)
-{
-	emit openFileError(path, tr(".alk files not yet supported"));
 }
