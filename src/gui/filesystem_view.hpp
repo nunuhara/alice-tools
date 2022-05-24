@@ -28,12 +28,13 @@ public:
 	~FileSystemView();
 
 private slots:
-        void open(const QModelIndex &index);
-	void extract(const QModelIndex &index);
+        void openFile(const QModelIndex &index);
 
 protected:
 	void contextMenuEvent(QContextMenuEvent *event) override;
 private:
+	void open(const QModelIndex &index, bool newTab);
+	void extract(const QModelIndex &index);
 	QFileSystemModel *model;
 };
 

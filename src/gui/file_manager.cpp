@@ -27,6 +27,8 @@ extern "C" {
 #include "system4/dlf.h"
 #include "system4/flat.h"
 #include "system4/ex.h"
+#include "system4/cg.h"
+#include "system4/file.h"
 #include "alice.h"
 #include "alice/ain.h"
 #include "alice/acx.h"
@@ -155,7 +157,7 @@ FileManager::~FileManager()
 {
 }
 
-void FileManager::openFile(const QString &path)
+void FileManager::openFile(const QString &path, bool newTab)
 {
 	QString suffix = QFileInfo(path).suffix();
 	FileFormat format = extensionToFileFormat(QFileInfo(path).suffix());
@@ -163,20 +165,22 @@ void FileManager::openFile(const QString &path)
 	case FileFormat::NONE:
 	// TODO
 	case FileFormat::TXTEX:
+	case FileFormat::JAF:
+	case FileFormat::JAM:
+		emit openFileError(path, tr("Unsupported file type"));
+		break;
 	case FileFormat::PNG:
 	case FileFormat::WEBP:
 	case FileFormat::QNT:
 	case FileFormat::AJP:
 	case FileFormat::DCF:
-	case FileFormat::JAF:
-	case FileFormat::JAM:
-		emit openFileError(path, tr("Unsupported file type"));
+		openImageFile(path, newTab);
 		break;
 	case FileFormat::AIN:
 		openAinFile(path);
 		break;
 	case FileFormat::ACX:
-		openAcxFile(path);
+		openAcxFile(path, newTab);
 		break;
 	case FileFormat::EX:
 		openExFile(path);
@@ -229,7 +233,7 @@ void FileManager::openExFile(const QString &path)
 	QGuiApplication::restoreOverrideCursor();
 }
 
-void FileManager::openAcxFile(const QString &path)
+void FileManager::openAcxFile(const QString &path, bool newTab)
 {
 	QGuiApplication::setOverrideCursor(Qt::WaitCursor);
 
@@ -243,7 +247,7 @@ void FileManager::openAcxFile(const QString &path)
 	}
 
 	std::shared_ptr<struct acx> ptr(acx, acx_free);
-	emit openedAcxFile(path, ptr);
+	emit openedAcxFile(path, ptr, newTab);
 	QGuiApplication::restoreOverrideCursor();
 }
 
@@ -305,5 +309,20 @@ void FileManager::openArchive(const QString &path, FileFormat format)
 	}
 
 	emit openedArchive(path, ar);
+	QGuiApplication::restoreOverrideCursor();
+}
+
+void FileManager::openImageFile(const QString &path, bool newTab)
+{
+	QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+
+	struct cg *cg = cg_load_file(path.toUtf8());
+	if (!cg) {
+		QGuiApplication::restoreOverrideCursor();
+		emit openFileError(path, tr("Failed to read image file"));
+		return;
+	}
+
+	emit openedImageFile(path, std::shared_ptr<struct cg>(cg, cg_free), newTab);
 	QGuiApplication::restoreOverrideCursor();
 }

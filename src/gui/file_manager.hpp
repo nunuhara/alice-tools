@@ -21,6 +21,7 @@
 #include <QObject>
 
 struct ain;
+struct cg;
 struct ex;
 struct acx;
 struct archive;
@@ -65,13 +66,14 @@ public:
 	void operator=(FileManager const&) = delete;
 
 public slots:
-	void openFile(const QString &path);
+	void openFile(const QString &path, bool newTab = false);
 
 signals:
 	void openedAinFile(const QString &fileName, std::shared_ptr<struct ain> ain);
 	void openedExFile(const QString &fileName, std::shared_ptr<struct ex> ex);
-	void openedAcxFile(const QString &filename, std::shared_ptr<struct acx> acx);
+	void openedAcxFile(const QString &filename, std::shared_ptr<struct acx> acx, bool newTab);
 	void openedArchive(const QString &fileName, std::shared_ptr<struct archive> ar);
+	void openedImageFile(const QString &fileName, std::shared_ptr<struct cg> cg, bool newTab);
 	void openFileError(const QString &fileName, const QString &message);
 
 private:
@@ -79,8 +81,9 @@ private:
 	~FileManager();
 	void openAinFile(const QString &path);
 	void openExFile(const QString &path);
-	void openAcxFile(const QString &path);
+	void openAcxFile(const QString &path, bool newTab);
 	void openArchive(const QString &path, FileFormat format);
+	void openImageFile(const QString &path, bool newTab);
 };
 
 #endif /* GALICE_FILE_MANAGER_HPP */

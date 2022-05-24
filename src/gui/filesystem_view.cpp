@@ -33,7 +33,7 @@ FileSystemView::FileSystemView(QFileSystemModel *model, QWidget *parent)
 	, model(model)
 {
 	setModel(model);
-	connect(this, &QTreeView::activated, this, &FileSystemView::open);
+	connect(this, &QTreeView::activated, this, &FileSystemView::openFile);
 }
 
 FileSystemView::~FileSystemView()
@@ -41,11 +41,16 @@ FileSystemView::~FileSystemView()
 	delete model;
 }
 
-void FileSystemView::open(const QModelIndex &index)
+void FileSystemView::open(const QModelIndex &index, bool newTab)
 {
 	if (model->isDir(index))
 		return;
-	FileManager::getInstance().openFile(model->filePath(index));
+	FileManager::getInstance().openFile(model->filePath(index), newTab);
+}
+
+void FileSystemView::openFile(const QModelIndex &index)
+{
+	open(index, false);
 }
 
 void FileSystemView::extract(const QModelIndex &index)
@@ -89,12 +94,13 @@ void FileSystemView::contextMenuEvent(QContextMenuEvent *event)
 		return;
 
 	QMenu menu(this);
-	menu.addAction(tr("Open"), [this, index]() -> void { this->open(index); });
-
+	menu.addAction(tr("Open"), [this, index]() -> void { this->open(index, false); });
+	if (isImageFormat(format) || format == FileFormat::ACX) {
+		menu.addAction(tr("Open in New Tab"), [this, index]() -> void { this->open(index, true); });
+	}
 	if (isArchiveFormat(format)) {
 		menu.addAction(tr("Extract"), [this, index]() -> void { this->extract(index); });
 	}
-
 	if (isImageFormat(format)) {
 		// TODO
 		//menu.addAction(tr("Convert"), [this, index]() -> void { this->convert(index); });

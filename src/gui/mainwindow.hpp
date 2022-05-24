@@ -43,7 +43,8 @@ public slots:
         void openClass(struct ain *ain, int i, bool newTab);
         void openFunction(struct ain *ain, int i, bool newTab);
         void openExValue(const QString &name, struct ex_value *value, bool newTab);
-	void openAcxFile(const QString &name, std::shared_ptr<struct acx> acx);
+	void openAcxFile(const QString &name, std::shared_ptr<struct acx> acx, bool newTab);
+	void openImage(const QString &name, std::shared_ptr<struct cg> cg, bool newTab);
         void openArchiveFile(struct archive_data *file, bool newTab);
 
 private slots:
@@ -60,7 +61,6 @@ private:
         void writeSettings();
         void setupViewer();
 
-        void openImage(const QString &label, struct cg *image, bool newTab);
         void openText(const QString &label, const QString &text, bool newTab);
         void openViewer(const QString &label, QWidget *view, bool newTab);
 

@@ -50,6 +50,7 @@ MainWindow::MainWindow(QWidget *parent)
 
         connect(&FileManager::getInstance(), &FileManager::openFileError, this, &MainWindow::openError);
 	connect(&FileManager::getInstance(), &FileManager::openedAcxFile, this, &MainWindow::openAcxFile);
+	connect(&FileManager::getInstance(), &FileManager::openedImageFile, this, &MainWindow::openImage);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -189,11 +190,26 @@ void MainWindow::openExValue(const QString &name, struct ex_value *value, bool n
         free(data);
 }
 
-void MainWindow::openAcxFile(const QString &name, std::shared_ptr<struct acx> acx)
+void MainWindow::openAcxFile(const QString &name, std::shared_ptr<struct acx> acx, bool newTab)
 {
 	AcxModel *model = new AcxModel(acx);
 	AcxView *view = new AcxView(model);
-	openViewer(QFileInfo(name).fileName(), view, true);
+	openViewer(QFileInfo(name).fileName(), view, newTab);
+}
+
+void MainWindow::openImage(const QString &name, std::shared_ptr<struct cg> cg, bool newTab)
+{
+	QImage image((uchar*)cg->pixels, cg->metrics.w, cg->metrics.h,
+			cg->metrics.w*4, QImage::Format_RGBA8888);
+
+	QLabel *imageLabel = new QLabel;
+	imageLabel->setPixmap(QPixmap::fromImage(image));
+
+	QScrollArea *scrollArea = new QScrollArea;
+	scrollArea->setWidget(imageLabel);
+	scrollArea->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
+
+	openViewer(name, scrollArea, newTab);
 }
 
 void MainWindow::openArchiveFile(struct archive_data *file, bool newTab)
@@ -210,7 +226,7 @@ void MainWindow::openArchiveFile(struct archive_data *file, bool newTab)
                         archive_release_file(file);
                         return;
                 }
-                openImage(file->name, cg, newTab);
+                openImage(file->name, std::shared_ptr<struct cg>(cg, cg_free), newTab);
                 return;
         }
         // TODO: preview other file types
@@ -231,22 +247,6 @@ void MainWindow::openText(const QString &label, const QString &text, bool newTab
         viewer->setPlainText(text);
 
         openViewer(label, viewer, newTab);
-}
-
-void MainWindow::openImage(const QString &label, struct cg *cg, bool newTab)
-{
-        QImage image((uchar*)cg->pixels, cg->metrics.w, cg->metrics.h,
-                     cg->metrics.w*4, QImage::Format_RGBA8888,
-                     (QImageCleanupFunction)cg_free, cg);
-
-        QLabel *imageLabel = new QLabel;
-        imageLabel->setPixmap(QPixmap::fromImage(image));
-
-        QScrollArea *scrollArea = new QScrollArea;
-        scrollArea->setWidget(imageLabel);
-        scrollArea->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
-
-        openViewer(label, scrollArea, newTab);
 }
 
 void MainWindow::openViewer(const QString &label, QWidget *view, bool newTab)
