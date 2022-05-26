@@ -27,12 +27,6 @@ public:
 	NavigatorView(NavigatorModel *model, QWidget *parent = nullptr);
 	~NavigatorView();
 
-signals:
-	void requestedOpenClass(struct ain *ainFile, int i, bool newTab) const;
-	void requestedOpenFunction(struct ain *ainFile, int i, bool newTab) const;
-	void requestedOpenExValue(const QString &name, struct ex_value *value, bool newTab) const;
-	void requestedOpenArchiveFile(struct archive_data *data, bool newTab) const;
-
 private slots:
 	void requestOpen(const QModelIndex &index) const;
 

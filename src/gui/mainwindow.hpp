@@ -45,12 +45,12 @@ public slots:
         void openExValue(const QString &name, struct ex_value *value, bool newTab);
 	void openAcxFile(const QString &name, std::shared_ptr<struct acx> acx, bool newTab);
 	void openImage(const QString &name, std::shared_ptr<struct cg> cg, bool newTab);
-        void openArchiveFile(struct archive_data *file, bool newTab);
 
 private slots:
         void open();
         void about();
-        void openError(const QString &filename, const QString &message);
+        void error(const QString &message);
+	void status(const QString &message);
         void closeTab(int index);
 
 private:

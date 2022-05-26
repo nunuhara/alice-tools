@@ -15,7 +15,7 @@
  */
 
 #include <QtWidgets>
-#include "file_manager.hpp"
+#include "galice.hpp"
 #include "filesystem_view.hpp"
 #include "mainwindow.hpp"
 #include "navigator.hpp"
@@ -41,9 +41,9 @@ Navigator::Navigator(MainWindow *parent)
 
         addFilesystem();
 
-        connect(&FileManager::getInstance(), &FileManager::openedAinFile, this, &Navigator::addAinFile);
-        connect(&FileManager::getInstance(), &FileManager::openedExFile, this, &Navigator::addExFile);
-        connect(&FileManager::getInstance(), &FileManager::openedArchive, this, &Navigator::addArchive);
+        connect(&GAlice::getInstance(), &GAlice::openedAinFile, this, &Navigator::addAinFile);
+        connect(&GAlice::getInstance(), &GAlice::openedExFile, this, &Navigator::addExFile);
+        connect(&GAlice::getInstance(), &GAlice::openedArchive, this, &Navigator::addArchive);
 }
 
 Navigator::~Navigator()
@@ -90,10 +90,6 @@ void Navigator::addAinFile(const QString &fileName, std::shared_ptr<struct ain> 
                 functionView->setColumnHidden(i, true);
         }
 
-	connect(classView, &NavigatorView::requestedOpenClass, window, &MainWindow::openClass);
-	connect(classView, &NavigatorView::requestedOpenFunction, window, &MainWindow::openFunction);
-	connect(functionView, &NavigatorView::requestedOpenFunction, window, &MainWindow::openFunction);
-
         viewSelector->addItem(tr("Classes"));
         views->addWidget(classView);
         viewSelector->addItem(tr("Functions"));
@@ -115,8 +111,6 @@ void Navigator::addExFile(const QString &fileName, std::shared_ptr<struct ex> ex
         view->setColumnWidth(0, 150);
         view->setColumnWidth(1, 50);
 
-	connect(view, &NavigatorView::requestedOpenExValue, window, &MainWindow::openExValue);
-
         QVBoxLayout *layout = new QVBoxLayout(widget);
         layout->addWidget(view);
         layout->setContentsMargins(0, 0, 0, 0);
@@ -128,9 +122,6 @@ void Navigator::addArchive(const QString &fileName, std::shared_ptr<struct archi
         QWidget *widget = new QWidget;
         NavigatorModel *model = NavigatorModel::fromArchive(ar);
         NavigatorView *view = new NavigatorView(model);
-
-        connect(view, &NavigatorView::requestedOpenArchiveFile, window, &MainWindow::openArchiveFile);
-        connect(view, &NavigatorView::requestedOpenExValue, window, &MainWindow::openExValue);
 
         QVBoxLayout *layout = new QVBoxLayout(widget);
         layout->addWidget(view);

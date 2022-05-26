@@ -16,12 +16,12 @@
 
 #include <iostream>
 #include <QtWidgets>
+#include "galice.hpp"
 #include "mainwindow.hpp"
 #include "acx_model.hpp"
 #include "acx_view.hpp"
 #include "ex_table_model.hpp"
 #include "ex_table_view.hpp"
-#include "file_manager.hpp"
 #include "navigator.hpp"
 #include "viewer.hpp"
 
@@ -48,9 +48,13 @@ MainWindow::MainWindow(QWidget *parent)
 
         setUnifiedTitleAndToolBarOnMac(true);
 
-        connect(&FileManager::getInstance(), &FileManager::openFileError, this, &MainWindow::openError);
-	connect(&FileManager::getInstance(), &FileManager::openedAcxFile, this, &MainWindow::openAcxFile);
-	connect(&FileManager::getInstance(), &FileManager::openedImageFile, this, &MainWindow::openImage);
+        connect(&GAlice::getInstance(), &GAlice::errorMessage, this, &MainWindow::error);
+        connect(&GAlice::getInstance(), &GAlice::statusMessage, this, &MainWindow::status);
+	connect(&GAlice::getInstance(), &GAlice::openedAcxFile, this, &MainWindow::openAcxFile);
+	connect(&GAlice::getInstance(), &GAlice::openedImageFile, this, &MainWindow::openImage);
+	connect(&GAlice::getInstance(), &GAlice::openedAinClass, this, &MainWindow::openClass);
+	connect(&GAlice::getInstance(), &GAlice::openedAinFunction, this, &MainWindow::openFunction);
+	connect(&GAlice::getInstance(), &GAlice::openedExValue, this, &MainWindow::openExValue);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -62,7 +66,7 @@ void MainWindow::open()
 {
         QString fileName = QFileDialog::getOpenFileName(this);
         if (!fileName.isEmpty())
-                FileManager::getInstance().openFile(fileName);
+                GAlice::openFile(fileName);
 }
 
 void MainWindow::about()
@@ -97,7 +101,7 @@ void MainWindow::createActions()
 
 void MainWindow::createStatusBar()
 {
-        statusBar()->showMessage(tr("Ready"));
+        status(tr("Ready"));
 }
 
 void MainWindow::createDockWindows()
@@ -146,9 +150,14 @@ void MainWindow::writeSettings()
         settings.setValue("geometry", saveGeometry());
 }
 
-void MainWindow::openError(const QString &fileName, const QString &message)
+void MainWindow::error(const QString &message)
 {
         QMessageBox::critical(this, "alice-tools", message, QMessageBox::Ok);
+}
+
+void MainWindow::status(const QString &message)
+{
+	statusBar()->showMessage(message);
 }
 
 void MainWindow::openClass(struct ain *ainObj, int i, bool newTab)
@@ -210,29 +219,6 @@ void MainWindow::openImage(const QString &name, std::shared_ptr<struct cg> cg, b
 	scrollArea->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
 
 	openViewer(name, scrollArea, newTab);
-}
-
-void MainWindow::openArchiveFile(struct archive_data *file, bool newTab)
-{
-        if (!archive_load_file(file)) {
-                openError(file->name, "Failed to open archived file");
-                return;
-        }
-
-        if (cg_check_format(file->data) != ALCG_UNKNOWN) {
-                struct cg *cg = cg_load_data(file);
-                if (!cg) {
-                        openError(file->name, "Failed to load CG file");
-                        archive_release_file(file);
-                        return;
-                }
-                openImage(file->name, std::shared_ptr<struct cg>(cg, cg_free), newTab);
-                return;
-        }
-        // TODO: preview other file types
-
-        statusBar()->showMessage("No preview available");
-        archive_release_file(file);
 }
 
 void MainWindow::openText(const QString &label, const QString &text, bool newTab)

@@ -20,7 +20,7 @@
 #include <QMenu>
 #include <QMessageBox>
 
-#include "file_manager.hpp"
+#include "galice.hpp"
 #include "filesystem_view.hpp"
 
 extern "C" {
@@ -45,7 +45,7 @@ void FileSystemView::open(const QModelIndex &index, bool newTab)
 {
 	if (model->isDir(index))
 		return;
-	FileManager::getInstance().openFile(model->filePath(index), newTab);
+	GAlice::openFile(model->filePath(index), newTab);
 }
 
 void FileSystemView::openFile(const QModelIndex &index)

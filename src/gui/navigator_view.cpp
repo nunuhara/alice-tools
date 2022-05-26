@@ -18,6 +18,7 @@
 #include <QContextMenuEvent>
 #include <QFileDialog>
 #include <QMessageBox>
+#include "galice.hpp"
 #include "navigator_view.hpp"
 
 extern "C" {
@@ -61,16 +62,16 @@ void NavigatorView::openNode(NavigatorNode *node, bool newTab) const
 	case NavigatorNode::RootNode:
 		break;
 	case NavigatorNode::ClassNode:
-		emit requestedOpenClass(node->ainItem.ainFile, node->ainItem.i, newTab);
+		GAlice::openAinClass(node->ainItem.ainFile, node->ainItem.i, newTab);
 		break;
 	case NavigatorNode::FunctionNode:
-		emit requestedOpenFunction(node->ainItem.ainFile, node->ainItem.i, newTab);
+		GAlice::openAinFunction(node->ainItem.ainFile, node->ainItem.i, newTab);
 		break;
 	case NavigatorNode::ExStringKeyValueNode:
-		emit requestedOpenExValue(QString::fromUtf8(node->exKV.key.s->text), node->exKV.value, newTab);
+		GAlice::openExValue(QString::fromUtf8(node->exKV.key.s->text), node->exKV.value, newTab);
 		break;
 	case NavigatorNode::ExIntKeyValueNode:
-		emit requestedOpenExValue("[" + QString::number(node->exKV.key.i) + "]", node->exKV.value, newTab);
+		GAlice::openExValue("[" + QString::number(node->exKV.key.i) + "]", node->exKV.value, newTab);
 		break;
 	case NavigatorNode::ExRowNode:
 		// TODO
@@ -78,7 +79,7 @@ void NavigatorView::openNode(NavigatorNode *node, bool newTab) const
 	case NavigatorNode::FileNode:
 		switch (node->ar.type) {
 		case NavigatorNode::NormalFile:
-			emit requestedOpenArchiveFile(node->ar.file, newTab);
+			GAlice::openArchiveData(node->ar.file, newTab);
 			break;
 		case NavigatorNode::ExFile:
 		case NavigatorNode::ArFile:

@@ -19,7 +19,7 @@
 
 #include <QString>
 #include <QVector>
-#include "file_manager.hpp"
+#include "galice.hpp"
 
 class NavigatorNode {
 public:

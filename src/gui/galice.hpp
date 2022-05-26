@@ -14,8 +14,8 @@
  * along with this program; if not, see <http://gnu.org/licenses/>.
  */
 
-#ifndef GALICE_FILE_MANAGER_HPP
-#define GALICE_FILE_MANAGER_HPP
+#ifndef GALICE_GALICE_HPP
+#define GALICE_GALICE_HPP
 
 #include <memory>
 #include <QObject>
@@ -52,21 +52,26 @@ QString fileFormatToExtension(FileFormat format);
 bool isArchiveFormat(FileFormat format);
 bool isImageFormat(FileFormat format);
 
-class FileManager : public QObject
+class GAlice : public QObject
 {
 	Q_OBJECT
 
 public:
-	static FileManager& getInstance()
+	static GAlice& getInstance()
 	{
-		static FileManager instance;
+		static GAlice instance;
 		return instance;
 	}
-	FileManager(FileManager const&) = delete;
-	void operator=(FileManager const&) = delete;
+	GAlice(GAlice const&) = delete;
+	void operator=(GAlice const&) = delete;
 
-public slots:
-	void openFile(const QString &path, bool newTab = false);
+	static void openFile(const QString &path, bool newTab = false);
+	static void openArchiveData(struct archive_data *file, bool newTab = false);
+	static void openAinClass(struct ain *ain, int i, bool newTab = false);
+	static void openAinFunction(struct ain *ain, int i, bool newTab = false);
+	static void openExValue(const QString &name, struct ex_value *value, bool newTab = false);
+	static void error(const QString &message);
+	static void status(const QString &message);
 
 signals:
 	void openedAinFile(const QString &fileName, std::shared_ptr<struct ain> ain);
@@ -74,16 +79,21 @@ signals:
 	void openedAcxFile(const QString &filename, std::shared_ptr<struct acx> acx, bool newTab);
 	void openedArchive(const QString &fileName, std::shared_ptr<struct archive> ar);
 	void openedImageFile(const QString &fileName, std::shared_ptr<struct cg> cg, bool newTab);
-	void openFileError(const QString &fileName, const QString &message);
+	void openedAinClass(struct ain *ainFile, int i, bool newTab);
+	void openedAinFunction(struct ain *ainFile, int i, bool newTab);
+	void openedExValue(const QString &name, struct ex_value *value, bool newTab);
+	void errorMessage(const QString &message);
+	void statusMessage(const QString &message);
 
 private:
-	FileManager();
-	~FileManager();
-	void openAinFile(const QString &path);
-	void openExFile(const QString &path);
-	void openAcxFile(const QString &path, bool newTab);
-	void openArchive(const QString &path, FileFormat format);
-	void openImageFile(const QString &path, bool newTab);
+	GAlice();
+	~GAlice();
+	static void openAinFile(const QString &path);
+	static void openExFile(const QString &path);
+	static void openAcxFile(const QString &path, bool newTab);
+	static void openArchive(const QString &path, FileFormat format);
+	static void openImageFile(const QString &path, bool newTab);
+	static void fileError(const QString &filename, const QString &message);
 };
 
-#endif /* GALICE_FILE_MANAGER_HPP */
+#endif /* GALICE_GALICE_HPP */
