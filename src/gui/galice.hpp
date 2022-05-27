@@ -71,6 +71,7 @@ public:
 	static void openAinFunction(struct ain *ain, int i, bool newTab = false);
 	static void openExValue(const QString &name, struct ex_value *value, bool newTab = false);
 	static void error(const QString &message);
+	[[noreturn]] static void criticalError(const QString &message);
 	static void status(const QString &message);
 
 signals:

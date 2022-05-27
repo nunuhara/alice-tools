@@ -20,11 +20,13 @@
 #include <QCursor>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QMessageBox>
 
 #include "galice.hpp"
 #include "mainwindow.hpp"
 
 extern "C" {
+#include "system4.h"
 #include "system4/ain.h"
 #include "system4/aar.h"
 #include "system4/afa.h"
@@ -40,8 +42,15 @@ extern "C" {
 #include "alice/ar.h"
 }
 
+static void libsys4_error_handler(const char *msg)
+{
+	GAlice::criticalError(msg);
+}
+
 int main(int argc, char *argv[])
 {
+	sys_error_handler = libsys4_error_handler;
+
         QApplication app(argc, argv);
         QCoreApplication::setOrganizationName("nunuhara");
         QCoreApplication::setApplicationName("alice-tools");
@@ -404,4 +413,14 @@ void GAlice::error(const QString &message)
 void GAlice::status(const QString &message)
 {
 	emit getInstance().statusMessage(message);
+}
+
+void GAlice::criticalError(const QString &message)
+{
+	QMessageBox msgBox;
+	msgBox.setText(message);
+	msgBox.setInformativeText("The program will now exit.");
+	msgBox.setIcon(QMessageBox::Critical);
+	msgBox.exec();
+	sys_exit(1);
 }
