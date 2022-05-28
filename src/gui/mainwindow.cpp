@@ -22,6 +22,7 @@
 #include "acx_view.hpp"
 #include "ex_table_model.hpp"
 #include "ex_table_view.hpp"
+#include "ex_view.hpp"
 #include "jaf_view.hpp"
 #include "jam_view.hpp"
 #include "navigator.hpp"
@@ -195,9 +196,11 @@ void MainWindow::openExValue(const QString &name, struct ex_value *value, bool n
         struct port port;
         port_buffer_init(&port);
         set_encodings("UTF-8", "UTF-8");
+	port_printf(&port, "%s %s = ", ex_strtype(value->type), (const char*)name.toUtf8());
         ex_dump_value(&port, value);
+	port_putc(&port, ';');
         char *data = (char*)port_buffer_get(&port, NULL);
-        openText(name, data, newTab);
+	openViewer(name, new ExView(data), newTab);
         free(data);
 }
 
