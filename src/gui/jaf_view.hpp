@@ -14,22 +14,22 @@
  * along with this program; if not, see <http://gnu.org/licenses/>.
  */
 
-#ifndef GALICE_JAM_VIEW_HPP
-#define GALICE_JAM_VIEW_HPP
+#ifndef GALICE_JAF_VIEW_HPP
+#define GALICE_JAF_VIEW_HPP
 
 #include <QSyntaxHighlighter>
 #include <QTextDocument>
 #include <QTextEdit>
 #include "syntax_highlighter.hpp"
 
-class JamView : public QTextEdit {
+class JafView : public QTextEdit {
 	Q_OBJECT
 public:
-	JamView(QWidget *parent = nullptr);
-	JamView(const QString &text, QWidget *parent = nullptr);
+	JafView(QWidget *parent = nullptr);
+	JafView(const QString &text, QWidget *parent = nullptr);
 
 private:
 	SyntaxHighlighter *highlighter;
 };
 
-#endif /* GALICE_JAM_VIEW_HPP */
+#endif /* GALICE_JAF_VIEW_HPP */

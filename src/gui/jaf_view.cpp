@@ -17,9 +17,9 @@
 #include <QFont>
 #include <QRegularExpression>
 #include <QTextCharFormat>
-#include "jam_view.hpp"
+#include "jaf_view.hpp"
 
-JamView::JamView(QWidget *parent)
+JafView::JafView(QWidget *parent)
 	: QTextEdit(parent)
 {
 	QFont font;
@@ -33,9 +33,21 @@ JamView::JamView(QWidget *parent)
 	QTextCharFormat fmt;
 
 	fmt.setForeground(Qt::blue);
+	highlighter->addRule(QRegularExpression(QStringLiteral("\\bint\\b")), fmt);
+	highlighter->addRule(QRegularExpression(QStringLiteral("\\bfloat\\b")), fmt);
+	highlighter->addRule(QRegularExpression(QStringLiteral("\\bbool\\b")), fmt);
+	highlighter->addRule(QRegularExpression(QStringLiteral("\\blint\\b")), fmt);
+	highlighter->addRule(QRegularExpression(QStringLiteral("\\bstring\\b")), fmt);
+	highlighter->addRule(QRegularExpression(QStringLiteral("\\barray\\b")), fmt);
+	highlighter->addRule(QRegularExpression(QStringLiteral("\\bdelegate\\b")), fmt);
+	highlighter->addRule(QRegularExpression(QStringLiteral("\\bref\\b")), fmt);
+	highlighter->addRule(QRegularExpression(QStringLiteral("\\bimplements\\b")), fmt);
+
+	fmt.setForeground(Qt::blue);
 	fmt.setFontWeight(QFont::Bold);
-	highlighter->addRule(QRegularExpression(QStringLiteral("\\bFUNC\\b")), fmt);
-	highlighter->addRule(QRegularExpression(QStringLiteral("\\bENDFUNC\\b")), fmt);
+	highlighter->addRule(QRegularExpression(QStringLiteral("\\bclass\\b")), fmt);
+	highlighter->addRule(QRegularExpression(QStringLiteral("\\bstruct\\b")), fmt);
+	highlighter->addRule(QRegularExpression(QStringLiteral("\\benum\\b")), fmt);
 	fmt.setFontWeight(QFont::Normal);
 
 	fmt.setForeground(Qt::darkCyan);
@@ -52,11 +64,11 @@ JamView::JamView(QWidget *parent)
 	highlighter->addRule(QRegularExpression(QStringLiteral("\"(\\\\.|[^\"\\\\])*\"")), fmt);
 
 	fmt.setForeground(Qt::darkGreen);
-	highlighter->addRule(QRegularExpression(QStringLiteral(";[^\n]*")), fmt);
+	highlighter->addRule(QRegularExpression(QStringLiteral("//[^\n]*")), fmt);
 }
 
-JamView::JamView(const QString &text, QWidget *parent)
-	: JamView(parent)
+JafView::JafView(const QString &text, QWidget *parent)
+	: JafView(parent)
 {
 	setPlainText(text);
 }

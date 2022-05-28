@@ -22,6 +22,7 @@
 #include "acx_view.hpp"
 #include "ex_table_model.hpp"
 #include "ex_table_view.hpp"
+#include "jaf_view.hpp"
 #include "jam_view.hpp"
 #include "navigator.hpp"
 #include "viewer.hpp"
@@ -168,7 +169,7 @@ void MainWindow::openClass(struct ain *ainObj, int i, bool newTab)
         set_encodings("UTF-8", "UTF-8");
         ain_dump_structure(&port, ainObj, i);
         char *data = (char*)port_buffer_get(&port, NULL);
-        openText(ainObj->structures[i].name, data, newTab);
+	openViewer(ainObj->structures[i].name, new JafView(data), newTab);
         free(data);
 }
 
@@ -179,9 +180,7 @@ void MainWindow::openFunction(struct ain *ainObj, int i, bool newTab)
         set_encodings("UTF-8", "UTF-8");
         _ain_disassemble_function(&port, ainObj, i, 0);
         char *data = (char*)port_buffer_get(&port, NULL);
-
 	openViewer(ainObj->functions[i].name, new JamView(data), newTab);
-
         free(data);
 }
 
