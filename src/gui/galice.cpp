@@ -95,6 +95,8 @@ FileFormat extensionToFileFormat(QString extension)
 		return FileFormat::DCF;
 	if (!extension.compare("jaf", Qt::CaseInsensitive))
 		return FileFormat::JAF;
+	if (!extension.compare("hll", Qt::CaseInsensitive))
+		return FileFormat::JAF;
 	if (!extension.compare("jam", Qt::CaseInsensitive))
 		return FileFormat::JAM;
 	if (!extension.compare("red", Qt::CaseInsensitive))
@@ -199,12 +201,17 @@ void GAlice::openFile(const QString &path, bool newTab)
 	FileFormat format = extensionToFileFormat(QFileInfo(path).suffix());
 	switch (format) {
 	case FileFormat::NONE:
-	// TODO
-	case FileFormat::TXTEX:
-	case FileFormat::JAF:
-	case FileFormat::JAM:
 		status(tr("Unsupported file type"));
 		break;
+	case FileFormat::TXTEX:
+	case FileFormat::JAF:
+	case FileFormat::JAM: {
+		size_t len;
+		char *text = (char*)file_read(path.toUtf8(), &len);
+		openText(path, text, format, newTab);
+		free(text);
+		break;
+	}
 	case FileFormat::PNG:
 	case FileFormat::WEBP:
 	case FileFormat::QNT:
@@ -385,9 +392,9 @@ void GAlice::openArchiveData(struct archive_data *file, bool newTab)
 	archive_release_file(file);
 }
 
-void GAlice::openJaf(const QString &name, char *text, bool newTab)
+void GAlice::openText(const QString &name, char *text, FileFormat format, bool newTab)
 {
-	emit getInstance().openedJaf(name, text, newTab);
+	emit getInstance().openedText(name, text, format, newTab);
 }
 
 void GAlice::openAinFunction(struct ain *ain, int i, bool newTab)

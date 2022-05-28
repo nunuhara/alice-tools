@@ -205,7 +205,7 @@ void NavigatorNode::open(bool newTab) const
 		port_buffer_init(&port);
 		write(&port, FileFormat::JAF);
 		data = (char*)port_buffer_get(&port, NULL);
-		GAlice::openJaf(getName(), data, newTab);
+		GAlice::openText(getName(), data, FileFormat::JAF, newTab);
 		free(data);
 		break;
 	case FunctionNode:

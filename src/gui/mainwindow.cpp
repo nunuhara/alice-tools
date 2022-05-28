@@ -55,7 +55,7 @@ MainWindow::MainWindow(QWidget *parent)
         connect(&GAlice::getInstance(), &GAlice::statusMessage, this, &MainWindow::status);
 	connect(&GAlice::getInstance(), &GAlice::openedAcxFile, this, &MainWindow::openAcxFile);
 	connect(&GAlice::getInstance(), &GAlice::openedImageFile, this, &MainWindow::openImage);
-	connect(&GAlice::getInstance(), &GAlice::openedJaf, this, &MainWindow::openJaf);
+	connect(&GAlice::getInstance(), &GAlice::openedText, this, &MainWindow::openTextFile);
 	connect(&GAlice::getInstance(), &GAlice::openedAinFunction, this, &MainWindow::openFunction);
 	connect(&GAlice::getInstance(), &GAlice::openedExValue, this, &MainWindow::openExValue);
 }
@@ -163,9 +163,22 @@ void MainWindow::status(const QString &message)
 	statusBar()->showMessage(message);
 }
 
-void MainWindow::openJaf(const QString &name, char *text, bool newTab)
+void MainWindow::openTextFile(const QString &name, char *text, FileFormat format, bool newTab)
 {
-	openViewer(name, new JafView(text), newTab);
+	switch (format) {
+	case FileFormat::TXTEX:
+		openViewer(name, new ExView(text), newTab);
+		break;
+	case FileFormat::JAF:
+		openViewer(name, new JafView(text), newTab);
+		break;
+	case FileFormat::JAM:
+		openViewer(name, new JamView(text), newTab);
+		break;
+	default:
+		openText(name, text, newTab);
+		break;
+	}
 }
 
 void MainWindow::openFunction(struct ain *ainObj, int i, bool newTab)

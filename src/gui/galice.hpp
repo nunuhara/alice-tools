@@ -67,7 +67,7 @@ public:
 
 	static void openFile(const QString &path, bool newTab = false);
 	static void openArchiveData(struct archive_data *file, bool newTab = false);
-	static void openJaf(const QString &name, char *text, bool newTab = false);
+	static void openText(const QString &name, char *text, FileFormat format, bool newTab = false);
 	static void openAinFunction(struct ain *ain, int i, bool newTab = false);
 	static void openExValue(const QString &name, struct ex_value *value, bool newTab = false);
 	static void error(const QString &message);
@@ -80,7 +80,7 @@ signals:
 	void openedAcxFile(const QString &filename, std::shared_ptr<struct acx> acx, bool newTab);
 	void openedArchive(const QString &fileName, std::shared_ptr<struct archive> ar);
 	void openedImageFile(const QString &fileName, std::shared_ptr<struct cg> cg, bool newTab);
-	void openedJaf(const QString &name, char *text, bool newTab);
+	void openedText(const QString &name, char *text, FileFormat format, bool newTab);
 	void openedAinFunction(struct ain *ainFile, int i, bool newTab);
 	void openedExValue(const QString &name, struct ex_value *value, bool newTab);
 	void errorMessage(const QString &message);

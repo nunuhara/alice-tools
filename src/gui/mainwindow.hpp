@@ -23,6 +23,7 @@
 #include <QListWidget>
 #include <QPlainTextEdit>
 #include <QTabWidget>
+#include "galice.hpp"
 #include "navigator.hpp"
 
 struct ain;
@@ -40,7 +41,7 @@ protected:
         void closeEvent(QCloseEvent *event) override;
 
 public slots:
-	void openJaf(const QString &name, char *text, bool newTab);
+	void openTextFile(const QString &name, char *text, FileFormat format, bool newTab);
         void openFunction(struct ain *ain, int i, bool newTab);
         void openExValue(const QString &name, struct ex_value *value, bool newTab);
 	void openAcxFile(const QString &name, std::shared_ptr<struct acx> acx, bool newTab);
