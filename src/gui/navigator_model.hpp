@@ -73,9 +73,7 @@ private:
                 void appendExValueChildren(struct ex_value *value);
                 void appendExFileChildren(struct ex *exFile);
                 void appendArchiveChildren(struct archive *archive);
-                static Node *fromAinClass(struct ain *ainFile, int index);
-                static Node *fromAinFunction(struct ain *ainFile, int index);
-                static Node *fromAinEnum(struct ain *ainFile, int index);
+		static Node *fromAinItem(struct ain *ain, int i, NavigatorNode::NodeType type);
                 static Node *fromArchiveFile(struct archive_data *file);
                 static void fromArchiveIter(struct archive_data *data, void *user);
 

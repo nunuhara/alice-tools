@@ -68,11 +68,14 @@ QVector<FileFormat> NavigatorNode::getSupportedFormats() const
 	case BranchNode:
 		return QVector<FileFormat>();
 	case ClassNode:
+	case EnumNode:
+	case GlobalNode:
+	case FuncTypeNode:
+	case DelegateNode:
+	case LibraryNode:
 		return QVector({FileFormat::JAF});
 	case FunctionNode:
 		return QVector({FileFormat::JAM});
-	case EnumNode:
-		return QVector({FileFormat::JAF});
 	case ExStringKeyValueNode:
 	case ExIntKeyValueNode:
 	case ExRowNode:
@@ -164,6 +167,25 @@ bool NavigatorNode::write(struct port *port, FileFormat format) const
 		set_encodings("UTF-8", "UTF-8");
 		ain_dump_enum(port, ainItem.ainFile, ainItem.i);
 		return true;
+	case GlobalNode:
+		if (format != FileFormat::JAF)
+			return false;
+		set_encodings("UTF-8", "UTF-8");
+		ain_dump_global(port, ainItem.ainFile, ainItem.i);
+		return true;
+	case FuncTypeNode:
+	case DelegateNode:
+		if (format != FileFormat::JAF)
+			return false;
+		set_encodings("UTF-8", "UTF-8");
+		ain_dump_functype(port, ainItem.ainFile, ainItem.i, type == DelegateNode);
+		return true;
+	case LibraryNode:
+		if (format != FileFormat::JAF)
+			return false;
+		set_encodings("UTF-8", "UTF-8");
+		ain_dump_library(port, ainItem.ainFile, ainItem.i);
+		return true;
 	case ExStringKeyValueNode:
 	case ExIntKeyValueNode:
 		if (format != FileFormat::TXTEX)
@@ -202,6 +224,10 @@ void NavigatorNode::open(bool newTab) const
 		break;
 	case ClassNode:
 	case EnumNode:
+	case GlobalNode:
+	case FuncTypeNode:
+	case DelegateNode:
+	case LibraryNode:
 		port_buffer_init(&port);
 		write(&port, FileFormat::JAF);
 		data = (char*)port_buffer_get(&port, NULL);
@@ -273,6 +299,14 @@ QString NavigatorNode::getName() const
 		return QString::fromUtf8(ainItem.ainFile->functions[ainItem.i].name);
 	case EnumNode:
 		return QString::fromUtf8(ainItem.ainFile->enums[ainItem.i].name);
+	case GlobalNode:
+		return QString::fromUtf8(ainItem.ainFile->globals[ainItem.i].name);
+	case FuncTypeNode:
+		return QString::fromUtf8(ainItem.ainFile->function_types[ainItem.i].name);
+	case DelegateNode:
+		return QString::fromUtf8(ainItem.ainFile->delegates[ainItem.i].name);
+	case LibraryNode:
+		return QString::fromUtf8(ainItem.ainFile->libraries[ainItem.i].name);
 	case ExStringKeyValueNode:
 		return QString::fromUtf8(exKV.key.s->text);
 	case ExIntKeyValueNode:
@@ -294,6 +328,10 @@ QVariant NavigatorNode::getType() const
 		case ClassNode:
 		case FunctionNode:
 		case EnumNode:
+		case GlobalNode:
+		case FuncTypeNode:
+		case DelegateNode:
+		case LibraryNode:
 		case FileNode:
 			break;
 		case ExStringKeyValueNode:
@@ -314,6 +352,10 @@ QVariant NavigatorNode::getValue() const
 	case ClassNode:
 	case FunctionNode:
 	case EnumNode:
+	case GlobalNode:
+	case FuncTypeNode:
+	case DelegateNode:
+	case LibraryNode:
 	case ExRowNode:
 	case FileNode:
 		break;

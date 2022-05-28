@@ -138,13 +138,13 @@ NavigatorModel::Node *NavigatorModel::Node::fromAin(struct ain *ain)
 
 		// add classes
 		for (int i = 0; i < ain->nr_structures; i++) {
-			classes->appendChild(Node::fromAinClass(ain, i));
+			classes->appendChild(Node::fromAinItem(ain, i, NavigatorNode::ClassNode));
 		}
 		// add methods to classes
 		for (int i = 0; i < ain->nr_functions; i++) {
 			Node *node = classes->child(ain->functions[i].struct_type);
 			if (node)
-				node->appendChild(Node::fromAinFunction(ain, i));
+				node->appendChild(Node::fromAinItem(ain, i, NavigatorNode::FunctionNode));
 		}
 	}
 
@@ -153,8 +153,9 @@ NavigatorModel::Node *NavigatorModel::Node::fromAin(struct ain *ain)
 		functions->node.name = "Functions";
 		root->appendChild(functions);
 
+		// add functions
 		for (int i = 0; i < ain->nr_functions; i++) {
-			functions->appendChild(Node::fromAinFunction(ain, i));
+			functions->appendChild(Node::fromAinItem(ain, i, NavigatorNode::FunctionNode));
 		}
 	}
 
@@ -165,38 +166,66 @@ NavigatorModel::Node *NavigatorModel::Node::fromAin(struct ain *ain)
 
 		// add enums
 		for (int i = 0; i < ain->nr_enums; i++) {
-			enums->appendChild(Node::fromAinEnum(ain, i));
+			enums->appendChild(Node::fromAinItem(ain, i, NavigatorNode::EnumNode));
 		}
 		// add methods to enums
 		for (int i = 0; i < ain->nr_functions; i++) {
 			Node *node = enums->child(ain->functions[i].enum_type);
 			if (node)
-				node->appendChild(Node::fromAinFunction(ain, i));
+				node->appendChild(Node::fromAinItem(ain, i, NavigatorNode::FunctionNode));
+		}
+	}
+
+	if (ain->nr_globals > 0) {
+		Node *globals = new Node(NavigatorNode::BranchNode);
+		globals->node.name = "Globals";
+		root->appendChild(globals);
+
+		// add globals
+		for (int i = 0; i < ain->nr_globals; i++) {
+			globals->appendChild(Node::fromAinItem(ain, i, NavigatorNode::GlobalNode));
+		}
+	}
+
+	if (ain->nr_function_types > 0) {
+		Node *functypes = new Node(NavigatorNode::BranchNode);
+		functypes->node.name = "Function Types";
+		root->appendChild(functypes);
+
+		// add function types
+		for (int i = 0; i < ain->nr_function_types; i++) {
+			functypes->appendChild(Node::fromAinItem(ain, i, NavigatorNode::FuncTypeNode));
+		}
+	}
+
+	if (ain->nr_delegates > 0) {
+		Node *delegates = new Node(NavigatorNode::BranchNode);
+		delegates->node.name = "Delegates";
+		root->appendChild(delegates);
+
+		// add delegates
+		for (int i = 0; i < ain->nr_delegates; i++) {
+			delegates->appendChild(Node::fromAinItem(ain, i, NavigatorNode::DelegateNode));
+		}
+	}
+
+	if (ain->nr_libraries > 0) {
+		Node *libraries = new Node(NavigatorNode::BranchNode);
+		libraries->node.name = "Libraries";
+		root->appendChild(libraries);
+
+		// add libraries
+		for (int i = 0; i <  ain->nr_libraries; i++) {
+			libraries->appendChild(Node::fromAinItem(ain, i, NavigatorNode::LibraryNode));
 		}
 	}
 
 	return root;
 }
 
-NavigatorModel::Node *NavigatorModel::Node::fromAinClass(struct ain *ain, int i)
+NavigatorModel::Node *NavigatorModel::Node::fromAinItem(struct ain *ain, int i, NavigatorNode::NodeType type)
 {
-        Node *node = new Node(NavigatorNode::ClassNode);
-        node->node.ainItem.ainFile = ain;
-        node->node.ainItem.i = i;
-        return node;
-}
-
-NavigatorModel::Node *NavigatorModel::Node::fromAinFunction(struct ain *ain, int i)
-{
-        Node *node = new Node(NavigatorNode::FunctionNode);
-        node->node.ainItem.ainFile = ain;
-        node->node.ainItem.i = i;
-        return node;
-}
-
-NavigatorModel::Node *NavigatorModel::Node::fromAinEnum(struct ain *ain, int i)
-{
-	Node *node = new Node(NavigatorNode::EnumNode);
+	Node *node = new Node(type);
 	node->node.ainItem.ainFile = ain;
 	node->node.ainItem.i = i;
 	return node;
