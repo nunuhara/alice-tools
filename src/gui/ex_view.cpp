@@ -41,18 +41,12 @@ ExView::ExView(QWidget *parent)
 	highlighter->addRule(QRegularExpression(QStringLiteral("\\blist\\b")), fmt);
 	highlighter->addRule(QRegularExpression(QStringLiteral("\\btree\\b")), fmt);
 	highlighter->addRule(QRegularExpression(QStringLiteral("\\bindexed\\b")), fmt);
-	highlighter->addRule(QRegularExpression(QStringLiteral("\\bref\\b")), fmt);
-	highlighter->addRule(QRegularExpression(QStringLiteral("\\bimplements\\b")), fmt);
 
 	fmt.setForeground(Qt::darkCyan);
 	highlighter->addRule(QRegularExpression(QStringLiteral("\\b0x[a-fA-F0-9]+\\b")), fmt);
 	highlighter->addRule(QRegularExpression(QStringLiteral("\\b[1-9][0-9]*\\b")), fmt);
 	highlighter->addRule(QRegularExpression(QStringLiteral("\\b0[0-7]*\\b")), fmt);
 	highlighter->addRule(QRegularExpression(QStringLiteral("\\b[0-9]+\\.[0-9]+\\b")), fmt);
-
-	fmt.setForeground(Qt::darkGray);
-	highlighter->addRule(QRegularExpression(QStringLiteral("^\\S+:")), fmt);
-	highlighter->addRule(QRegularExpression(QStringLiteral("^\\.CASE\\b")), fmt);
 
 	fmt.setForeground(Qt::red);
 	highlighter->addRule(QRegularExpression(QStringLiteral("\"(\\\\.|[^\"\\\\])*\"")), fmt);

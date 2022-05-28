@@ -288,6 +288,33 @@ int NavigatorModel::Node::columnCount()
         return 3;
 }
 
+static QString exRowName(struct ex_table *t, unsigned row)
+{
+	int index_col = -1;
+	for (unsigned i = 0; i < t->nr_columns; i++) {
+		if (t->fields[i].is_index) {
+			index_col = i;
+			break;
+		}
+	}
+
+	if (index_col >= 0) {
+		struct ex_value *v = &t->rows[row][index_col];
+		switch (v->type) {
+		case EX_INT:
+			return QString::number(v->i);
+		case EX_FLOAT:
+			return QString::number(v->f);
+		case EX_STRING:
+			return v->s->text;
+		default:
+			break;
+		}
+	}
+
+	return "[" + QString::number(row) + "]";
+}
+
 QVariant NavigatorModel::Node::data(int column) const
 {
         if (column == 0) {
@@ -303,7 +330,7 @@ QVariant NavigatorModel::Node::data(int column) const
                 case NavigatorNode::ExIntKeyValueNode:
                         return "[" + QString::number(node.exKV.key.i) + "]";
                 case NavigatorNode::ExRowNode:
-                        return "[" + QString::number(node.exRow.i) + "]";
+			return exRowName(node.exRow.t, node.exRow.i);
                 case NavigatorNode::FileNode:
                         return node.ar.file->name;
                 }
