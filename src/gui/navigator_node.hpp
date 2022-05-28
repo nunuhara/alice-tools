@@ -18,6 +18,7 @@
 #define GALICE_NAVIGATOR_NODE_HPP
 
 #include <QString>
+#include <QVariant>
 #include <QVector>
 #include "galice.hpp"
 
@@ -25,6 +26,7 @@ class NavigatorNode {
 public:
 	enum NodeType {
 		RootNode,
+		BranchNode,
 		ClassNode,
 		FunctionNode,
 		ExStringKeyValueNode,
@@ -40,6 +42,8 @@ public:
 
 	NodeType type;
 	union {
+		// BranchNode
+		const char *name;
 		// ClassNode
 		// FunctionNode
 		struct {
@@ -83,6 +87,26 @@ public:
 	 * Write the contents of the node to a port in the given output format.
 	 */
 	bool write(struct port *port, FileFormat format) const;
+
+	/*
+	 * Open a node.
+	 */
+	void open(bool newTab) const;
+
+	/*
+	 * Get the display name of the node.
+	 */
+	QString getName() const;
+
+	/*
+	 * Get the type name of the node.
+	 */
+	QVariant getType() const;
+
+	/*
+	 * Get the value of the node.
+	 */
+	QVariant getValue() const;
 };
 
 #endif /* GALICE_NAVIGATOR_NODE_HPP */

@@ -53,40 +53,7 @@ void NavigatorView::requestOpen(const QModelIndex &index) const
 	if (!node)
 		return;
 
-	openNode(node, false);
-}
-
-void NavigatorView::openNode(NavigatorNode *node, bool newTab) const
-{
-	switch (node->type) {
-	case NavigatorNode::RootNode:
-		break;
-	case NavigatorNode::ClassNode:
-		GAlice::openAinClass(node->ainItem.ainFile, node->ainItem.i, newTab);
-		break;
-	case NavigatorNode::FunctionNode:
-		GAlice::openAinFunction(node->ainItem.ainFile, node->ainItem.i, newTab);
-		break;
-	case NavigatorNode::ExStringKeyValueNode:
-		GAlice::openExValue(QString::fromUtf8(node->exKV.key.s->text), node->exKV.value, newTab);
-		break;
-	case NavigatorNode::ExIntKeyValueNode:
-		GAlice::openExValue("[" + QString::number(node->exKV.key.i) + "]", node->exKV.value, newTab);
-		break;
-	case NavigatorNode::ExRowNode:
-		// TODO
-		break;
-	case NavigatorNode::FileNode:
-		switch (node->ar.type) {
-		case NavigatorNode::NormalFile:
-			GAlice::openArchiveData(node->ar.file, newTab);
-			break;
-		case NavigatorNode::ExFile:
-		case NavigatorNode::ArFile:
-			break;
-		}
-		break;
-	}
+	node->open(false);
 }
 
 static QString getSaveFileName(QWidget *parent, QString caption, QVector<FileFormat> formats)
@@ -162,8 +129,8 @@ void NavigatorView::contextMenuEvent(QContextMenuEvent *event)
 		return;
 
         QMenu menu(this);
-	menu.addAction(tr("Open"), [this, node]() -> void { this->openNode(node, false); });
-	menu.addAction(tr("Open in New Tab"), [this, node]() -> void { this->openNode(node, true); });
+	menu.addAction(tr("Open"), [this, node]() -> void { node->open(false); });
+	menu.addAction(tr("Open in New Tab"), [this, node]() -> void { node->open(true); });
 	menu.addAction(tr("Export"), [this, node]() -> void { this->exportNode(node); });
         menu.exec(event->globalPos());
 }

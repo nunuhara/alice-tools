@@ -68,39 +68,19 @@ void Navigator::addFilesystem()
 
 void Navigator::addAinFile(const QString &fileName, std::shared_ptr<struct ain> ain)
 {
-        QWidget *view = new QWidget;
-        NavigatorModel *classModel = NavigatorModel::fromAinClasses(ain);
-        NavigatorModel *functionModel = NavigatorModel::fromAinFunctions(ain);
+	QWidget *widget = new QWidget;
+	NavigatorModel *model = NavigatorModel::fromAinFile(ain);
+	NavigatorView *view = new NavigatorView(model);
+	view->setHeaderHidden(true);
 
-        QComboBox *viewSelector = new QComboBox;
-        QStackedWidget *views = new QStackedWidget;
-        connect(viewSelector, QOverload<int>::of(&QComboBox::activated),
-                views, &QStackedWidget::setCurrentIndex);
+	for (int i = 1; i < model->columnCount(); i++) {
+		view->setColumnHidden(i, true);
+	}
 
-        NavigatorView *classView = new NavigatorView(classModel);
-        classView->setHeaderHidden(true);
-
-        NavigatorView *functionView = new NavigatorView(functionModel);
-        functionView->setHeaderHidden(true);
-
-        for (int i = 1; i < classModel->columnCount(); i++) {
-                classView->setColumnHidden(i, true);
-        }
-        for (int i = 1; i < functionModel->columnCount(); i++) {
-                functionView->setColumnHidden(i, true);
-        }
-
-        viewSelector->addItem(tr("Classes"));
-        views->addWidget(classView);
-        viewSelector->addItem(tr("Functions"));
-        views->addWidget(functionView);
-
-        QVBoxLayout *layout = new QVBoxLayout(view);
-        layout->addWidget(viewSelector);
-        layout->addWidget(views);
-        layout->setContentsMargins(0, 0, 0, 0);
-
-        addFile(fileName, view);
+	QVBoxLayout *layout = new QVBoxLayout(widget);
+	layout->addWidget(view);
+	layout->setContentsMargins(0, 0, 0, 0);
+	addFile(fileName, widget);
 }
 
 void Navigator::addExFile(const QString &fileName, std::shared_ptr<struct ex> ex)

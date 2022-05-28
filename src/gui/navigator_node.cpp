@@ -15,11 +15,14 @@
  */
 
 #include <QFileInfo>
+#include "galice.hpp"
 #include "navigator_node.hpp"
 
 extern "C" {
 #include "system4/archive.h"
 #include "system4/cg.h"
+#include "system4/ex.h"
+#include "system4/string.h"
 #include "alice.h"
 #include "alice/ain.h"
 #include "alice/ex.h"
@@ -62,6 +65,7 @@ QVector<FileFormat> NavigatorNode::getSupportedFormats() const
 {
 	switch (type) {
 	case RootNode:
+	case BranchNode:
 		return QVector<FileFormat>();
 	case ClassNode:
 		return QVector({FileFormat::JAF});
@@ -138,6 +142,7 @@ bool NavigatorNode::write(struct port *port, FileFormat format) const
 	bool r;
 	switch (type) {
 	case RootNode:
+	case BranchNode:
 		return false;
 	case ClassNode:
 		if (format != FileFormat::JAF)
@@ -177,4 +182,131 @@ bool NavigatorNode::write(struct port *port, FileFormat format) const
 		return r;
 	}
 	return false;
+}
+
+void NavigatorNode::open(bool newTab) const
+{
+	switch (type) {
+	case RootNode:
+	case BranchNode:
+		break;
+	case ClassNode:
+		GAlice::openAinClass(ainItem.ainFile, ainItem.i, newTab);
+		break;
+	case FunctionNode:
+		GAlice::openAinFunction(ainItem.ainFile, ainItem.i, newTab);
+		break;
+	case ExStringKeyValueNode:
+		GAlice::openExValue(QString::fromUtf8(exKV.key.s->text), exKV.value, newTab);
+		break;
+	case ExIntKeyValueNode:
+		GAlice::openExValue("[" + QString::number(exKV.key.i) + "]", exKV.value, newTab);
+		break;
+	case ExRowNode:
+		// TODO
+		break;
+	case FileNode:
+		switch (ar.type) {
+		case NormalFile:
+			GAlice::openArchiveData(ar.file, newTab);
+			break;
+		case ExFile:
+		case ArFile:
+			break;
+		}
+		break;
+	}
+}
+
+static QString exRowName(struct ex_table *t, unsigned row)
+{
+	int index_col = -1;
+	for (unsigned i = 0; i < t->nr_columns; i++) {
+		if (t->fields[i].is_index) {
+			index_col = i;
+			break;
+		}
+	}
+
+	if (index_col >= 0) {
+		struct ex_value *v = &t->rows[row][index_col];
+		switch (v->type) {
+		case EX_INT:
+			return QString::number(v->i);
+		case EX_FLOAT:
+			return QString::number(v->f);
+		case EX_STRING:
+			return v->s->text;
+		default:
+			break;
+		}
+	}
+
+	return "[" + QString::number(row) + "]";
+}
+
+QString NavigatorNode::getName() const
+{
+	switch (type) {
+	case RootNode:
+		return "Name";
+	case BranchNode:
+		return name;
+	case ClassNode:
+		return QString::fromUtf8(ainItem.ainFile->structures[ainItem.i].name);
+	case FunctionNode:
+		return QString::fromUtf8(ainItem.ainFile->functions[ainItem.i].name);
+	case ExStringKeyValueNode:
+		return QString::fromUtf8(exKV.key.s->text);
+	case ExIntKeyValueNode:
+		return "[" + QString::number(exKV.key.i) + "]";
+	case ExRowNode:
+		return exRowName(exRow.t, exRow.i);
+	case FileNode:
+		return ar.file->name;
+	}
+	return "?";
+}
+
+QVariant NavigatorNode::getType() const
+{
+	switch (type) {
+		case RootNode:
+			return "Type";
+		case BranchNode:
+		case ClassNode:
+		case FunctionNode:
+		case FileNode:
+			break;
+		case ExStringKeyValueNode:
+		case ExIntKeyValueNode:
+			return ex_strtype(exKV.value->type);
+		case ExRowNode:
+			return "row";
+	}
+	return QVariant();
+}
+
+QVariant NavigatorNode::getValue() const
+{
+	switch (type) {
+	case RootNode:
+		return "Value";
+	case BranchNode:
+	case ClassNode:
+	case FunctionNode:
+	case ExRowNode:
+	case FileNode:
+		break;
+	case ExStringKeyValueNode:
+	case ExIntKeyValueNode:
+		switch (exKV.value->type) {
+		case EX_INT:    return exKV.value->i;
+		case EX_FLOAT:  return exKV.value->f;
+		case EX_STRING: return QString::fromUtf8(exKV.value->s->text);
+		default:        break;
+		}
+		break;
+	}
+	return QVariant();
 }

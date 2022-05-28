@@ -26,8 +26,7 @@ class NavigatorModel : public QAbstractItemModel {
         Q_OBJECT
 public:
         static NavigatorModel *fromExFile(std::shared_ptr<struct ex> exFile, QObject *parent = nullptr);
-        static NavigatorModel *fromAinClasses(std::shared_ptr<struct ain> ainFile, QObject *parent = nullptr);
-        static NavigatorModel *fromAinFunctions(std::shared_ptr<struct ain> ainFile, QObject *parent = nullptr);
+	static NavigatorModel *fromAinFile(std::shared_ptr<struct ain> ainFile, QObject *parent = nullptr);
         static NavigatorModel *fromArchive(std::shared_ptr<struct archive> ar, QObject *parent = nullptr);
         ~NavigatorModel();
 
@@ -50,8 +49,7 @@ private:
         class Node {
         public:
                 static Node *fromEx(struct ex *exFile);
-                static Node *fromAinClasses(struct ain *ainFile);
-                static Node *fromAinFunctions(struct ain *ainFile);
+                static Node *fromAin(struct ain *ainFile);
                 static Node *fromArchive(struct archive *ar);
                 ~Node();
 

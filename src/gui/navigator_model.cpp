@@ -127,33 +127,34 @@ void NavigatorModel::Node::appendExFileChildren(struct ex *exFile)
         }
 }
 
-NavigatorModel::Node *NavigatorModel::Node::fromAinClasses(struct ain *ain)
+NavigatorModel::Node *NavigatorModel::Node::fromAin(struct ain *ain)
 {
-        Node *root = new Node(NavigatorNode::RootNode);
+	Node *root = new Node(NavigatorNode::RootNode);
 
-        // add classes
-        for (int i = 0; i < ain->nr_structures; i++) {
-                root->appendChild(Node::fromAinClass(ain, i));
-        }
-        // add methods
-        for (int i = 0; i < ain->nr_functions; i++) {
-                Node *node = root->child(ain->functions[i].struct_type);
-                if (node)
-                        node->appendChild(Node::fromAinFunction(ain, i));
-        }
+	Node *classes = new Node(NavigatorNode::BranchNode);
+	classes->node.name = "Classes";
+	root->appendChild(classes);
 
-        return root;
-}
+	// add classes
+	for (int i = 0; i < ain->nr_structures; i++) {
+		classes->appendChild(Node::fromAinClass(ain, i));
+	}
+	// add methods to classes
+	for (int i = 0; i < ain->nr_functions; i++) {
+		Node *node = classes->child(ain->functions[i].struct_type);
+		if (node)
+			node->appendChild(Node::fromAinFunction(ain, i));
+	}
 
-NavigatorModel::Node *NavigatorModel::Node::fromAinFunctions(struct ain *ain)
-{
-        Node *root = new Node(NavigatorNode::RootNode);
+	Node *functions = new Node(NavigatorNode::BranchNode);
+	functions->node.name = "Functions";
+	root->appendChild(functions);
 
-        for (int i = 0; i < ain->nr_functions; i++) {
-                root->appendChild(Node::fromAinFunction(ain, i));
-        }
+	for (int i = 0; i < ain->nr_functions; i++) {
+		functions->appendChild(Node::fromAinFunction(ain, i));
+	}
 
-        return root;
+	return root;
 }
 
 NavigatorModel::Node *NavigatorModel::Node::fromAinClass(struct ain *ain, int i)
@@ -288,87 +289,16 @@ int NavigatorModel::Node::columnCount()
         return 3;
 }
 
-static QString exRowName(struct ex_table *t, unsigned row)
-{
-	int index_col = -1;
-	for (unsigned i = 0; i < t->nr_columns; i++) {
-		if (t->fields[i].is_index) {
-			index_col = i;
-			break;
-		}
-	}
-
-	if (index_col >= 0) {
-		struct ex_value *v = &t->rows[row][index_col];
-		switch (v->type) {
-		case EX_INT:
-			return QString::number(v->i);
-		case EX_FLOAT:
-			return QString::number(v->f);
-		case EX_STRING:
-			return v->s->text;
-		default:
-			break;
-		}
-	}
-
-	return "[" + QString::number(row) + "]";
-}
-
 QVariant NavigatorModel::Node::data(int column) const
 {
-        if (column == 0) {
-                switch (node.type) {
-		case NavigatorNode::RootNode:
-                        return "Name";
-                case NavigatorNode::ClassNode:
-                        return QString::fromUtf8(node.ainItem.ainFile->structures[node.ainItem.i].name);
-                case NavigatorNode::FunctionNode:
-                        return QString::fromUtf8(node.ainItem.ainFile->functions[node.ainItem.i].name);
-                case NavigatorNode::ExStringKeyValueNode:
-                        return QString::fromUtf8(node.exKV.key.s->text);
-                case NavigatorNode::ExIntKeyValueNode:
-                        return "[" + QString::number(node.exKV.key.i) + "]";
-                case NavigatorNode::ExRowNode:
-			return exRowName(node.exRow.t, node.exRow.i);
-                case NavigatorNode::FileNode:
-                        return node.ar.file->name;
-                }
-        } else if (column == 1) {
-                switch (node.type) {
-                case NavigatorNode::RootNode:
-                        return "Type";
-                case NavigatorNode::ClassNode:
-                case NavigatorNode::FunctionNode:
-                case NavigatorNode::FileNode:
-                        break;
-                case NavigatorNode::ExStringKeyValueNode:
-                case NavigatorNode::ExIntKeyValueNode:
-                        return ex_strtype(node.exKV.value->type);
-                case NavigatorNode::ExRowNode:
-                        return "row";
-                }
-        } else if (column == 2) {
-                switch (node.type) {
-                case NavigatorNode::RootNode:
-                        return "Value";
-                case NavigatorNode::ClassNode:
-                case NavigatorNode::FunctionNode:
-                case NavigatorNode::ExRowNode:
-                case NavigatorNode::FileNode:
-                        break;
-                case NavigatorNode::ExStringKeyValueNode:
-                case NavigatorNode::ExIntKeyValueNode:
-                        switch (node.exKV.value->type) {
-                        case EX_INT:    return node.exKV.value->i;
-                        case EX_FLOAT:  return node.exKV.value->f;
-                        case EX_STRING: return QString::fromUtf8(node.exKV.value->s->text);
-                        default:        break;
-                        }
-                        break;
-                }
-        }
-        return QVariant();
+	if (column == 0) {
+		return node.getName();
+	} else if (column == 1) {
+		return node.getType();
+	} else if (column == 2) {
+		return node.getValue();
+	}
+	return QVariant();
 }
 
 NavigatorModel *NavigatorModel::fromExFile(std::shared_ptr<struct ex> ex, QObject *parent)
@@ -379,18 +309,10 @@ NavigatorModel *NavigatorModel::fromExFile(std::shared_ptr<struct ex> ex, QObjec
 	return model;
 }
 
-NavigatorModel *NavigatorModel::fromAinClasses(std::shared_ptr<struct ain> ain, QObject *parent)
+NavigatorModel *NavigatorModel::fromAinFile(std::shared_ptr<struct ain> ain, QObject *parent)
 {
 	NavigatorModel *model = new NavigatorModel(parent);
-	model->root = Node::fromAinClasses(ain.get());
-	model->ainFile = ain;
-	return model;
-}
-
-NavigatorModel *NavigatorModel::fromAinFunctions(std::shared_ptr<struct ain> ain, QObject *parent)
-{
-	NavigatorModel *model = new NavigatorModel(parent);
-	model->root = Node::fromAinFunctions(ain.get());
+	model->root = Node::fromAin(ain.get());
 	model->ainFile = ain;
 	return model;
 }
