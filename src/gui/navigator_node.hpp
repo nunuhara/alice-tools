@@ -29,6 +29,7 @@ public:
 		BranchNode,
 		ClassNode,
 		FunctionNode,
+		EnumNode,
 		ExStringKeyValueNode,
 		ExIntKeyValueNode,
 		ExRowNode,

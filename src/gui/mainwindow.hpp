@@ -40,7 +40,7 @@ protected:
         void closeEvent(QCloseEvent *event) override;
 
 public slots:
-        void openClass(struct ain *ain, int i, bool newTab);
+	void openJaf(const QString &name, char *text, bool newTab);
         void openFunction(struct ain *ain, int i, bool newTab);
         void openExValue(const QString &name, struct ex_value *value, bool newTab);
 	void openAcxFile(const QString &name, std::shared_ptr<struct acx> acx, bool newTab);

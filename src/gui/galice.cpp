@@ -385,9 +385,9 @@ void GAlice::openArchiveData(struct archive_data *file, bool newTab)
 	archive_release_file(file);
 }
 
-void GAlice::openAinClass(struct ain *ain, int i, bool newTab)
+void GAlice::openJaf(const QString &name, char *text, bool newTab)
 {
-	emit getInstance().openedAinClass(ain, i, newTab);
+	emit getInstance().openedJaf(name, text, newTab);
 }
 
 void GAlice::openAinFunction(struct ain *ain, int i, bool newTab)

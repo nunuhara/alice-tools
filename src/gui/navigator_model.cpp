@@ -131,27 +131,48 @@ NavigatorModel::Node *NavigatorModel::Node::fromAin(struct ain *ain)
 {
 	Node *root = new Node(NavigatorNode::RootNode);
 
-	Node *classes = new Node(NavigatorNode::BranchNode);
-	classes->node.name = "Classes";
-	root->appendChild(classes);
+	if (ain->nr_structures > 0) {
+		Node *classes = new Node(NavigatorNode::BranchNode);
+		classes->node.name = "Classes";
+		root->appendChild(classes);
 
-	// add classes
-	for (int i = 0; i < ain->nr_structures; i++) {
-		classes->appendChild(Node::fromAinClass(ain, i));
+		// add classes
+		for (int i = 0; i < ain->nr_structures; i++) {
+			classes->appendChild(Node::fromAinClass(ain, i));
+		}
+		// add methods to classes
+		for (int i = 0; i < ain->nr_functions; i++) {
+			Node *node = classes->child(ain->functions[i].struct_type);
+			if (node)
+				node->appendChild(Node::fromAinFunction(ain, i));
+		}
 	}
-	// add methods to classes
-	for (int i = 0; i < ain->nr_functions; i++) {
-		Node *node = classes->child(ain->functions[i].struct_type);
-		if (node)
-			node->appendChild(Node::fromAinFunction(ain, i));
+
+	if (ain->nr_functions > 0) {
+		Node *functions = new Node(NavigatorNode::BranchNode);
+		functions->node.name = "Functions";
+		root->appendChild(functions);
+
+		for (int i = 0; i < ain->nr_functions; i++) {
+			functions->appendChild(Node::fromAinFunction(ain, i));
+		}
 	}
 
-	Node *functions = new Node(NavigatorNode::BranchNode);
-	functions->node.name = "Functions";
-	root->appendChild(functions);
+	if (ain->nr_enums > 0) {
+		Node *enums = new Node(NavigatorNode::BranchNode);
+		enums->node.name = "Enumerations";
+		root->appendChild(enums);
 
-	for (int i = 0; i < ain->nr_functions; i++) {
-		functions->appendChild(Node::fromAinFunction(ain, i));
+		// add enums
+		for (int i = 0; i < ain->nr_enums; i++) {
+			enums->appendChild(Node::fromAinEnum(ain, i));
+		}
+		// add methods to enums
+		for (int i = 0; i < ain->nr_functions; i++) {
+			Node *node = enums->child(ain->functions[i].enum_type);
+			if (node)
+				node->appendChild(Node::fromAinFunction(ain, i));
+		}
 	}
 
 	return root;
@@ -171,6 +192,14 @@ NavigatorModel::Node *NavigatorModel::Node::fromAinFunction(struct ain *ain, int
         node->node.ainItem.ainFile = ain;
         node->node.ainItem.i = i;
         return node;
+}
+
+NavigatorModel::Node *NavigatorModel::Node::fromAinEnum(struct ain *ain, int i)
+{
+	Node *node = new Node(NavigatorNode::EnumNode);
+	node->node.ainItem.ainFile = ain;
+	node->node.ainItem.i = i;
+	return node;
 }
 
 void NavigatorModel::Node::fromArchiveIter(struct archive_data *data, void *user)

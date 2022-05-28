@@ -71,6 +71,8 @@ QVector<FileFormat> NavigatorNode::getSupportedFormats() const
 		return QVector({FileFormat::JAF});
 	case FunctionNode:
 		return QVector({FileFormat::JAM});
+	case EnumNode:
+		return QVector({FileFormat::JAF});
 	case ExStringKeyValueNode:
 	case ExIntKeyValueNode:
 	case ExRowNode:
@@ -156,6 +158,12 @@ bool NavigatorNode::write(struct port *port, FileFormat format) const
 		set_encodings("UTF-8", "UTF-8");
 		_ain_disassemble_function(port, ainItem.ainFile, ainItem.i, 0);
 		return true;
+	case EnumNode:
+		if (format != FileFormat::JAF)
+			return false;
+		set_encodings("UTF-8", "UTF-8");
+		ain_dump_enum(port, ainItem.ainFile, ainItem.i);
+		return true;
 	case ExStringKeyValueNode:
 	case ExIntKeyValueNode:
 		if (format != FileFormat::TXTEX)
@@ -186,12 +194,19 @@ bool NavigatorNode::write(struct port *port, FileFormat format) const
 
 void NavigatorNode::open(bool newTab) const
 {
+	struct port port;
+	char *data;
 	switch (type) {
 	case RootNode:
 	case BranchNode:
 		break;
 	case ClassNode:
-		GAlice::openAinClass(ainItem.ainFile, ainItem.i, newTab);
+	case EnumNode:
+		port_buffer_init(&port);
+		write(&port, FileFormat::JAF);
+		data = (char*)port_buffer_get(&port, NULL);
+		GAlice::openJaf(getName(), data, newTab);
+		free(data);
 		break;
 	case FunctionNode:
 		GAlice::openAinFunction(ainItem.ainFile, ainItem.i, newTab);
@@ -256,6 +271,8 @@ QString NavigatorNode::getName() const
 		return QString::fromUtf8(ainItem.ainFile->structures[ainItem.i].name);
 	case FunctionNode:
 		return QString::fromUtf8(ainItem.ainFile->functions[ainItem.i].name);
+	case EnumNode:
+		return QString::fromUtf8(ainItem.ainFile->enums[ainItem.i].name);
 	case ExStringKeyValueNode:
 		return QString::fromUtf8(exKV.key.s->text);
 	case ExIntKeyValueNode:
@@ -276,6 +293,7 @@ QVariant NavigatorNode::getType() const
 		case BranchNode:
 		case ClassNode:
 		case FunctionNode:
+		case EnumNode:
 		case FileNode:
 			break;
 		case ExStringKeyValueNode:
@@ -295,6 +313,7 @@ QVariant NavigatorNode::getValue() const
 	case BranchNode:
 	case ClassNode:
 	case FunctionNode:
+	case EnumNode:
 	case ExRowNode:
 	case FileNode:
 		break;

@@ -75,6 +75,7 @@ private:
                 void appendArchiveChildren(struct archive *archive);
                 static Node *fromAinClass(struct ain *ainFile, int index);
                 static Node *fromAinFunction(struct ain *ainFile, int index);
+                static Node *fromAinEnum(struct ain *ainFile, int index);
                 static Node *fromArchiveFile(struct archive_data *file);
                 static void fromArchiveIter(struct archive_data *data, void *user);
 

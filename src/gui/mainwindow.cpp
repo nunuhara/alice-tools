@@ -55,7 +55,7 @@ MainWindow::MainWindow(QWidget *parent)
         connect(&GAlice::getInstance(), &GAlice::statusMessage, this, &MainWindow::status);
 	connect(&GAlice::getInstance(), &GAlice::openedAcxFile, this, &MainWindow::openAcxFile);
 	connect(&GAlice::getInstance(), &GAlice::openedImageFile, this, &MainWindow::openImage);
-	connect(&GAlice::getInstance(), &GAlice::openedAinClass, this, &MainWindow::openClass);
+	connect(&GAlice::getInstance(), &GAlice::openedJaf, this, &MainWindow::openJaf);
 	connect(&GAlice::getInstance(), &GAlice::openedAinFunction, this, &MainWindow::openFunction);
 	connect(&GAlice::getInstance(), &GAlice::openedExValue, this, &MainWindow::openExValue);
 }
@@ -163,26 +163,20 @@ void MainWindow::status(const QString &message)
 	statusBar()->showMessage(message);
 }
 
-void MainWindow::openClass(struct ain *ainObj, int i, bool newTab)
+void MainWindow::openJaf(const QString &name, char *text, bool newTab)
 {
-        struct port port;
-        port_buffer_init(&port);
-        set_encodings("UTF-8", "UTF-8");
-        ain_dump_structure(&port, ainObj, i);
-        char *data = (char*)port_buffer_get(&port, NULL);
-	openViewer(ainObj->structures[i].name, new JafView(data), newTab);
-        free(data);
+	openViewer(name, new JafView(text), newTab);
 }
 
 void MainWindow::openFunction(struct ain *ainObj, int i, bool newTab)
 {
-        struct port port;
-        port_buffer_init(&port);
-        set_encodings("UTF-8", "UTF-8");
-        _ain_disassemble_function(&port, ainObj, i, 0);
-        char *data = (char*)port_buffer_get(&port, NULL);
+	struct port port;
+	port_buffer_init(&port);
+	set_encodings("UTF-8", "UTF-8");
+	_ain_disassemble_function(&port, ainObj, i, 0);
+	char *data = (char*)port_buffer_get(&port, NULL);
 	openViewer(ainObj->functions[i].name, new JamView(data), newTab);
-        free(data);
+	free(data);
 }
 
 void MainWindow::openExValue(const QString &name, struct ex_value *value, bool newTab)
