@@ -1,0 +1,9 @@
+lint add(lint a, lint b)
+{
+	return a + b;
+}
+
+int main()
+{
+	return !(add(2, 3) == 5);
+}

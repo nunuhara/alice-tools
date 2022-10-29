@@ -312,6 +312,39 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		case JAF_OR_ASSIGN:     write_instruction0(state, ORA); break;
 		default:                _COMPILER_ERROR(NULL, -1, "Invalid integer operator");
 		}
+	} else if (lhs_type == AIN_LONG_INT || lhs_type == AIN_REF_LONG_INT) {
+		switch (op) {
+		case JAF_MULTIPLY:      write_instruction0(state, LI_MUL); break;
+		case JAF_DIVIDE:        write_instruction0(state, LI_DIV); break;
+		case JAF_REMAINDER:     write_instruction0(state, LI_MOD); break;
+		case JAF_PLUS:          write_instruction0(state, LI_ADD); break;
+		case JAF_MINUS:         write_instruction0(state, LI_SUB); break;
+		case JAF_LSHIFT:        write_instruction0(state, LSHIFT); break;
+		case JAF_RSHIFT:        write_instruction0(state, RSHIFT); break;
+		case JAF_LT:            write_instruction0(state, LT); break;
+		case JAF_GT:            write_instruction0(state, GT); break;
+		case JAF_LTE:           write_instruction0(state, LTE); break;
+		case JAF_GTE:           write_instruction0(state, GTE); break;
+		case JAF_EQ:            write_instruction0(state, EQUALE); break;
+		case JAF_NEQ:           write_instruction0(state, NOTE); break;
+		case JAF_BIT_AND:       write_instruction0(state, AND); break;
+		case JAF_BIT_XOR:       write_instruction0(state, XOR); break;
+		case JAF_BIT_IOR:       write_instruction0(state, OR); break;
+		//case JAF_LOG_AND:       write_instruction0(state, AND); break;
+		//case JAF_LOG_OR:        write_instruction0(state, OR); break;
+		case JAF_ASSIGN:        write_instruction0(state, LI_ASSIGN); break;
+		case JAF_MUL_ASSIGN:    write_instruction0(state, LI_MULA); break;
+		case JAF_DIV_ASSIGN:    write_instruction0(state, LI_DIVA); break;
+		case JAF_MOD_ASSIGN:    write_instruction0(state, LI_MODA); break;
+		case JAF_ADD_ASSIGN:    write_instruction0(state, LI_PLUSA); break;
+		case JAF_SUB_ASSIGN:    write_instruction0(state, LI_MINUSA); break;
+		case JAF_LSHIFT_ASSIGN: write_instruction0(state, LI_LSHIFTA); break;
+		case JAF_RSHIFT_ASSIGN: write_instruction0(state, LI_RSHIFTA); break;
+		case JAF_AND_ASSIGN:    write_instruction0(state, LI_ANDA); break;
+		case JAF_XOR_ASSIGN:    write_instruction0(state, LI_XORA); break;
+		case JAF_OR_ASSIGN:     write_instruction0(state, LI_ORA); break;
+		default:                _COMPILER_ERROR(NULL, -1, "Invalid long integer operator");
+		}
 	} else if (lhs_type == AIN_STRING || lhs_type == AIN_REF_STRING) {
 		switch (op) {
 		case JAF_PLUS:       write_instruction0(state, S_ADD); break;
@@ -574,6 +607,52 @@ static void compile_pop(struct compiler_state *state, enum ain_data_type type)
 	}
 }
 
+static bool _compile_cast(struct compiler_state *state, struct jaf_expression *expr,
+		enum ain_data_type dst_type)
+{
+	enum ain_data_type src_type = expr->valuetype.data;
+
+	if (src_type == dst_type)
+		return true;
+	if (src_type == dst_type)
+		return true;
+	if (src_type == AIN_INT) {
+		if (dst_type == AIN_FLOAT) {
+			write_instruction0(state, ITOF);
+		} else if (dst_type == AIN_STRING) {
+			write_instruction0(state, I_STRING);
+		} else if (dst_type == AIN_LONG_INT) {
+			write_instruction0(state, ITOLI);
+		} else {
+			return false;
+		}
+	} else if (src_type == AIN_FLOAT) {
+		if (dst_type == AIN_INT) {
+			write_instruction0(state, FTOI);
+		} else if (dst_type == AIN_STRING) {
+			write_instruction1(state, PUSH, 6);
+			write_instruction0(state, FTOS);
+		} else if (dst_type == AIN_LONG_INT) {
+			write_instruction0(state, FTOI);
+			write_instruction0(state, ITOLI);
+		} else {
+			return false;
+		}
+	} else if (src_type == AIN_STRING) {
+		if (dst_type == AIN_INT) {
+			write_instruction0(state, STOI);
+		} else if (dst_type == AIN_LONG_INT) {
+			write_instruction0(state, STOI);
+			write_instruction0(state, ITOLI);
+		} else {
+			return false;
+		}
+	} else {
+		return false;;
+	}
+	return true;
+}
+
 static void compile_unary(struct compiler_state *state, struct jaf_expression *expr)
 {
 	switch (expr->op) {
@@ -637,6 +716,55 @@ static void compile_unary(struct compiler_state *state, struct jaf_expression *e
 		COMPILER_ERROR(expr, "Invalid unary operator");
 	}
 }
+
+/*
+static bool arithmetic_arg_needs_cast(enum ain_data_type arg_type, enum ain_data_type other_type)
+{
+	if (arg_type == other_type)
+		return false;
+	switch (other_type) {
+	case AIN_INT:
+	case AIN_BOOL:
+	case AIN_ENUM:
+		// other type should be cast
+		return false;
+	case AIN_LONG_INT:
+		return arg_type != AIN_FLOAT;
+	case AIN_FLOAT:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static void compile_arithmetic_arg(struct compiler_state *state, struct jaf_expression *expr,
+		enum ain_data_type other_type)
+{
+	compile_expression(state, expr);
+	if (expr->valuetype.data != other_type) {
+		switch (other_type) {
+		case AIN_INT:
+		case AIN_BOOL:
+		case AIN_ENUM:
+			// other type should be cast
+			break;
+		case AIN_LONG_INT:
+			switch (expr->valuetype.data) {
+			case AIN_INT:
+			case AIN_BOOL:
+			case AIN_ENUM:
+				_compile_cast(state, expr, other_type);
+			}
+			break;
+		case AIN_FLOAT:
+			break;
+		}
+	}
+	return;
+cast:
+	_compile_cast(state, expr, other_type);
+}
+*/
 
 static void compile_binary(struct compiler_state *state, struct jaf_expression *expr)
 {
@@ -977,43 +1105,12 @@ static void compile_new(struct compiler_state *state, struct jaf_expression *exp
 
 static void compile_cast(struct compiler_state *state, struct jaf_expression *expr)
 {
-	enum ain_data_type src_type = expr->cast.expr->valuetype.data;
-	enum ain_data_type dst_type = expr->valuetype.data;
 	compile_expression(state, expr->cast.expr);
-
-	if (src_type == dst_type)
-		return;
-	if (src_type == AIN_INT) {
-		if (dst_type == AIN_FLOAT) {
-			write_instruction0(state, ITOF);
-		} else if (dst_type == AIN_STRING) {
-			write_instruction0(state, I_STRING);
-		} else {
-			goto invalid_cast;
-		}
-	} else if (src_type == AIN_FLOAT) {
-		if (dst_type == AIN_INT) {
-			write_instruction0(state, FTOI);
-		} else if (dst_type == AIN_STRING) {
-			write_instruction1(state, PUSH, 6);
-			write_instruction0(state, FTOS);
-		} else {
-			goto invalid_cast;
-		}
-	} else if (src_type == AIN_STRING) {
-		if (dst_type == AIN_INT) {
-			write_instruction0(state, STOI);
-		} else {
-			goto invalid_cast;
-		}
-	} else {
-		goto invalid_cast;
+	if (!_compile_cast(state, expr->cast.expr, expr->valuetype.data)) {
+		JAF_ERROR(expr, "Unsupported cast: %s to %s",
+			ain_strtype(state->ain, expr->valuetype.data, -1),
+			jaf_type_to_string(expr->cast.type));
 	}
-	return;
-invalid_cast:
-	JAF_ERROR(expr, "Unsupported cast: %s to %s",
-		  ain_strtype(state->ain, src_type, -1),
-		  jaf_type_to_string(expr->cast.type));
 }
 
 static void compile_member(struct compiler_state *state, struct jaf_expression *expr)

@@ -1,0 +1,9 @@
+lint minusa(lint a, lint b)
+{
+	return a -= b;
+}
+
+int main()
+{
+	return !(minusa(3, 2) == 1);
+}

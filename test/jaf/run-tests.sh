@@ -73,6 +73,23 @@ cd $(dirname "$0")
 ./test-runner.sh s-from-float.jaf
 ./test-runner.sh s-to-int.jaf
 
+# lint ops
+./test-runner.sh lint-add.jaf
+./test-runner.sh lint-sub.jaf
+./test-runner.sh lint-mul.jaf
+./test-runner.sh lint-div.jaf
+./test-runner.sh lint-mod.jaf
+./test-runner.sh lint-plusa.jaf
+./test-runner.sh lint-minusa.jaf
+./test-runner.sh lint-mula.jaf
+./test-runner.sh lint-diva.jaf
+./test-runner.sh lint-moda.jaf
+./test-runner.sh lint-lshifta.jaf
+./test-runner.sh lint-rshifta.jaf
+./test-runner.sh lint-anda.jaf
+./test-runner.sh lint-iora.jaf
+./test-runner.sh lint-xora.jaf
+
 # arrays
 ./test-runner.sh array-int.jaf
 ./test-runner.sh array-string.jaf

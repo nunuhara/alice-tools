@@ -1,0 +1,9 @@
+lint anda(lint a, lint b)
+{
+	return a &= b;
+}
+
+int main()
+{
+	return !(anda(3, 2) == 2);
+}

@@ -65,6 +65,7 @@ enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type)
 	case JAF_INT:       return AIN_INT;
 	case JAF_BOOL:      return AIN_BOOL;
 	case JAF_FLOAT:     return AIN_FLOAT;
+	case JAF_LINT:      return AIN_LONG_INT;
 	case JAF_STRING:    return AIN_STRING;
 	case JAF_STRUCT:    return AIN_STRUCT;
 	case JAF_ENUM:      return AIN_ENUM;
@@ -91,6 +92,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_INT:       return AIN_REF_ARRAY_INT;
 		case JAF_BOOL:      return AIN_REF_ARRAY_BOOL;
 		case JAF_FLOAT:     return AIN_REF_ARRAY_FLOAT;
+		case JAF_LINT:      return AIN_REF_ARRAY_LONG_INT;
 		case JAF_STRING:    return AIN_REF_ARRAY_STRING;
 		case JAF_STRUCT:    return AIN_REF_ARRAY_STRUCT;
 		case JAF_ENUM:      _COMPILER_ERROR(NULL, -1, "Enums not supported");
@@ -109,6 +111,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_INT:       return AIN_REF_INT;
 		case JAF_BOOL:      return AIN_REF_BOOL;
 		case JAF_FLOAT:     return AIN_REF_FLOAT;
+		case JAF_LINT:      return AIN_REF_LONG_INT;
 		case JAF_STRING:    return AIN_REF_STRING;
 		case JAF_STRUCT:    return AIN_REF_STRUCT;
 		case JAF_ENUM:      return AIN_REF_ENUM;
@@ -130,6 +133,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_INT:       return AIN_ARRAY_INT;
 		case JAF_BOOL:      return AIN_ARRAY_BOOL;
 		case JAF_FLOAT:     return AIN_ARRAY_FLOAT;
+		case JAF_LINT:      return AIN_ARRAY_LONG_INT;
 		case JAF_STRING:    return AIN_ARRAY_STRING;
 		case JAF_STRUCT:    return AIN_ARRAY_STRUCT;
 		case JAF_ENUM:      _COMPILER_ERROR(NULL, -1, "Enums not supported");

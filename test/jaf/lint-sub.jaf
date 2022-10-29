@@ -1,0 +1,9 @@
+lint sub(lint a, lint b)
+{
+	return a - b;
+}
+
+int main()
+{
+	return !(sub(3, 2) == 1);
+}

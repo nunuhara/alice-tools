@@ -1,0 +1,9 @@
+lint xora(lint a, lint b)
+{
+	return a ^= b;
+}
+
+int main()
+{
+	return !(xora(2, 3) == 1);
+}

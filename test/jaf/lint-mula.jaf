@@ -1,0 +1,9 @@
+lint mula(lint a, lint b)
+{
+	return a *= b;
+}
+
+int main()
+{
+	return !(mula(2, 3) == 6);
+}

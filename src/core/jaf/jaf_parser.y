@@ -417,7 +417,7 @@ atomic_type_specifier
 	: VOID             { $$ = JAF_VOID; }
 	| CHAR             { $$ = JAF_INT; }
 	| INT              { $$ = JAF_INT; }
-	| LINT             { $$ = JAF_INT; }
+	| LINT             { $$ = JAF_LINT; }
 	| FLOAT            { $$ = JAF_FLOAT; }
 	| BOOL             { $$ = JAF_BOOL; }
 	| STRING           { $$ = JAF_STRING; }

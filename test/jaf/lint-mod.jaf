@@ -1,0 +1,9 @@
+lint mod(lint a, lint b)
+{
+	return a % b;
+}
+
+int main()
+{
+	return !(mod(12, 10) == 2);
+}

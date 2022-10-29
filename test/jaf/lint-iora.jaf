@@ -1,0 +1,9 @@
+lint iora(lint a, lint b)
+{
+	return a |= b;
+}
+
+int main()
+{
+	return !(iora(1, 2) == 3);
+}

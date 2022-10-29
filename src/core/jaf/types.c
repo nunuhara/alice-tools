@@ -81,6 +81,11 @@ static enum ain_data_type add_ref(struct ain_type *type)
 static bool jaf_type_equal(struct ain_type *a, struct ain_type *b)
 {
 	enum ain_data_type a_data = strip_ref(a), b_data = strip_ref(b);
+	// HACK: treat lint as int
+	if (a_data == AIN_LONG_INT)
+		a_data = AIN_INT;
+	if (b_data == AIN_LONG_INT)
+		b_data = AIN_INT;
 	if (a_data != b_data)
 		return false;
 	if (a_data == AIN_STRUCT && a->struc != b->struc)

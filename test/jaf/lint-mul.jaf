@@ -1,0 +1,9 @@
+lint mul(lint a, lint b)
+{
+	return a * b;
+}
+
+int main()
+{
+	return !(mul(2, 3) == 6);
+}

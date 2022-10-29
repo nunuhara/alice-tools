@@ -1,0 +1,9 @@
+lint rshifta(lint a, lint b)
+{
+	return a >>= b;
+}
+
+int main()
+{
+	return !(rshifta(8, 3) == 1);
+}
