@@ -14,6 +14,7 @@
  * along with this program; if not, see <http://gnu.org/licenses/>.
  */
 
+#include <cctype>
 #include <iostream>
 #include <QApplication>
 #include <QCommandLineParser>
@@ -31,6 +32,7 @@ extern "C" {
 #include "system4/aar.h"
 #include "system4/afa.h"
 #include "system4/alk.h"
+#include "system4/buffer.h"
 #include "system4/dlf.h"
 #include "system4/flat.h"
 #include "system4/ex.h"
@@ -385,16 +387,56 @@ void GAlice::openArchiveData(struct archive_data *file, bool newTab)
 			return;
 		}
 		emit getInstance().openedImageFile(file->name, std::shared_ptr<struct cg>(cg, cg_free), newTab);
+	} else {
+		openBinary(file->name, file->data, file->size, newTab);
+		//status(tr("No preview available"));
 	}
-	// TODO: open other file types
-
-	status(tr("No preview available"));
 	archive_release_file(file);
 }
 
 void GAlice::openText(const QString &name, char *text, FileFormat format, bool newTab)
 {
 	emit getInstance().openedText(name, text, format, newTab);
+}
+
+void GAlice::openBinary(const QString &name, uint8_t *bytes, size_t size, bool newTab)
+{
+	struct buffer b;
+	size_t hex_size = ((size / 16) + 1) * 76 + 1; // 76 chars per line, 16 bytes per line
+	buffer_init(&b, (uint8_t*)xmalloc(hex_size), hex_size);
+
+	for (unsigned addr = 0; addr < size; addr += 16) {
+		// write address
+		b.index += sprintf((char*)b.buf+b.index, "%08x ", addr);
+
+		// write bytes (hex)
+		unsigned i;
+		for (i = addr; i < addr + 16 && i < size; i++) {
+			b.index += sprintf((char*)b.buf+b.index, "%02hhx ", bytes[i]);
+		}
+		if (i == size) {
+			unsigned remaining = 16 - (i - addr);
+			memset(b.buf+b.index, ' ', remaining * 3);
+			b.index += remaining * 3;
+		}
+
+		b.buf[b.index++] = '|';
+		for (i = addr; i < addr + 16 && i < size; i++) {
+			b.buf[b.index++] = isprint(bytes[i]) ? bytes[i] : '?';
+		}
+		if (i == size) {
+			unsigned remaining = 16 - (i - addr);
+			memset(b.buf+b.index, ' ', remaining);
+			b.index += remaining;
+		}
+		b.buf[b.index++] = '|';
+		b.buf[b.index++] = '\n';
+	}
+
+	b.buf[b.index++] = '\0';
+
+	openText(name, (char*)b.buf, FileFormat::NONE, newTab);
+	free(b.buf);
 }
 
 void GAlice::openAinFunction(struct ain *ain, int i, bool newTab)

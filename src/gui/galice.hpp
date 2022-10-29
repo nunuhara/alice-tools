@@ -68,6 +68,7 @@ public:
 	static void openFile(const QString &path, bool newTab = false);
 	static void openArchiveData(struct archive_data *file, bool newTab = false);
 	static void openText(const QString &name, char *text, FileFormat format, bool newTab = false);
+	static void openBinary(const QString &name, uint8_t *bytes, size_t size, bool newTab = false);
 	static void openAinFunction(struct ain *ain, int i, bool newTab = false);
 	static void openExValue(const QString &name, struct ex_value *value, bool newTab = false);
 	static void error(const QString &message);
