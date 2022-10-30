@@ -34,6 +34,7 @@ enum {
 enum {
 	DASM_RAW = 1,
 	DASM_NO_MACROS = 2,
+	DASM_WARN_ON_ERROR = 4,
 };
 
 #define DASM_ERROR(dasm, fmt, ...) ERROR("At 0x%x: " fmt, dasm->addr, ##__VA_ARGS__)

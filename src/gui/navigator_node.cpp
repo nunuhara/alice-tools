@@ -159,7 +159,7 @@ bool NavigatorNode::write(struct port *port, FileFormat format) const
 		if (format != FileFormat::JAM)
 			return false;
 		set_encodings("UTF-8", "UTF-8");
-		_ain_disassemble_function(port, ainItem.ainFile, ainItem.i, 0);
+		_ain_disassemble_function(port, ainItem.ainFile, ainItem.i, DASM_WARN_ON_ERROR);
 		return true;
 	case EnumNode:
 		if (format != FileFormat::JAF)

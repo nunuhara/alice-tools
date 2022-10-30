@@ -107,5 +107,6 @@ struct archive *open_archive(const char *path, enum archive_type *type, int *err
 	// TODO: try to use file magic
 
 err:
-	ERROR("Couldn't determine archive type for '%s'", path);
+	WARNING("Couldn't determine archive type for '%s'", path);
+	return NULL;
 }

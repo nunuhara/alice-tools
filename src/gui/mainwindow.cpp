@@ -186,7 +186,7 @@ void MainWindow::openFunction(struct ain *ainObj, int i, bool newTab)
 	struct port port;
 	port_buffer_init(&port);
 	set_encodings("UTF-8", "UTF-8");
-	_ain_disassemble_function(&port, ainObj, i, 0);
+	_ain_disassemble_function(&port, ainObj, i, DASM_WARN_ON_ERROR);
 	char *data = (char*)port_buffer_get(&port, NULL);
 	openViewer(ainObj->functions[i].name, new JamView(data), newTab);
 	free(data);

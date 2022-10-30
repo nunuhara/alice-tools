@@ -112,7 +112,7 @@ static void add_jump_target(struct jump_target *target, ain_addr_t addr)
 		kv_push(struct jump_target*, *list, target);
 		kh_value(jump_table, k) = list;
 	} else {
-		ERROR("Failed to insert target into jump table (%d)", ret);
+		WARNING("Failed to insert target into jump table (%d)", ret);
 	}
 }
 
@@ -247,6 +247,16 @@ static void print_hll_function_name(struct dasm_state *dasm, struct ain_library 
 	dasm_print_identifier(dasm, name);
 }
 
+#define DASM_PRINT_ERROR(dasm, fmt, ...) \
+	do { \
+		if (dasm->flags & DASM_WARN_ON_ERROR) { \
+			DASM_WARNING(dasm, fmt, ##__VA_ARGS__); \
+			port_printf(dasm->port, "<" fmt ">", ##__VA_ARGS__); \
+		} else { \
+			DASM_ERROR(dasm, fmt, ##__VA_ARGS__); \
+		} \
+	} while (0)
+
 static void print_argument(struct dasm_state *dasm, int32_t arg, enum instruction_argtype type, possibly_unused const char **comment)
 {
 	if (dasm->flags & DASM_RAW) {
@@ -274,54 +284,62 @@ static void print_argument(struct dasm_state *dasm, int32_t arg, enum instructio
 		break;
 	case T_FUNC:
 		if (arg < 0 || arg >= ain->nr_functions)
-			DASM_ERROR(dasm, "Invalid function number: %d", arg);
-		print_function_name(dasm, &ain->functions[arg]);
+			DASM_PRINT_ERROR(dasm, "Invalid function number: %d", arg);
+		else
+			print_function_name(dasm, &ain->functions[arg]);
 		break;
 	case T_DLG:
 		if (arg < 0 || arg >= ain->nr_delegates)
-			DASM_ERROR(dasm, "Invalid delegate number: %d", arg);
-		dasm_print_identifier(dasm, ain->delegates[arg].name);
+			DASM_PRINT_ERROR(dasm, "Invalid delegate number: %d", arg);
+		else
+			dasm_print_identifier(dasm, ain->delegates[arg].name);
 		break;
 	case T_STRING:
 		if (arg < 0 || arg >= ain->nr_strings)
-			DASM_ERROR(dasm, "Invalid string number: %d", arg);
-		dasm_print_string(dasm, ain->strings[arg]->text);
+			DASM_PRINT_ERROR(dasm, "Invalid string number: %d", arg);
+		else
+			dasm_print_string(dasm, ain->strings[arg]->text);
 		break;
 	case T_MSG:
 		if (arg < 0 || arg >= ain->nr_messages)
-			DASM_ERROR(dasm, "Invalid message number: %d", arg);
-		port_printf(dasm->port, "0x%x ", arg);
+			DASM_PRINT_ERROR(dasm, "Invalid message number: %d", arg);
+		else
+			port_printf(dasm->port, "0x%x ", arg);
 		*comment = ain->messages[arg]->text;
 		break;
 	case T_LOCAL:
-		if (dasm->func < 0)
-			DASM_ERROR(dasm, "Attempt to access local variable outside of function");
-		if (arg < 0 || arg >= ain->functions[dasm->func].nr_vars) {
-			DASM_WARNING(dasm, "Invalid variable number: %d", arg);
-			port_printf(dasm->port, "%d", arg);
+		if (dasm->func < 0) {
+			DASM_PRINT_ERROR(dasm, "Attempt to access local variable outside of function");
+		} else if (arg < 0 || arg >= ain->functions[dasm->func].nr_vars) {
+			DASM_PRINT_ERROR(dasm, "Invalid variable number: %d", arg);
 			break;
+		} else {
+			dasm_print_local_variable(dasm, &ain->functions[dasm->func], arg);
 		}
-		dasm_print_local_variable(dasm, &ain->functions[dasm->func], arg);
 		break;
 	case T_GLOBAL:
 		if (arg < 0 || arg >= ain->nr_globals)
-			DASM_ERROR(dasm, "Invalid global number: %d", arg);
-		dasm_print_identifier(dasm, ain->globals[arg].name);
+			DASM_PRINT_ERROR(dasm, "Invalid global number: %d", arg);
+		else
+			dasm_print_identifier(dasm, ain->globals[arg].name);
 		break;
 	case T_STRUCT:
 		if (arg < 0 || arg >= ain->nr_structures)
-			DASM_ERROR(dasm, "Invalid struct number: %d", arg);
-		dasm_print_identifier(dasm, ain->structures[arg].name);
+			DASM_PRINT_ERROR(dasm, "Invalid struct number: %d", arg);
+		else
+			dasm_print_identifier(dasm, ain->structures[arg].name);
 		break;
 	case T_SYSCALL:
 		if (arg < 0 || arg >= NR_SYSCALLS || !syscalls[arg].name)
-			DASM_ERROR(dasm, "Invalid/unknown syscall number: %d", arg);
-		port_printf(dasm->port, "%s", syscalls[arg].name);
+			DASM_PRINT_ERROR(dasm, "Invalid/unknown syscall number: %d", arg);
+		else
+			port_printf(dasm->port, "%s", syscalls[arg].name);
 		break;
 	case T_HLL:
 		if (arg < 0 || arg >= ain->nr_libraries)
-			DASM_ERROR(dasm, "Invalid HLL library number: %d", arg);
-		dasm_print_identifier(dasm, ain->libraries[arg].name);
+			DASM_PRINT_ERROR(dasm, "Invalid HLL library number: %d", arg);
+		else
+			dasm_print_identifier(dasm, ain->libraries[arg].name);
 		break;
 	case T_HLLFUNC:
 		port_printf(dasm->port, "0x%x", arg);
@@ -332,8 +350,9 @@ static void print_argument(struct dasm_state *dasm, int32_t arg, enum instructio
 			break;
 		}
 		if (arg < 0 || arg >= ain->nr_filenames)
-			DASM_ERROR(dasm, "Invalid file number: %d", arg);
-		dasm_print_identifier(dasm, ain->filenames[arg]);
+			DASM_PRINT_ERROR(dasm, "Invalid file number: %d", arg);
+		else
+			dasm_print_identifier(dasm, ain->filenames[arg]);
 		break;
 	default:
 		port_printf(dasm->port, "<UNKNOWN ARG TYPE: %d>", type);
@@ -374,14 +393,30 @@ static void print_arguments(struct dasm_state *dasm, const struct instruction *i
 static const struct instruction *dasm_get_instruction(struct dasm_state *dasm)
 {
 	uint16_t opcode = LittleEndian_getW(dasm->ain->code, dasm->addr);
-	if (opcode >= NR_OPCODES)
-		DASM_ERROR(dasm, "Unknown/invalid opcode: %u", opcode);
+	if (opcode >= NR_OPCODES) {
+		if (dasm->flags & DASM_WARN_ON_ERROR) {
+			DASM_WARNING(dasm, "Unknown/invalid opcode: %u", opcode);
+			goto error;
+		} else {
+			DASM_ERROR(dasm, "Unknown/invalid opcode: %u", opcode);
+		}
+	}
 
 	const struct instruction *instr = &instructions[opcode];
-	if (dasm->addr + instr->nr_args * 4 >= dasm->ain->code_size)
-		DASM_ERROR(dasm, "CODE section truncated?");
+	if (dasm->addr + instr->nr_args * 4 >= dasm->ain->code_size) {
+		if (dasm->flags & DASM_WARN_ON_ERROR) {
+			DASM_WARNING(dasm, "CODE section truncated?");
+			goto error;
+		} else {
+			DASM_ERROR(dasm, "CODE section truncated?");
+		}
+	}
 
 	return instr;
+error:
+	// jump to EOF
+	dasm->addr = dasm->ain->code_size;
+	return &instructions[0];
 }
 
 void dasm_init(struct dasm_state *dasm, struct port *port, struct ain *ain, uint32_t flags)
@@ -470,8 +505,14 @@ static void print_function_info(struct dasm_state *dasm, int fno)
 
 static void dasm_enter_function(struct dasm_state *dasm, int fno)
 {
-	if (fno < 0 || fno >= dasm->ain->nr_functions)
-		DASM_ERROR(dasm, "Invalid function number: %d", fno);
+	if (fno < 0 || fno >= dasm->ain->nr_functions) {
+		if (dasm->flags & DASM_WARN_ON_ERROR) {
+			DASM_WARNING(dasm, "Invalid function number: %d", fno);
+			fno = 0;
+		} else {
+			DASM_ERROR(dasm, "Invalid function number: %d", fno);
+		}
+	}
 
 	for (int i = 1; i < DASM_FUNC_STACK_SIZE; i++) {
 		dasm->func_stack[i] = dasm->func_stack[i-1];

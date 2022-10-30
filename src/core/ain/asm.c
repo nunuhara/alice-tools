@@ -1146,6 +1146,9 @@ void ain_inject_jam(const char *filename, struct ain *ain, char *function, unsig
 	state.buf_ptr = ain->code_size;
 
 	int fno = ain_get_function(ain, function);
+	if (fno < 0) {
+		ERROR("Unable to resolve function: %s", function);
+	}
 	jam_inject(&state, filename, fno, offset);
 
 	free(ain->code);
