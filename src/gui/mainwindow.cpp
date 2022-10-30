@@ -75,7 +75,7 @@ void MainWindow::open()
 void MainWindow::about()
 {
         QMessageBox::about(this, tr("About alice-tools"),
-                           tr("TODO"));
+                           "alice-tools version " ALICE_TOOLS_VERSION);
 }
 
 void MainWindow::createActions()
@@ -88,6 +88,15 @@ void MainWindow::createActions()
         openAct->setStatusTip(tr("Open an existing file"));
         connect(openAct, &QAction::triggered, this, &MainWindow::open);
         fileMenu->addAction(openAct);
+
+	fileMenu->addSeparator();
+
+	const QIcon exitIcon = QIcon::fromTheme("application-exit");
+	QAction *exitAct = new QAction(exitIcon, tr("E&xit"), this);
+	exitAct->setShortcuts(QKeySequence::Quit);
+	exitAct->setStatusTip(tr("Exit the application"));
+	connect(exitAct, &QAction::triggered, this, &QWidget::close);
+	fileMenu->addAction(exitAct);
 
         viewMenu = menuBar()->addMenu(tr("&View"));
 
