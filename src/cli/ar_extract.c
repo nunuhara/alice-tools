@@ -49,60 +49,11 @@ enum {
 	LOPT_IMAGE_FORMAT,
 	LOPT_IMAGES_ONLY,
 	LOPT_RAW,
-	LOPT_TOC,
 };
-
-static char *toc_read_filename(char **data)
-{
-	char *p = *data;
-	if (!p)
-		return NULL;
-
-	// skip initial ws
-	while (*p == '\n' || *p == '\r') {
-		p++;
-	}
-
-	// skip filename
-	char *start = p;
-	while (*p && *p != '\r' && *p != '\n') {
-		p++;
-	}
-
-	// write null terminator
-	if (*p == 0) {
-		*data = NULL;
-	} else {
-		*p = 0;
-		*data = p+1;
-	}
-
-	return start;
-}
-
-static char **parse_toc(const char *toc_file, size_t *_nr_files)
-{
-	size_t file_size;
-	char *file_data = file_read(toc_file, &file_size);
-
-	char *filename;
-	char *p = file_data;
-	char **files = NULL;
-	size_t nr_files = 0;
-	while ((filename = toc_read_filename(&p))) {
-		files = xrealloc(files, (nr_files+1) * sizeof(char*));
-		files[nr_files++] = strdup(filename);
-	}
-
-	free(file_data);
-	*_nr_files = nr_files;
-	return files;
-}
 
 int command_ar_extract(int argc, char *argv[])
 {
 	char *output_file = NULL;
-	char *toc_file = NULL;
 	char *file_name = NULL;
 	int file_index = -1;
 
@@ -145,9 +96,6 @@ int command_ar_extract(int argc, char *argv[])
 		case LOPT_RAW:
 			flags |= AR_RAW;
 			break;
-		case LOPT_TOC:
-			toc_file = optarg;
-			break;
 		}
 	}
 
@@ -168,26 +116,16 @@ int command_ar_extract(int argc, char *argv[])
 		ERROR("Opening archive: %s", archive_strerror(error));
 	}
 
-	size_t toc_size = 0;
-	char **toc = NULL;
-	if (toc_file) {
-		toc = parse_toc(toc_file, &toc_size);
-	}
-
 	// run command
 	if (file_index >= 0) {
 		ar_extract_index(ar, file_index, output_file, flags);
 	} else if (file_name) {
 		ar_extract_file(ar, file_name, output_file, flags);
 	} else {
-		ar_extract_all(ar, output_file, flags, toc, toc_size);
+		ar_extract_all(ar, output_file, flags);
 	}
 
 	archive_free(ar);
-	for (size_t i = 0; i < toc_size; i++) {
-		free(toc[i]);
-	}
-	free(toc);
 	return 0;
 }
 
@@ -205,7 +143,6 @@ struct command cmd_ar_extract = {
 		{ "image-format", 0,   "Image output format (png or webp)", required_argument, LOPT_IMAGE_FORMAT },
 		{ "images-only",  0,   "Only extract images",               no_argument,       LOPT_IMAGES_ONLY },
 		{ "raw",          0,   "Don't convert image files",         no_argument,       LOPT_RAW },
-		{ "toc",          0,   "Specify table of contents file",    required_argument, LOPT_TOC },
 		{ 0 }
 	}
 };

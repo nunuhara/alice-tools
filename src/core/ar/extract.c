@@ -35,9 +35,6 @@ enum filetype {
 	FT_FLAT,
 };
 
-char **toc = NULL;
-size_t toc_size = 0;
-
 // Add a trailing slash to a path
 static char *output_file_dir(const char *path)
 {
@@ -100,18 +97,7 @@ static char *get_default_filename(struct archive_data *data, enum filetype ft, u
 		}
 	}
 
-	// get filename
-	char *u;
-	if (toc) {
-		if ((size_t)data->no >= toc_size) {
-			WARNING("index exceeds table-of-contents length");
-			u = conv_output(data->name);
-		} else {
-			u = strdup(toc[data->no]);
-		}
-	} else {
-		u = conv_output(data->name);
-	}
+	char *u = conv_output(data->name);
 
 	if (ext) {
 		size_t ulen = strlen(u);
@@ -268,10 +254,8 @@ static void check_flags(uint32_t *flags)
 	}
 }
 
-void ar_extract_all(struct archive *ar, const char *_output_file, uint32_t flags, char **_toc, size_t _toc_size)
+void ar_extract_all(struct archive *ar, const char *_output_file, uint32_t flags)
 {
-	toc = _toc;
-	toc_size = _toc_size;
 	check_flags(&flags);
 	char *output_file = output_file_dir(_output_file);
 	struct extract_all_iter_data data = { .prefix = output_file, .flags = flags };

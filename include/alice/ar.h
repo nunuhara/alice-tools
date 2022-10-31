@@ -145,7 +145,7 @@ enum ar_filetype ar_parse_filetype(struct string *str);
 void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_files, int version);
 
 // extract.c
-void ar_extract_all(struct archive *ar, const char *output_file, uint32_t flags, char **toc, size_t toc_size);
+void ar_extract_all(struct archive *ar, const char *output_file, uint32_t flags);
 void ar_extract_file(struct archive *ar, char *file_name, char *output_file, uint32_t flags);
 void ar_extract_index(struct archive *ar, int file_index, char *output_file, uint32_t flags);
 

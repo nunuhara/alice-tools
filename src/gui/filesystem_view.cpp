@@ -75,7 +75,7 @@ void FileSystemView::extract(const QModelIndex &index)
 	if (!dir.isEmpty()) {
 		QGuiApplication::setOverrideCursor(Qt::WaitCursor);
 		QByteArray u = dir.toUtf8();
-		ar_extract_all(ar, u, 0, NULL, 0);
+		ar_extract_all(ar, u, 0);
 		QGuiApplication::restoreOverrideCursor();
 	}
 	archive_free(ar);
