@@ -55,6 +55,7 @@ extern struct command cmd_ar_extract;
 extern struct command cmd_ar_list;
 extern struct command cmd_ar_pack;
 extern struct command cmd_cg_convert;
+extern struct command cmd_cg_thumbnail;
 extern struct command cmd_ex_build;
 extern struct command cmd_ex_compare;
 extern struct command cmd_ex_dump;

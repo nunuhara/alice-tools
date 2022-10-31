@@ -80,6 +80,7 @@ struct command cmd_cg = {
 	.parent = &cmd_alice,
 	.commands = {
 		&cmd_cg_convert,
+		&cmd_cg_thumbnail,
 		NULL
 	}
 };

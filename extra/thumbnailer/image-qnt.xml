@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
+    <mime-type type="image/qnt">
+        <comment>AliceSoft QNT image</comment>
+        <glob pattern="*.qnt"/>
+    </mime-type>
+</mime-info>

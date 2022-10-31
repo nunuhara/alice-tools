@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
+    <mime-type type="image/dcf">
+        <comment>AliceSoft DCF image</comment>
+        <glob pattern="*.dcf"/>
+    </mime-type>
+</mime-info>

@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
+    <mime-type type="image/pms">
+        <comment>AliceSoft PMS image</comment>
+        <glob pattern="*.pms"/>
+    </mime-type>
+</mime-info>
