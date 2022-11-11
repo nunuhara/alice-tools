@@ -95,6 +95,8 @@ FileFormat extensionToFileFormat(QString extension)
 		return FileFormat::AJP;
 	if (!extension.compare("dcf", Qt::CaseInsensitive))
 		return FileFormat::DCF;
+	if (!extension.compare("pcf", Qt::CaseInsensitive))
+		return FileFormat::PCF;
 	if (!extension.compare("jaf", Qt::CaseInsensitive))
 		return FileFormat::JAF;
 	if (!extension.compare("hll", Qt::CaseInsensitive))
@@ -139,6 +141,8 @@ QString fileFormatToExtension(FileFormat format)
 		return "ajp";
 	case FileFormat::DCF:
 		return "dcf";
+	case FileFormat::PCF:
+		return "pcf";
 	case FileFormat::JAF:
 		return "jaf";
 	case FileFormat::JAM:
@@ -182,6 +186,7 @@ bool isImageFormat(FileFormat format)
 	case FileFormat::QNT:
 	case FileFormat::AJP:
 	case FileFormat::DCF:
+	case FileFormat::PCF:
 		return true;
 	default:
 		return false;
@@ -219,6 +224,7 @@ void GAlice::openFile(const QString &path, bool newTab)
 	case FileFormat::QNT:
 	case FileFormat::AJP:
 	case FileFormat::DCF:
+	case FileFormat::PCF:
 		openImageFile(path, newTab);
 		break;
 	case FileFormat::AIN:

@@ -37,6 +37,7 @@ enum class FileFormat {
 	QNT,
 	AJP,
 	DCF,
+	PCF,
 	JAF,
 	JAM,
 	AAR,

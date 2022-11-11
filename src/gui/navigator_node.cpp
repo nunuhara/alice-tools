@@ -48,9 +48,13 @@ static QVector<FileFormat> getSupportedConversionFormats(FileFormat from)
 	case FileFormat::PNG:
 	case FileFormat::WEBP:
 	case FileFormat::QNT:
-	case FileFormat::AJP:
-	case FileFormat::DCF:
 		return QVector({FileFormat::PNG, FileFormat::WEBP, FileFormat::QNT});
+	case FileFormat::AJP:
+		return QVector({FileFormat::AJP, FileFormat::PNG, FileFormat::WEBP, FileFormat::QNT});
+	case FileFormat::DCF:
+		return QVector({FileFormat::DCF, FileFormat::PNG, FileFormat::WEBP, FileFormat::QNT});
+	case FileFormat::PCF:
+		return QVector({FileFormat::PCF, FileFormat::PNG, FileFormat::WEBP, FileFormat::QNT});
 	case FileFormat::JAF:
 	case FileFormat::JAM:
 		return QVector({from});
@@ -102,6 +106,7 @@ static bool convertFormat(struct port *port, uint8_t *data, size_t size, FileFor
 	case FileFormat::QNT:
 	case FileFormat::AJP:
 	case FileFormat::DCF:
+	case FileFormat::PCF:
 		switch (to) {
 		case FileFormat::PNG:  cg_type = ALCG_PNG;  break;
 		case FileFormat::WEBP: cg_type = ALCG_WEBP; break;
