@@ -408,8 +408,11 @@ void GAlice::openText(const QString &name, char *text, FileFormat format, bool n
 void GAlice::openBinary(const QString &name, uint8_t *bytes, size_t size, bool newTab)
 {
 	struct buffer b;
-	size_t hex_size = ((size / 16) + 1) * 76 + 1; // 76 chars per line, 16 bytes per line
+	size_t hex_size = ((size / 16) + 3) * 76 + 1; // 76 chars per line, 16 bytes per line
 	buffer_init(&b, (uint8_t*)xmalloc(hex_size), hex_size);
+
+	buffer_write_cstring(&b, "Address  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  ASCII             \n");
+	buffer_write_cstring(&b, "-------- ----------------------------------------------- ------------------\n");
 
 	for (unsigned addr = 0; addr < size; addr += 16) {
 		// write address
