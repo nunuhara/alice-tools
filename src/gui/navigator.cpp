@@ -108,6 +108,7 @@ void Navigator::addArchive(const QString &fileName, std::shared_ptr<struct archi
         QWidget *widget = new QWidget;
         NavigatorModel *model = NavigatorModel::fromArchive(ar);
         NavigatorView *view = new NavigatorView(model);
+	view->setColumnWidth(0, 500);
 
         QVBoxLayout *layout = new QVBoxLayout(widget);
         layout->addWidget(view);
