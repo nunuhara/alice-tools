@@ -553,7 +553,7 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		state->ain->messages[n_msg] = make_string(sjis, strlen(sjis));
 		free(sjis);
 
-		asm_write_instruction1(state, MSG, n_msg);
+		asm_write_instruction1(state, _MSG, n_msg);
 		break;
 	}
 	case PO_LOCALREF: {

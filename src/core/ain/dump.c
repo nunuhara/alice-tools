@@ -174,7 +174,7 @@ void ain_dump_text(struct port *port, struct ain *ain)
 			dump_text_string(port, &fun, ain, dasm_arg(&dasm, 0));
 			break;
 			// TODO: other instructions with string arguments
-		case MSG:
+		case _MSG:
 			dump_text_message(port, &fun, ain, dasm_arg(&dasm, 0));
 			break;
 		default:

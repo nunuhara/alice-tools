@@ -1564,7 +1564,7 @@ static void compile_message(struct compiler_state *state, struct jaf_block_item 
 	char *msg = conv_output(item->msg.text->text);
 	int no = ain_add_message(state->ain, msg);
 	free(msg);
-	write_instruction1(state, MSG, no);
+	write_instruction1(state, _MSG, no);
 	if (item->msg.func)
 		write_instruction1(state, CALLFUNC, item->msg.func_no);
 }
