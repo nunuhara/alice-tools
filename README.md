@@ -43,21 +43,22 @@ instructions. E.g.
 
 The currently implemented commands are:
 
-    alice acx     build   - Build a .acx file from a .csv
-    alice acx     dump    - Dump the contents of a .acx file to .csv
-    alice ain     compare - Compare .ain files
-    alice ain     dump    - Dump various info fram a .ain file
-    alice ain     edit    - Edit a .ain file
-    alice ar      extract - Extract an archive file
-    alice ar      list    - List the contents of an archive file
-    alice ar      pack    - Create an archive file
-    alice cg      convert - Convert a CG file to another format
-    alice ex      build   - Build a .ex file
-    alice ex      compare - Compare .ex files
-    alice ex      dump    - Dump the contents of a .ex file
-    alice flat    build   - Build a .flat file
-    alice flat    extract - Extract the contents of a .flat file
-    alice project build   - Build a .pje project file
+    alice acx     build     - Build a .acx file from a .csv
+    alice acx     dump      - Dump the contents of a .acx file to .csv
+    alice ain     compare   - Compare .ain files
+    alice ain     dump      - Dump various info fram a .ain file
+    alice ain     edit      - Edit a .ain file
+    alice ar      extract   - Extract an archive file
+    alice ar      list      - List the contents of an archive file
+    alice ar      pack      - Create an archive file
+    alice cg      convert   - Convert a CG file to another format
+    alice cg      thumbnail - Create a thumbnail for a CG file
+    alice ex      build     - Build a .ex file
+    alice ex      compare   - Compare .ex files
+    alice ex      dump      - Dump the contents of a .ex file
+    alice flat    build     - Build a .flat file
+    alice flat    extract   - Extract the contents of a .flat file
+    alice project build     - Build a .pje project file
 
 ### Editing .ain files
 
@@ -101,6 +102,16 @@ nunuhara@haniwa.technology, or find me on /haniho/.
 
 Version History
 ---------------
+
+### [Version 0.12.0](https://haniwa.technology/alice-tools/alice-tools-0.12.0.zip)
+
+* Add GUI viewer ("galice") for archives, ain files, ex files, and more
+* Implement support for AAR archives
+* Implement proper DCF image support
+* Implement PCF image support
+* Add `cg thumbnail` command for thumbnailing AliceSoft's image formats
+* Fix issue that prevented opening Healing Touch ain files
+* Various compiler improvements
 
 ### [Version 0.11.1](https://haniwa.technology/alice-tools/alice-tools-0.11.1.zip)
 

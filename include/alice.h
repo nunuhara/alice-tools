@@ -23,7 +23,7 @@
 #include "system4.h"
 #include "system4/file.h"
 
-#define ALICE_TOOLS_VERSION "0.11.1"
+#define ALICE_TOOLS_VERSION "0.12.0"
 
 #define ALICE_ERROR(msg, ...) sys_error("ERROR: " msg "\n", ##__VA_ARGS__)
 

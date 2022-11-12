@@ -133,5 +133,6 @@ if qt5_dep.found()
     executable('galice', gui_sources, generated_files,
                dependencies : [tool_deps, qt5_dep],
                link_with : libalice,
-               include_directories : incdir)
+               include_directories : incdir,
+               gui_app : true)
 endif
