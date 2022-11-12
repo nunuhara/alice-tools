@@ -53,10 +53,16 @@ Navigator::~Navigator()
 void Navigator::addFilesystem()
 {
         QFileSystemModel *model = new QFileSystemModel;
-        model->setRootPath(QDir::currentPath());
+        model->setRootPath(QDir::rootPath());
 
 	FileSystemView *tree = new FileSystemView(model);
-        tree->setRootIndex(model->index(QDir::currentPath()));
+        tree->setRootIndex(model->index(QDir::rootPath()));
+
+	QModelIndex index = model->index(QDir::currentPath());
+	while (index.isValid()) {
+		tree->setExpanded(index, true);
+		index = index.parent();
+	}
 
         for (int i = 1; i < model->columnCount(); i++) {
                 tree->setColumnHidden(i, true);
