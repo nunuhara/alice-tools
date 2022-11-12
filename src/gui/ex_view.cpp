@@ -53,6 +53,8 @@ ExView::ExView(QWidget *parent)
 
 	fmt.setForeground(Qt::darkGreen);
 	highlighter->addRule(QRegularExpression(QStringLiteral("//[^\n]*")), fmt);
+
+	setReadOnly(true);
 }
 
 ExView::ExView(const QString &text, QWidget *parent)

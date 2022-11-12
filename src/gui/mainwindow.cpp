@@ -252,6 +252,7 @@ void MainWindow::openText(const QString &label, const QString &text, bool newTab
         QTextEdit *viewer = new QTextEdit;
         viewer->setFont(font);
         viewer->setPlainText(text);
+	viewer->setReadOnly(true);
 
         openViewer(label, viewer, newTab);
 }

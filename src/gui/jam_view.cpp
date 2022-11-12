@@ -53,6 +53,8 @@ JamView::JamView(QWidget *parent)
 
 	fmt.setForeground(Qt::darkGreen);
 	highlighter->addRule(QRegularExpression(QStringLiteral(";[^\n]*")), fmt);
+
+	setReadOnly(true);
 }
 
 JamView::JamView(const QString &text, QWidget *parent)

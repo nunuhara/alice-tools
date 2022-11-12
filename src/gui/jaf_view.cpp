@@ -33,6 +33,7 @@ JafView::JafView(QWidget *parent)
 	QTextCharFormat fmt;
 
 	fmt.setForeground(Qt::blue);
+	highlighter->addRule(QRegularExpression(QStringLiteral("\\bvoid\\b")), fmt);
 	highlighter->addRule(QRegularExpression(QStringLiteral("\\bint\\b")), fmt);
 	highlighter->addRule(QRegularExpression(QStringLiteral("\\bfloat\\b")), fmt);
 	highlighter->addRule(QRegularExpression(QStringLiteral("\\bbool\\b")), fmt);
@@ -65,6 +66,8 @@ JafView::JafView(QWidget *parent)
 
 	fmt.setForeground(Qt::darkGreen);
 	highlighter->addRule(QRegularExpression(QStringLiteral("//[^\n]*")), fmt);
+
+	setReadOnly(true);
 }
 
 JafView::JafView(const QString &text, QWidget *parent)
