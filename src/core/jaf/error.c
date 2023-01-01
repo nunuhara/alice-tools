@@ -391,7 +391,7 @@ static void jaf_error_msg(const char *file, int line, const char *msgf, va_list 
 }
 
 
-noreturn void jaf_generic_error(const char *file, int line, const char *msgf, ...)
+_Noreturn void jaf_generic_error(const char *file, int line, const char *msgf, ...)
 {
 	va_list ap;
 	va_start(ap, msgf);
@@ -402,7 +402,7 @@ noreturn void jaf_generic_error(const char *file, int line, const char *msgf, ..
 	sys_exit(1);
 }
 
-noreturn void jaf_expression_error(struct jaf_expression *expr, const char *msgf, ...)
+_Noreturn void jaf_expression_error(struct jaf_expression *expr, const char *msgf, ...)
 {
 	va_list ap;
 	va_start(ap, msgf);
@@ -415,7 +415,7 @@ noreturn void jaf_expression_error(struct jaf_expression *expr, const char *msgf
 	sys_exit(1);
 }
 
-noreturn void jaf_block_item_error(struct jaf_block_item *item, const char *msgf, ...)
+_Noreturn void jaf_block_item_error(struct jaf_block_item *item, const char *msgf, ...)
 {
 	va_list ap;
 	va_start(ap, msgf);

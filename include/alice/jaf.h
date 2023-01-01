@@ -446,9 +446,9 @@ struct jaf_env {
 	struct jaf_env_local *locals;
 };
 
-noreturn void jaf_generic_error(const char *file, int line, const char *msgf, ...);
-noreturn void jaf_expression_error(struct jaf_expression *expr, const char *msgf, ...);
-noreturn void jaf_block_item_error(struct jaf_block_item *item, const char *msgf, ...);
+_Noreturn void jaf_generic_error(const char *file, int line, const char *msgf, ...);
+_Noreturn void jaf_expression_error(struct jaf_expression *expr, const char *msgf, ...);
+_Noreturn void jaf_block_item_error(struct jaf_block_item *item, const char *msgf, ...);
 
 // jaf_ast.c
 struct jaf_expression *jaf_integer(int i);
