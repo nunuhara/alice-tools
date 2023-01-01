@@ -171,7 +171,7 @@ void jaf_print_expression(FILE *out, struct jaf_expression *expr)
 		fputc('(', out);
 		jaf_print_expression(out, expr->lhs);
 		fputc(' ', out);
-		fprintf(out, jaf_op_to_string(expr->op));
+		fprintf(out, "%s", jaf_op_to_string(expr->op));
 		fputc(' ', out);
 		jaf_print_expression(out, expr->rhs);
 		fputc(')', out);
