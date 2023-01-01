@@ -44,20 +44,20 @@ static QVector<FileFormat> getSupportedConversionFormats(FileFormat from)
 		return QVector<FileFormat>();
 	case FileFormat::EX:
 	case FileFormat::TXTEX:
-		return QVector({FileFormat::EX, FileFormat::TXTEX});
+		return QVector<FileFormat>({FileFormat::EX, FileFormat::TXTEX});
 	case FileFormat::PNG:
 	case FileFormat::WEBP:
 	case FileFormat::QNT:
-		return QVector({FileFormat::PNG, FileFormat::WEBP, FileFormat::QNT});
+		return QVector<FileFormat>({FileFormat::PNG, FileFormat::WEBP, FileFormat::QNT});
 	case FileFormat::AJP:
-		return QVector({FileFormat::AJP, FileFormat::PNG, FileFormat::WEBP, FileFormat::QNT});
+		return QVector<FileFormat>({FileFormat::AJP, FileFormat::PNG, FileFormat::WEBP, FileFormat::QNT});
 	case FileFormat::DCF:
-		return QVector({FileFormat::DCF, FileFormat::PNG, FileFormat::WEBP, FileFormat::QNT});
+		return QVector<FileFormat>({FileFormat::DCF, FileFormat::PNG, FileFormat::WEBP, FileFormat::QNT});
 	case FileFormat::PCF:
-		return QVector({FileFormat::PCF, FileFormat::PNG, FileFormat::WEBP, FileFormat::QNT});
+		return QVector<FileFormat>({FileFormat::PCF, FileFormat::PNG, FileFormat::WEBP, FileFormat::QNT});
 	case FileFormat::JAF:
 	case FileFormat::JAM:
-		return QVector({from});
+		return QVector<FileFormat>({from});
 	}
 	return QVector<FileFormat>();
 }
@@ -77,13 +77,13 @@ QVector<FileFormat> NavigatorNode::getSupportedFormats() const
 	case FuncTypeNode:
 	case DelegateNode:
 	case LibraryNode:
-		return QVector({FileFormat::JAF});
+		return QVector<FileFormat>({FileFormat::JAF});
 	case FunctionNode:
-		return QVector({FileFormat::JAM});
+		return QVector<FileFormat>({FileFormat::JAM});
 	case ExStringKeyValueNode:
 	case ExIntKeyValueNode:
 	case ExRowNode:
-		return QVector({FileFormat::TXTEX});
+		return QVector<FileFormat>({FileFormat::TXTEX});
 	case FileNode:
 		return getSupportedConversionFormats(
 				extensionToFileFormat(
