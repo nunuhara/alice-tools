@@ -87,6 +87,7 @@ void ain_dump_global(struct port *port, struct ain *ain, int i);
 void ain_dump_structure(struct port *port, struct ain *ain, int i);
 void ain_dump_text(struct port *port, struct ain *ain);
 void ain_dump_library(struct port *port, struct ain *ain, int lib);
+void ain_dump_library_stub(struct port *port, struct ain_library *lib);
 void ain_dump_functype(struct port *port, struct ain *ain, int i, bool delegate);
 void ain_dump_enum(struct port *port, struct ain *ain, int i);
 

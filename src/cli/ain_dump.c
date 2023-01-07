@@ -116,6 +116,28 @@ static void ain_dump_hll(struct port *port, struct ain *ain)
 	port_printf(port, "}\n");
 }
 
+static void ain_dump_hll_stubs(struct port *port, struct ain *ain)
+{
+	for (int i = 0; i < ain->nr_libraries; i++) {
+		char *name = conv_output(ain->libraries[i].name);
+		size_t name_len = strlen(name);
+		port_printf(port, "%s.c\n", name);
+
+		char *file_name = xmalloc(name_len + 3);
+		memcpy(file_name, name, name_len);
+		memcpy(file_name+name_len, ".c", 3);
+
+		struct port file_port;
+		if (!port_file_open(&file_port, file_name)) {
+			ALICE_ERROR("fopen: %s", strerror(errno));
+		}
+		ain_dump_library_stub(&file_port, &ain->libraries[i]);
+		port_close(&file_port);
+		free(file_name);
+		free(name);
+	}
+}
+
 static void ain_dump_strings(struct port *port, struct ain *ain)
 {
 	for (int i = 0; i < ain->nr_strings; i++) {
@@ -260,6 +282,7 @@ enum {
 	LOPT_STRINGS,
 	LOPT_LIBRARIES,
 	LOPT_HLL,
+	LOPT_HLL_STUBS,
 	LOPT_FILENAMES,
 	LOPT_FUNCTION_TYPES,
 	LOPT_DELEGATES,
@@ -353,6 +376,9 @@ int command_ain_dump(int argc, char *argv[])
 			break;
 		case LOPT_HLL:
 			dump_targets[dump_ptr++] = LOPT_HLL;
+			break;
+		case LOPT_HLL_STUBS:
+			dump_targets[dump_ptr++] = LOPT_HLL_STUBS;
 			break;
 		case 'F':
 		case LOPT_FILENAMES:
@@ -448,6 +474,7 @@ int command_ain_dump(int argc, char *argv[])
 		case LOPT_STRINGS:        ain_dump_strings(&port, ain); break;
 		case LOPT_LIBRARIES:      ain_dump_libraries(&port, ain); break;
 		case LOPT_HLL:            ain_dump_hll(&port, ain); break;
+		case LOPT_HLL_STUBS:      ain_dump_hll_stubs(&port, ain); break;
 		case LOPT_FILENAMES:      ain_dump_filenames(&port, ain); break;
 		case LOPT_FUNCTION_TYPES: ain_dump_functypes(&port, ain, false); break;
 		case LOPT_DELEGATES:      ain_dump_functypes(&port, ain, true); break;
@@ -488,6 +515,7 @@ struct command cmd_ain_dump = {
 		{ "strings",            's', "Dump strings section",                          no_argument,       LOPT_STRINGS },
 		{ "libraries",          'l', "Dump libraries section",                        no_argument,       LOPT_LIBRARIES },
 		{ "hll",                0,   "Dump HLL files",                                no_argument,       LOPT_HLL },
+		{ "hll-stubs",          0,   "Dump HLL stubs for xsystem4",                   no_argument,       LOPT_HLL_STUBS },
 		{ "filenames",          'F', "Dump filenames",                                no_argument,       LOPT_FILENAMES },
 		{ "function-types",     0,   "Dump function types section",                   no_argument,       LOPT_FUNCTION_TYPES },
 		{ "delegates",          0,   "Dump delegate types section",                   no_argument,       LOPT_DELEGATES },
