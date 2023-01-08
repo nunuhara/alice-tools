@@ -103,6 +103,11 @@ nunuhara@haniwa.technology, or find me on /haniho/.
 Version History
 ---------------
 
+### [Version 0.12.1](https://haniwa.technology/alice-tools/alice-tools-0.12.1.zip)
+
+* Fix issues with extracting .dcf and .pcf images from Dohna Dohna
+* Add option to `ain dump` to dump HLL stubs for xsystem4
+
 ### [Version 0.12.0](https://haniwa.technology/alice-tools/alice-tools-0.12.0.zip)
 
 * Add GUI viewer ("galice") for archives, ain files, ex files, and more
