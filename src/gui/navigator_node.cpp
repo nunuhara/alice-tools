@@ -92,10 +92,10 @@ QVector<FileFormat> NavigatorNode::getSupportedFormats() const
 	return QVector<FileFormat>();
 }
 
-static bool convertFormat(struct port *port, uint8_t *data, size_t size, FileFormat from, FileFormat to)
+static bool convertFormat(struct port *port, struct archive_data *dfile, FileFormat from, FileFormat to)
 {
 	if (from == to) {
-		return port_write_bytes(port, data, size);
+		return port_write_bytes(port, dfile->data, dfile->size);
 	}
 
 	struct cg *cg;
@@ -116,7 +116,7 @@ static bool convertFormat(struct port *port, uint8_t *data, size_t size, FileFor
 		// FIXME: cg_write can only write to files...
 		if (port->type != PORT_TYPE_FILE)
 			return false;
-		if (!(cg = cg_load_buffer(data, size)))
+		if (!(cg = cg_load_data(dfile)))
 			return false;
 		cg_write(cg, cg_type, port->file);
 		cg_free(cg);
@@ -210,7 +210,7 @@ bool NavigatorNode::write(struct port *port, FileFormat format) const
 	case FileNode:
 		if (!archive_load_file(ar.file))
 			return false;
-		r = convertFormat(port, ar.file->data, ar.file->size,
+		r = convertFormat(port, ar.file,
 				extensionToFileFormat(QFileInfo(ar.file->name).suffix()),
 				format);
 		archive_release_file(ar.file);
