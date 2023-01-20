@@ -166,7 +166,7 @@ struct string *replace_extension(const char *file, const char *ext)
 	// handle the case where stripping the extension produces a file name
 	// with the correct extension
 	src_ext = strrchr(dst->text, '.');
-	if (src_ext && !strcmp(src_ext+1, ext)) {
+	if (src_ext && !strcasecmp(src_ext+1, ext)) {
 		return dst;
 	}
 
