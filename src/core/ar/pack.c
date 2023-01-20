@@ -312,6 +312,8 @@ static struct ar_file_spec **batchpack_to_file_list(struct ar_manifest *mf, size
 {
 	ar_file_list files;
 	kv_init(files);
+
+	// convert files
 	for (size_t i = 0; i < mf->nr_rows; i++) {
 		struct string *src = mf->batchpack[i].src;
 		struct string *dst = mf->batchpack[i].dst;
@@ -325,8 +327,22 @@ static struct ar_file_spec **batchpack_to_file_list(struct ar_manifest *mf, size
 				ALICE_ERROR("line %d: \"%s\" is not a directory", (int)i+2, src->text);
 			batchpack_convert(mf->batchpack+i);
 		}
+	}
 
-		dir_to_file_list(dst, string_ref(&EMPTY_STRING), &files, mf->batchpack[i].dst_fmt);
+	// create file list from output dirs
+	for (size_t i = 0; i < mf->nr_rows; i++) {
+		struct string *dst = mf->batchpack[i].dst;
+		// prevent double-packing the same output directory
+		bool duplicate = false;
+		for (int j = 0; j < i; j++) {
+			if (!strcmp(dst->text, mf->batchpack[j].dst->text)) {
+				duplicate = true;
+				break;
+			}
+		}
+		if (!duplicate) {
+			dir_to_file_list(dst, string_ref(&EMPTY_STRING), &files, mf->batchpack[i].dst_fmt);
+		}
 	}
 
 	ar_file_list_sort(&files);
