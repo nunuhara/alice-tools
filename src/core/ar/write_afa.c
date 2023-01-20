@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <errno.h>
 #include <zlib.h>
 #include "system4.h"
@@ -34,6 +35,23 @@ static uint32_t align8(uint32_t i)
 }
 
 static uint8_t zpad[0x1000] = {0};
+
+static int id_of_filename(const char *name)
+{
+	// XXX: we parse every number in the filename and keep the last one
+	int result = 0;
+	do {
+		// read number
+		result = 0;
+		for (; *name && isdigit(*name); name++) {
+			result *= 10;
+			result += *name - '0';
+		}
+		// skip non-digits
+		for (; *name && !isdigit(*name); name++);
+	} while (*name);
+	return result;
+}
 
 void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_files, int version)
 {
@@ -66,10 +84,11 @@ void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_f
 		char *u = utf2sjis(files[i]->name->text, files[i]->name->size);
 		buffer_write_int32(&buf, strlen(u));
 		buffer_write_pascal_cstring(&buf, u);
-		buffer_write_int32(&buf, 0); // timestamp?
-		buffer_write_int32(&buf, 0); // timestamp?
+		// file ID
 		if (version == 1)
-			buffer_write_int32(&buf, 0x1cb603c); // color?
+			buffer_write_int32(&buf, id_of_filename(files[i]->name->text));
+		buffer_write_int32(&buf, 0); // timestamp?
+		buffer_write_int32(&buf, 0); // timestamp?
 		buffer_write_int32(&buf, off);
 		buffer_write_int32(&buf, sizes[i]);
 		off += align8(sizes[i]);
