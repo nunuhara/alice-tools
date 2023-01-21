@@ -492,6 +492,11 @@ void ar_pack_manifest(struct ar_manifest *ar, int afa_version)
 void ar_pack(const char *manifest, int afa_version)
 {
 	struct ar_manifest *mf = ar_parse_manifest(manifest);
+	if (mf->afa_version > 0)
+		afa_version = mf->afa_version;
+	if (mf->backslash)
+		ar_set_path_separator('\\');
+
 	const char *ext = file_extension(mf->output_path->text);
 	if (!ext || strcasecmp(ext, "afa"))
 		ALICE_ERROR("Only .afa archives supported");

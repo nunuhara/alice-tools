@@ -132,9 +132,35 @@ static void make_alicecg2_manifest(struct ar_manifest *dst, ar_row_list *rows)
 	}
 }
 
-struct ar_manifest *ar_make_manifest(struct string *magic, struct string *output_path, ar_row_list *rows)
+static void parse_manifest_options(struct ar_manifest *mf, ar_string_list *options)
+{
+	mf->afa_version = -1;
+	mf->backslash = false;
+	for (size_t i = 0; i < kv_size(*options); i++) {
+		struct string *opt = kv_A(*options, i);
+		if (!strcmp(opt->text, "--backslash")) {
+			mf->backslash = true;
+		} else if (!strncmp(opt->text, "--afa-version=", 14)) {
+			int version = atoi(opt->text + 14);
+			if (version < 1 || version > 2)
+				WARNING("Ignoring invalid afa version: '%s'", opt->text + 14);
+			else
+				mf->afa_version = version;
+		} else {
+			WARNING("Unrecognized manifest option: '%s'", opt->text);
+		}
+
+		free_string(opt);
+	}
+
+	kv_destroy(*options);
+	free(options);
+}
+
+struct ar_manifest *ar_make_manifest(struct string *magic, ar_string_list *options, struct string *output_path, ar_row_list *rows)
 {
 	struct ar_manifest *mf = xcalloc(1, sizeof(struct ar_manifest));
+	parse_manifest_options(mf, options);
 	mf->output_path = output_path;
 	mf->nr_rows = kv_size(*rows);
 

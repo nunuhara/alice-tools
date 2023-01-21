@@ -109,6 +109,8 @@ struct wavlinker_line {
 
 struct ar_manifest {
 	enum ar_manifest_type type;
+	int afa_version;
+	bool backslash;
 	struct string *output_path;
 	size_t nr_rows;
 	union {
@@ -167,7 +169,8 @@ void ar_file_list_sort(ar_file_list *list);
 
 void ar_pack(const char *manifest, int afa_version);
 
-struct ar_manifest *ar_make_manifest(struct string *magic, struct string *output_path, ar_row_list *rows);
+struct ar_manifest *ar_make_manifest(struct string *magic, ar_string_list *options,
+		struct string *output_path, ar_row_list *rows);
 struct ar_manifest *ar_parse_manifest(const char *path);
 
 #endif /* ALICE_AR_H_ */

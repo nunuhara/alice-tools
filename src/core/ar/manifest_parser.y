@@ -55,7 +55,7 @@ static ar_string_list *make_string_list(struct string *str)
 {
     ar_string_list *list = xmalloc(sizeof(ar_string_list));
     kv_init(*list);
-    return push_string(list, str);
+    return str ? push_string(list, str) : list;
 }
 
 static ar_row_list *push_row(ar_row_list *rows, ar_string_list *row)
@@ -76,14 +76,18 @@ static ar_row_list *make_row_list(ar_string_list *row)
 %token	<string>	STRING
 %token	<token>		NEWLINE COMMA
 
-%type	<row>		row values
+%type	<row>		row values options
 %type	<rows>		rows
 
 %start file
 
 %%
 
-file    :	STRING NEWLINE STRING rows end { ar_mf_output = ar_make_manifest($1, $3, $4); }
+file    :	STRING options NEWLINE STRING rows end { ar_mf_output = ar_make_manifest($1, $2, $4, $5); }
+	;
+
+options :			{ $$ = make_string_list(NULL); }
+	|	options	STRING	{ $$ = push_string($1, $2); }
 	;
 
 rows	:	row      { $$ = make_row_list($1); }
