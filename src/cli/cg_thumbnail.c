@@ -44,7 +44,7 @@ static int command_cg_thumbnail(int argc, char *argv[])
 		switch (c) {
 		case 'o':
 		case LOPT_OUTPUT:
-			output_file = conv_cmdline_utf8(optarg);
+			output_file = optarg;
 			break;
 		case 's':
 		case LOPT_SIZE:
@@ -61,10 +61,9 @@ static int command_cg_thumbnail(int argc, char *argv[])
 	if (size < 16 || size > 4096)
 		USAGE_ERROR(&cmd_cg_thumbnail, "Size out of range (allowed range is [16-4096])");
 
-	char *input_file = conv_cmdline_utf8(argv[0]);
-	struct cg *in = cg_load_file(input_file);
+	struct cg *in = cg_load_file(argv[0]);
 	if (!in)
-		ALICE_ERROR("Failed to load input CG: %s", input_file);
+		ALICE_ERROR("Failed to load input CG: %s", argv[0]);
 
 	// scale/write output CG
 	float scale = (float)size / (float)max(in->metrics.w, in->metrics.h);
@@ -77,8 +76,6 @@ static int command_cg_thumbnail(int argc, char *argv[])
 	cg_free(in);
 	cg_free(out);
 	fclose(f);
-	free(input_file);
-	free(output_file);
 	return 0;
 }
 

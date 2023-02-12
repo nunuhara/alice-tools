@@ -72,25 +72,22 @@ int command_cg_convert(int argc, char *argv[])
 	if (argc < 1 || argc > 2)
 		USAGE_ERROR(&cmd_cg_convert, "Wrong number of arguments");
 
-	char *input_file = conv_cmdline_utf8(argv[0]);
 	if (argc == 1) {
 		if (output_format == ALCG_UNKNOWN)
 			ALICE_ERROR("No output format specified");
-		output_file = replace_extension(input_file, cg_file_extension(output_format));
+		output_file = replace_extension(argv[0], cg_file_extension(output_format));
 	} else if (argc == 2) {
-		char *output_cstr = conv_cmdline_utf8(argv[1]);
 		if (output_format == ALCG_UNKNOWN)
-			output_format = parse_cg_format(file_extension(output_cstr));
-		output_file = cstr_to_string(output_cstr);
-		free(output_cstr);
+			output_format = parse_cg_format(file_extension(argv[1]));
+		output_file = cstr_to_string(argv[1]);
 	} else {
 		USAGE_ERROR(&cmd_cg_convert, "Wrong number of arguments");
 	}
 
 	// open input CG
-	struct cg *in = cg_load_file(input_file);
+	struct cg *in = cg_load_file(argv[0]);
 	if (!in)
-		ALICE_ERROR("Failed to read input CG: %s", input_file);
+		ALICE_ERROR("Failed to read input CG: %s", argv[0]);
 
 	// encode/write output CG
 	FILE *out = checked_fopen(output_file->text, "wb");
@@ -100,7 +97,6 @@ int command_cg_convert(int argc, char *argv[])
 	cg_free(in);
 	fclose(out);
 	free_string(output_file);
-	free(input_file);
 	return 0;
 }
 

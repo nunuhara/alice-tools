@@ -110,10 +110,7 @@ int command_fnl_dump(int argc, char *argv[])
 		USAGE_ERROR(&cmd_fnl_dump, "Wrong number of arguments");
 	}
 
-	char *input_file = conv_cmdline_utf8(argv[0]);
-	struct fnl *fnl = fnl_open(input_file);
-	free(input_file);
-
+	struct fnl *fnl = fnl_open(argv[0]);
 	if (!fnl)
 		ALICE_ERROR("fnl_open failed");
 

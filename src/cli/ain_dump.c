@@ -351,7 +351,7 @@ int command_ain_dump(int argc, char *argv[])
 			dump_targets[dump_ptr++] = LOPT_FUNCTIONS;
 			break;
 		case LOPT_FUNCTION:
-			dump_args[dump_ptr] = conv_cmdline_utf8(optarg);
+			dump_args[dump_ptr] = optarg;
 			dump_targets[dump_ptr++] = LOPT_FUNCTION;
 			break;
 		case 'g':
@@ -443,12 +443,10 @@ int command_ain_dump(int argc, char *argv[])
 		return 0;
 	}
 
-	char *input_file = conv_cmdline_utf8(argv[0]);
-	if (!(ain = ain_open(input_file, &err))) {
+	if (!(ain = ain_open(argv[0], &err))) {
 		ALICE_ERROR("Failed to open ain file: %s\n", ain_strerror(err));
 		return 1;
 	}
-	free(input_file);
 
 	ain_init_member_functions(ain, conv_utf8);
 
@@ -467,7 +465,7 @@ int command_ain_dump(int argc, char *argv[])
 		case LOPT_TEXT:           ain_dump_text(&port, ain); break;
 		case LOPT_AIN_VERSION:    ain_dump_version(&port, ain); break;
 		case LOPT_FUNCTIONS:      ain_dump_functions(&port, ain); break;
-		case LOPT_FUNCTION:       ain_disassemble_function(&port, ain, dump_args[i], flags); free(dump_args[i]); break;
+		case LOPT_FUNCTION:       ain_disassemble_function(&port, ain, dump_args[i], flags); break;
 		case LOPT_GLOBALS:        ain_dump_globals(&port, ain); break;
 		case LOPT_STRUCTURES:     ain_dump_structures(&port, ain); break;
 		case LOPT_MESSAGES:       ain_dump_messages(&port, ain); break;

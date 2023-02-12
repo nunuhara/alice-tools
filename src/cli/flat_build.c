@@ -57,10 +57,7 @@ int command_flat_build(int argc, char *argv[])
 	}
 
 	// build flat object from manifest
-	char *input_file = conv_cmdline_utf8(argv[0]);
-	struct flat_archive *flat = flat_build(input_file, &mf_output_file);
-	free(input_file);
-
+	struct flat_archive *flat = flat_build(argv[0], &mf_output_file);
 	if (!output_file) {
 		if (mf_output_file) {
 			struct string *dir = cstr_to_string(path_dirname(argv[0]));
