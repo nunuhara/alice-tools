@@ -52,7 +52,7 @@ char *conv_utf8_input(const char *str);
 char *conv_utf8_input_len(const char *str, size_t len);
 struct string *string_conv_utf8_input(const char *str, size_t len);
 
-char *conv_cmdline_utf8(const char *str);
+void conv_cmdline_utf8(int *pargc, char ***pargv);
 
 struct stat;
 

@@ -73,18 +73,12 @@ static int command_ex_edit(int argc, char *argv[]) {
 
 	FILE *out = alice_open_output_file(output_file);
 
-	char *base_file = conv_cmdline_utf8(argv[0]);
-	struct ex *base = ex_read_file(base_file);
-	free(base_file);
-
+	struct ex *base = ex_read_file(argv[0]);
 	if (!base) {
 		ALICE_ERROR("failed to read .ex file: %s", argv[0]);
 	}
 
-	char *edit_file = conv_cmdline_utf8(argv[1]);
-	struct ex *edit = ex_parse_file(edit_file);
-	free(edit_file);
-
+	struct ex *edit = ex_parse_file(argv[1]);
 	if (!edit) {
 		ALICE_ERROR("failed to parse .txtex file: %s", argv[1]);
 	}

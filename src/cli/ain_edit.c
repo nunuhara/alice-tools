@@ -93,7 +93,7 @@ int command_ain_edit(int argc, char *argv[])
 		switch (c) {
 		case 'p':
 		case LOPT_PROJECT:
-			project_file = conv_cmdline_utf8(optarg);
+			project_file = optarg;
 			break;
 		case 'c':
 		case LOPT_CODE:
@@ -151,7 +151,6 @@ int command_ain_edit(int argc, char *argv[])
 			WARNING("Input files specified on the command line are ignored in --project mode");
 		}
 		pje_build(project_file);
-		free(project_file);
 		return 0;
 	}
 
@@ -162,11 +161,9 @@ int command_ain_edit(int argc, char *argv[])
 	if (!argc) {
 		ain = ain_new(major_version, minor_version);
 	} else {
-		char *input_file = conv_cmdline_utf8(argv[0]);
-		if (!(ain = ain_open(input_file, &err))) {
+		if (!(ain = ain_open(argv[0], &err))) {
 			ALICE_ERROR("Failed to open ain file: %s", ain_strerror(err));
 		}
-		free(input_file);
 	}
 	ain_init_member_functions(ain, conv_output_utf8);
 

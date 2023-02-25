@@ -339,6 +339,7 @@ static int process_command(struct command *cmd, int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+	conv_cmdline_utf8(&argc, &argv);
 	if (argc < 2) {
 		print_usage(&cmd_alice);
 		exit(0);

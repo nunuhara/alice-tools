@@ -219,24 +219,28 @@ char *conv_utf8_input(const char *str)
 #ifdef _WIN32
 #include <Windows.h>
 #include <direct.h>
-char *conv_cmdline_utf8(const char *str)
+
+void conv_cmdline_utf8(int *pargc, char ***pargv)
 {
-	// NOTE: In theory this could be done in a single conversion by iconv,
-	//       but this is probably simpler...
-	int nr_wchars = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
-	wchar_t *wstr = xmalloc(nr_wchars * sizeof(wchar_t));
-	MultiByteToWideChar(CP_ACP, 0, str, -1, wstr, nr_wchars);
-
-	int nr_uchars = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
-	char *ustr = xmalloc(nr_uchars);
-	WideCharToMultiByte(CP_UTF8, 0, wstr, -1, ustr, nr_uchars, NULL, NULL);
-
-	free(wstr);
-	return ustr;
+	// Parse the command line and set utf8 strings to *pargv.
+	int argc;
+	LPWSTR cmdline = GetCommandLineW();
+	LPWSTR *argvw = CommandLineToArgvW(cmdline, &argc);
+	char **argv = xcalloc(argc + 1, sizeof(char *));
+	int buf_size = wcslen(cmdline) * 3 + 1;
+	char *buf = xmalloc(buf_size);
+	for (int i = 0; i < argc; i++) {
+		if (!WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, argvw[i], -1, buf, buf_size, NULL, NULL))
+			ALICE_ERROR("Invalid character in command line");
+		argv[i] = xstrdup(buf);
+	}
+	free(buf);
+	LocalFree(argvw);
+	*pargc = argc;
+	*pargv = argv;
 }
 #else
-char *conv_cmdline_utf8(const char *str)
+void conv_cmdline_utf8(int *pargc, char ***pargv)
 {
-	return strdup(str);
 }
 #endif
