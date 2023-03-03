@@ -618,13 +618,9 @@ int command_ain_compare(int argc, char *argv[])
 		USAGE_ERROR(&cmd_ain_compare, "Wrong number of arguments");
 	}
 
-	char *path_a = conv_cmdline_utf8(argv[0]);
-	char *path_b = conv_cmdline_utf8(argv[1]);
-	if (!(a = ain_open(path_a, &err)) || !(b = ain_open(path_b, &err))) {
+	if (!(a = ain_open(argv[0], &err)) || !(b = ain_open(argv[1], &err))) {
 		ALICE_ERROR("Failed to open ain file: %s", ain_strerror(err));
 	}
-	free(path_a);
-	free(path_b);
 
 	ain_compare(a, b);
 	ain_free(a);

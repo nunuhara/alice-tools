@@ -59,11 +59,7 @@ int command_acx_build(int argc, char *argv[])
 	current_file_name = (const char**)&argv[0];
 
 	FILE *out = alice_open_output_file(output_file);
-
-	char *input_file = conv_cmdline_utf8(argv[0]);
-	struct acx *acx = acx_parse(input_file);
-	free(input_file);
-
+	struct acx *acx = acx_parse(argv[0]);
 	acx_write(out, acx);
 	acx_free(acx);
 	fclose(out);

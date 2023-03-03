@@ -68,10 +68,7 @@ int command_ex_build(int argc, char *argv[])
 
 	FILE *out = alice_open_output_file(output_file);
 
-	char *input_file = conv_cmdline_utf8(argv[0]);
-	struct ex *ex = ex_parse_file(input_file);
-	free(input_file);
-
+	struct ex *ex = ex_parse_file(argv[0]);
 	if (!ex) {
 		ALICE_ERROR("failed to parse .txtex file: '%s'", argv[0]);
 	}
