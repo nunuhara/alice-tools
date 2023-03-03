@@ -282,6 +282,9 @@ void ex_dump(struct port *port, struct ex *ex)
 
 void ex_dump_split(FILE *manifest, struct ex *ex, const char *dir)
 {
+	struct port manifest_port;
+	port_file_init(&manifest_port, manifest);
+
 	for (uint32_t i = 0; i < ex->nr_blocks; i++) {
 		char buf[PATH_MAX];
 		char *name = conv_output(ex->blocks[i].name->text);
@@ -291,10 +294,10 @@ void ex_dump_split(FILE *manifest, struct ex *ex, const char *dir)
 		if (!out)
 			ERROR("Failed to open file '%s': %s", buf, strerror(errno));
 
-		struct port port;
-		port_file_init(&port, manifest);
-		ex_dump_block(&port, &ex->blocks[i]);
-		port_close(&port);
+		struct port block_port;
+		port_file_init(&block_port, out);
+		ex_dump_block(&block_port, &ex->blocks[i]);
+		port_close(&block_port);
 
 		if (fclose(out))
 			ERROR("Failed to close file '%s': %s", buf, strerror(errno));
@@ -302,4 +305,6 @@ void ex_dump_split(FILE *manifest, struct ex *ex, const char *dir)
 		fprintf(manifest, "#include \"%u_%s.x\"\n", i, name);
 		free(name);
 	}
+
+	port_close(&manifest_port);
 }
