@@ -84,7 +84,8 @@ executable('alice', cli_sources,
            dependencies : tool_deps,
            c_args : ['-Wno-unused-parameter'],
            link_with : libalice,
-           include_directories : incdir)
+           include_directories : incdir,
+           install : true)
 
 gui_sources = ['gui/galice.cpp',
                'gui/acx_model.cpp',
@@ -134,5 +135,6 @@ if qt5_dep.found()
                dependencies : [tool_deps, qt5_dep],
                link_with : libalice,
                include_directories : incdir,
-               gui_app : true)
+               gui_app : true,
+               install : true)
 endif
