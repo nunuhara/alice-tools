@@ -73,6 +73,18 @@ struct command cmd_ar = {
 	}
 };
 
+struct command cmd_asd = {
+	.name = "asd",
+	.usage = "<command> ...",
+	.description = "Tools for extracting and editing AliceSoft save files",
+	.parent = &cmd_alice,
+	.commands = {
+		&cmd_asd_dump,
+		&cmd_asd_build,
+		NULL
+	}
+};
+
 struct command cmd_cg = {
 	.name = "cg",
 	.usage = "<command> ...",
@@ -143,6 +155,7 @@ struct command cmd_alice = {
 		&cmd_acx,
 		&cmd_ain,
 		&cmd_ar,
+		&cmd_asd,
 		&cmd_cg,
 		&cmd_ex,
 		&cmd_flat,
