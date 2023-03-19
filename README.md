@@ -30,6 +30,30 @@ Then build the tools with meson,
     meson build
     ninja -C build
 
+Installation
+------------
+
+### From Source
+
+If you've followed the above instructions to build alice-tools from source, run
+
+    ninja -C build install
+
+to install it.
+
+### Nix
+
+alice-tools can be installed via nix with the following command:
+
+    nix profile install git+https://github.com/nunuhara/alice-tools.git?submodules=1
+
+You must have flakes enabled (consult the nix documentation for how to enable flakes).
+
+### Windows
+
+The provided Windows builds are portable, so no installation is required. Simply run the
+provided executable (alice.exe) from a command prompt.
+
 Usage
 -----
 
@@ -48,6 +72,8 @@ The currently implemented commands are:
     alice ain     compare   - Compare .ain files
     alice ain     dump      - Dump various info fram a .ain file
     alice ain     edit      - Edit a .ain file
+    alice asd     build     - Build a save file
+    alice asd     dump      - Dump a save file
     alice ar      extract   - Extract an archive file
     alice ar      list      - List the contents of an archive file
     alice ar      pack      - Create an archive file
