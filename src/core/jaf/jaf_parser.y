@@ -27,6 +27,7 @@
 #include <errno.h>
 #include "system4.h"
 #include "system4/ain.h"
+#include "system4/file.h"
 #include "system4/string.h"
 #include "alice.h"
 #include "alice/jaf.h"
@@ -47,7 +48,7 @@ static FILE *open_jaf_file(const char *file)
 {
     if (!strcmp(file, "-"))
 	return stdin;
-    FILE *f = fopen(file, "rb");
+    FILE *f = file_open_utf8(file, "rb");
     if (!f)
 	ERROR("Opening input file '%s': %s", file, strerror(errno));
     return f;

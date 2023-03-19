@@ -22,6 +22,7 @@
 #include <zlib.h>
 #include "system4.h"
 #include "system4/ain.h"
+#include "system4/file.h"
 #include "system4/string.h"
 
 struct ain_buffer {
@@ -451,7 +452,7 @@ void ain_write(const char *filename, struct ain *ain)
 	else
 		buf = ain_compress(buf, &len);
 
-	FILE *out = fopen(filename, "wb");
+	FILE *out = file_open_utf8(filename, "wb");
 	if (!out)
 		ERROR("Failed to open '%s': %s", filename, strerror(errno));
 	if (fwrite(buf, len, 1, out) != 1)

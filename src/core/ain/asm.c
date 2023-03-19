@@ -22,6 +22,7 @@
 #include <errno.h>
 #include "system4.h"
 #include "system4/ain.h"
+#include "system4/file.h"
 #include "system4/hashtable.h"
 #include "system4/instructions.h"
 #include "system4/string.h"
@@ -979,7 +980,7 @@ static parse_instruction_list *jam_parse(const char *filename, uint32_t instr_pt
 	if (!strcmp(filename, "-"))
 		asm_in = stdin;
 	else
-		asm_in = fopen(filename, "r");
+		asm_in = file_open_utf8(filename, "r");
 	if (!asm_in)
 		ERROR("Opening input file '%s': %s", filename, strerror(errno));
 

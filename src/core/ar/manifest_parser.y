@@ -18,6 +18,7 @@
 #include <string.h>
 #include <errno.h>
 #include "system4.h"
+#include "system4/file.h"
 #include "system4/string.h"
 #include "alice.h"
 #include "alice/ar.h"
@@ -38,7 +39,7 @@ struct ar_manifest *ar_parse_manifest(const char *path)
     if (!strcmp(path, "-"))
 	ar_mf_in = stdin;
     else
-	ar_mf_in = fopen(path, "rb");
+	ar_mf_in = file_open_utf8(path, "rb");
     if (!ar_mf_in)
 	ALICE_ERROR("Opening input file '%s': %s", path, strerror(errno));
     ar_mf_parse();
