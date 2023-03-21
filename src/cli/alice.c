@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <iconv.h>
 #include "system4.h"
+#include "system4/file.h"
 #include "alice.h"
 #include "cli.h"
 
@@ -173,7 +174,7 @@ FILE *alice_open_output_file(const char *path)
 #endif
 		return stdout;
 	}
-	FILE *out = fopen(path, "wb");
+	FILE *out = file_open_utf8(path, "wb");
 	if (!out)
 		ALICE_ERROR("fopen: %s", strerror(errno));
 	return out;

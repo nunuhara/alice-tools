@@ -132,7 +132,7 @@ int command_fnl_dump(int argc, char *argv[])
 
 				sprintf(path, "%s/font_%u/%upx/glyph_%u.png", output_dir, (unsigned)font,
 					(unsigned)font_face->height, (unsigned)g);
-				FILE *f = fopen(path, "wb");
+				FILE *f = file_open_utf8(path, "wb");
 				if (!f) {
 					ERROR("fopen failed: %s", strerror(errno));
 				}

@@ -20,6 +20,7 @@
 #include "alice.h"
 #include "system4.h"
 #include "system4/ain.h"
+#include "system4/file.h"
 #include "system4/string.h"
 #include "text_parser.tab.h"
 
@@ -36,7 +37,7 @@ void ain_read_text(const char *filename, struct ain *ain)
 	if (!strcmp(filename, "-"))
 		text_in = stdin;
 	else
-		text_in = fopen(filename, "r");
+		text_in = file_open_utf8(filename, "r");
 	if (!text_in)
 		ERROR("Opening input file '%s': %s", filename, strerror(errno));
 	text_parse();

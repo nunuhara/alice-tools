@@ -22,6 +22,7 @@
 #include "cJSON.h"
 #include "system4.h"
 #include "system4/ain.h"
+#include "system4/file.h"
 
 static bool cJSON_GetObjectBool(const cJSON * const o, const char * const name, bool def)
 {
@@ -525,7 +526,7 @@ void ain_read_json(const char *filename, struct ain *ain)
 	long len;
 	char *buf;
 
-	if (!(f = fopen(filename, "r")))
+	if (!(f = file_open_utf8(filename, "rb")))
 		ERROR("Failed to open '%s': %s", filename, strerror(errno));
 
 	fseek(f, 0, SEEK_END);
