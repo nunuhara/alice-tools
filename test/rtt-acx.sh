@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SRC_ACX="$1"
 SRC_CSV=$(mktemp)

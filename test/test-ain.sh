@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 RTT="$(dirname $0)/rtt-ain.sh"
 AINDIR="$(dirname $0)/ain"

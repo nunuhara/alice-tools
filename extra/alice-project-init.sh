@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 #
 # This script initializes a project folder for a blank project targeting a
@@ -67,3 +67,22 @@ int main(void)
     system.Exit(0);
 }
 EOF
+
+cat > "build.sh" <<- EOF
+#!/bin/sh
+alice project build "$PROJECT_NAME.pje"
+EOF
+
+cat > "run.sh" <<- EOF
+#!/bin/sh
+cd out
+wine System40.exe
+EOF
+
+cat >"xrun.sh" <<- EOF
+#!/bin/sh
+cd out
+xsystem4
+EOF
+
+chmod +x build.sh run.sh xrun.sh

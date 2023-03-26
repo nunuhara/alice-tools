@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SRC_AIN="$1"
 SRC_JAM=$(mktemp)

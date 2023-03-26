@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SRC_EX="$1"
 SRC_X=$(mktemp)
