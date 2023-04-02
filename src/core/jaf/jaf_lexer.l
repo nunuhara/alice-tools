@@ -104,6 +104,7 @@ unsigned long jaf_line = 1;
 "array"                                 { return ARRAY; }
 "wrap"                                  { return WRAP; }
 "hll_param"                             { return HLL_PARAM; }
+"hll_func_71"                           { return HLL_FUNC_71; }
 "hll_func"                              { return HLL_FUNC; }
 "hll_struct"                            { return HLL_STRUCT; }
 "functype"                              { return FUNCTYPE; }

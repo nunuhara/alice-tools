@@ -72,6 +72,7 @@ enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type)
 	case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 	case JAF_WRAP:      return AIN_WRAP;
 	case JAF_HLL_PARAM: return AIN_HLL_PARAM;
+	case JAF_HLL_FUNC_71: return AIN_HLL_FUNC_71;
 	case JAF_HLL_FUNC:  return AIN_HLL_FUNC;
 	case JAF_IMAIN_SYSTEM: return AIN_IMAIN_SYSTEM;
 	case JAF_DELEGATE:  return AIN_DELEGATE;
@@ -99,6 +100,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 		case JAF_WRAP:      _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
 		case JAF_HLL_PARAM: _COMPILER_ERROR(NULL, -1, "Invalid hll_param specifier");
+		case JAF_HLL_FUNC_71: _COMPILER_ERROR(NULL, -1, "Invalid hll_func_71 specifier");
 		case JAF_HLL_FUNC:  _COMPILER_ERROR(NULL, -1, "Invalid hll_func specifier");
 		case JAF_IMAIN_SYSTEM: _COMPILER_ERROR(NULL, -1, "Invalid imain_system specifier");
 		case JAF_DELEGATE:  return AIN_REF_ARRAY_DELEGATE;
@@ -118,6 +120,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 		case JAF_WRAP:      _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
 		case JAF_HLL_PARAM: return AIN_REF_HLL_PARAM;
+		case JAF_HLL_FUNC_71: _COMPILER_ERROR(NULL, -1, "Invalid hll_func_71 specifier");
 		case JAF_HLL_FUNC:  _COMPILER_ERROR(NULL, -1, "Invalid hll_func specifier");
 		case JAF_IMAIN_SYSTEM: _COMPILER_ERROR(NULL, -1, "Invalid imain_system specifier");
 		case JAF_DELEGATE:  return AIN_REF_DELEGATE;
@@ -140,6 +143,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 		case JAF_WRAP:      _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
 		case JAF_HLL_PARAM: _COMPILER_ERROR(NULL, -1, "Invalid hll_param specifier");
+		case JAF_HLL_FUNC_71: _COMPILER_ERROR(NULL, -1, "Invalid hll_func_71 specifier");
 		case JAF_HLL_FUNC:  _COMPILER_ERROR(NULL, -1, "Invalid hll_func specifier");
 		case JAF_IMAIN_SYSTEM: _COMPILER_ERROR(NULL, -1, "Invalid imain_system specifier");
 		case JAF_DELEGATE:  return AIN_ARRAY_DELEGATE;

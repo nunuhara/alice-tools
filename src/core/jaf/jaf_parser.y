@@ -195,7 +195,7 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %token	<token>		FILE_MACRO LINE_MACRO FUNC_MACRO DATE_MACRO TIME_MACRO
 
 %token	<token>		CONST OVERRIDE THIS SYM_NEW
-%token	<token>		BOOL CHAR INT LINT FLOAT VOID STRING INTP FLOATP HLL_PARAM HLL_FUNC
+%token	<token>		BOOL CHAR INT LINT FLOAT VOID STRING INTP FLOATP HLL_PARAM HLL_FUNC HLL_FUNC_71
 %token	<token>		STRUCT UNION ENUM ELLIPSIS SYM_TRUE SYM_FALSE IMAIN_SYSTEM HLL_STRUCT
 
 %token	CASE DEFAULT IF ELSE SYM_SWITCH WHILE DO FOR GOTO CONTINUE BREAK SYM_RETURN
@@ -425,6 +425,7 @@ atomic_type_specifier
 	| INTP             { $$ = JAF_INTP; }
 	| FLOATP           { $$ = JAF_FLOATP; }
 	| HLL_PARAM        { $$ = JAF_HLL_PARAM; }
+	| HLL_FUNC_71      { $$ = JAF_HLL_FUNC_71; }
 	| HLL_FUNC         { $$ = JAF_HLL_FUNC; }
 	| HLL_STRUCT       { $$ = JAF_STRUCT; }
 	| DELEGATE         { $$ = JAF_DELEGATE; }
