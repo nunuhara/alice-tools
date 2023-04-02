@@ -66,6 +66,23 @@ int main(void)
     system.MsgBox("Hello, world!");
     system.Exit(0);
 }
+
+void message(int nMsgNum, int nNumofMsg, string szText)
+{
+    system.Output("%d/%d: %s" % nMsgNum % nNumofMsg % szText);
+}
+
+float message::detail::GetMessageSpeedRate(void)
+{
+	return 1.0;
+}
+
+void message::detail::GetReadMessageTextColor(ref int Red, ref int Green, ref int Blue)
+{
+	Red = 255;
+	Green = 0;
+	Blue = 0;
+}
 EOF
 
 cat > "build.sh" <<- EOF
@@ -76,7 +93,7 @@ EOF
 cat > "run.sh" <<- EOF
 #!/bin/sh
 cd out
-wine System40.exe
+env LANG=ja_JP.UTF-8 wine System40.exe
 EOF
 
 cat >"xrun.sh" <<- EOF
