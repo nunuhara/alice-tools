@@ -30,6 +30,44 @@ Then build the tools with meson,
     meson build
     ninja -C build
 
+### Windows
+
+alice-tools can be built on Windows using MSYS2.
+
+First install MSYS2, and then open the MINGW64 shell and run the following command,
+
+    pacman -S flex bison \
+        mingw-w64-x86_64-gcc \
+        mingw-w64-x86_64-meson \
+        mingw-w64-x86_64-pkg-config \
+        mingw-w64-x86_64-libpng \
+        mingw-w64-x86_64-libjpeg-turbo \
+        mingw-w64-x86_64-libwebp
+
+To build the GUI, you must also install Qt:
+
+    pacman -S mingw-w64-x86_64-qt5
+
+Then build the executable(s) with meson,
+
+    mkdir build
+    meson build
+    ninja -C build
+
+The `alice` executable (located at `build/src/alice.exe`) should be standalone and portable.
+
+The `galice` executable requires some extra files to be shipped with it due to Qt.
+Run the following commands to copy the required files for Qt,
+
+    mkdir deploy
+    cp build/src/galice.exe deploy/
+    windeployqt deploy/galice.exe
+
+At this point, there are still some DLLs missing from the `deploy` directory. You can run the
+following command to determine the required DLLs,
+
+    ldd build/src/galice.exe | grep mingw64
+
 Installation
 ------------
 
@@ -128,6 +166,16 @@ nunuhara@haniwa.technology, or find me on /haniho/.
 
 Version History
 ---------------
+
+### [Version 0.13.0](https://haniwa.technology/alice-tools/alice-tools-0.13.0.zip)
+
+* Add `asd dump` and `asd build` commands for save file editing
+* Properly implement packing of afa version 1 archives
+* Fix bug when same output directory is listed multiple times in archive manifest
+* Allow specifying options in manifest file (e.g. `#BATCHPACK --afa-version=1 --backslash`)
+* Improve handling of non-ASCII command line inputs
+* Fix a bug when using the `--split` option to `ex dump`
+* Fix bug affecting Oyako Rankan archive files
 
 ### [Version 0.12.1](https://haniwa.technology/alice-tools/alice-tools-0.12.1.zip)
 

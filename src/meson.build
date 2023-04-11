@@ -82,9 +82,15 @@ cli_sources = ['cli/alice.c',
                'cli/project_build.c',
 ]
 
+static_link_args = []
+if host_machine.system() == 'windows'
+    static_link_args = ['-static']
+endif
+
 executable('alice', cli_sources,
            dependencies : tool_deps,
            c_args : ['-Wno-unused-parameter'],
+           link_args : static_link_args,
            link_with : libalice,
            include_directories : incdir,
            install : true)
@@ -132,7 +138,8 @@ if qt5_dep.found()
     generated_files = qt5.preprocess(moc_headers : gui_moc,
                                      dependencies : [qt5_dep])
 
-
+    # NOTE: static linking of Qt not supported by meson per
+    #       https://github.com/mesonbuild/meson/pull/7733
     executable('galice', gui_sources, generated_files,
                dependencies : [tool_deps, qt5_dep],
                link_with : libalice,
