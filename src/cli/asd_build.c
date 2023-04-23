@@ -162,18 +162,8 @@ static struct typed_value add_value_to_gsave(cJSON *v, struct gsave *save)
 	ERROR("unexpected json object: %s", cJSON_PrintUnformatted(v));
 }
 
-static struct gsave *json_to_gsave(cJSON *root, bool *encrypt, int *compression_level)
+static struct gsave *json_to_gsave(cJSON *root)
 {
-	cJSON *save_type = cJSON_GetObjectItem(root, "save_type");
-	if (!cJSON_IsString(save_type) || strcmp(save_type->valuestring, "global_save"))
-		ALICE_ERROR("not a global_save json");
-	cJSON *v = cJSON_GetObjectItem(root, "encrypted");
-	if (cJSON_IsBool(v))
-		*encrypt = v->valueint;
-	v = cJSON_GetObjectItem(root, "compression_level");
-	if (cJSON_IsNumber(v))
-		*compression_level = v->valueint;
-
 	struct gsave *save = xcalloc(1, sizeof(struct gsave));
 	save->key = json_get_string(root, "key");
 	save->uk1 = json_get_int(root, "uk1");
@@ -195,6 +185,213 @@ static struct gsave *json_to_gsave(cJSON *root, bool *encrypt, int *compression_
 		save->globals[i].type = tv.type;
 		save->globals[i].value = tv.value;
 		save->globals[i].unknown = json_get_int(o, "unknown");
+	}
+	return save;
+}
+
+static int32_t *json_to_int_array(cJSON *array, int32_t *n_out)
+{
+	int n = cJSON_GetArraySize(array);
+	int32_t *a = xcalloc(n, sizeof(int32_t));
+	int i;
+	cJSON *item;
+	cJSON_ArrayForEachIndex(i, item, array) {
+		if (!cJSON_IsNumber(item))
+			ALICE_ERROR("Non-number in %s", array->string);
+		a[i] = item->valueint;
+	}
+	*n_out = n;
+	return a;
+}
+
+static char **json_to_string_array(cJSON *array, int32_t *n_out)
+{
+	int n = cJSON_GetArraySize(array);
+	char **a = xcalloc(n, sizeof(char*));
+	int i;
+	cJSON *item;
+	cJSON_ArrayForEachIndex(i, item, array) {
+		if (!cJSON_IsString(item))
+			ALICE_ERROR("Non-string in %s", array->string);
+		a[i] = conv_output(item->valuestring);
+	}
+	*n_out = n;
+	return a;
+}
+
+static struct rsave_symbol json_to_rsave_symbol(cJSON *json)
+{
+	if (cJSON_IsString(json))
+		return (struct rsave_symbol) { .name = conv_output(json->valuestring) };
+	else if (cJSON_IsNumber(json))
+		return (struct rsave_symbol) { .id = json->valueint };
+	else
+		ALICE_ERROR("Expected string or number for '%s'", json->string);
+}
+
+static void json_to_rsave_call_frame(cJSON *f, struct rsave_call_frame *dest)
+{
+	dest->type = json_get_int(f, "type");
+	dest->local_ptr = json_get_int(f, "local_ptr");
+	dest->struct_ptr = dest->type == RSAVE_METHOD_CALL ?
+		json_get_int(f, "struct_ptr") : -1;
+}
+
+static void json_to_rsave_return_record(cJSON *f, struct rsave_return_record *dest)
+{
+	if (cJSON_IsNull(f)) {
+		dest->return_addr = -1;
+		return;
+	}
+	dest->return_addr = json_get_int(f, "return_addr");
+	dest->caller_func = json_get_string(f, "caller_func");
+	dest->local_addr = json_get_int(f, "local_addr");
+	dest->crc = json_get_int(f, "crc");
+}
+
+static struct rsave_heap_frame *json_to_rsave_frame(cJSON *json, enum rsave_heap_tag type)
+{
+	int nr_slots;
+	int32_t *slots = json_to_int_array(json_get_array(json, "slots"), &nr_slots);
+	struct rsave_heap_frame *f = xmalloc(sizeof(struct rsave_heap_frame) + nr_slots * sizeof(int32_t));
+	f->tag = type;
+	f->ref = json_get_int(json, "ref");
+	f->func = json_to_rsave_symbol(cJSON_GetObjectItem(json, "func"));
+	f->types = json_to_int_array(json_get_array(json, "types"), &f->nr_types);
+	f->nr_slots = nr_slots;
+	memcpy(f->slots, slots, nr_slots * sizeof(int32_t));
+	free(slots);
+	return f;
+}
+
+static struct rsave_heap_string *json_to_rsave_string(cJSON *json)
+{
+	cJSON *text = cJSON_GetObjectItem(json, "text");
+	char *buf;
+	int len;
+	if (cJSON_IsString(text)) {
+		buf = conv_output(text->valuestring);
+		len = strlen(buf) + 1;
+	} else if (cJSON_IsArray(text)) {
+		len = cJSON_GetArraySize(text);
+		buf = xmalloc(len);
+		int i;
+		cJSON *e;
+		cJSON_ArrayForEachIndex(i, e, text) {
+			buf[i] = e->valueint;
+		}
+	} else {
+		ALICE_ERROR("No valid 'text' field.");
+	}
+
+	struct rsave_heap_string *s = xmalloc(sizeof(struct rsave_heap_string) + len);
+	s->tag = RSAVE_STRING;
+	s->ref = json_get_int(json, "ref");
+	s->uk = json_get_int(json, "uk");
+	s->len = len;
+	memcpy(s->text, buf, len);
+	free(buf);
+	return s;
+}
+
+static struct rsave_heap_array *json_to_rsave_array(cJSON *json)
+{
+	int nr_slots;
+	int32_t *slots = json_to_int_array(json_get_array(json, "slots"), &nr_slots);
+	struct rsave_heap_array *a = xmalloc(sizeof(struct rsave_heap_array) + nr_slots * sizeof(int32_t));
+	a->tag = RSAVE_ARRAY;
+	a->ref = json_get_int(json, "ref");
+	a->rank_minus_1 = json_get_int(json, "rank_minus_1");
+	a->data_type = json_get_int(json, "data_type");
+	a->struct_type = json_to_rsave_symbol(cJSON_GetObjectItem(json, "struct_type"));
+	a->root_rank = json_get_int(json, "root_rank");
+	a->is_not_empty = json_get_int(json, "is_not_empty");
+	a->nr_slots = nr_slots;
+	memcpy(a->slots, slots, nr_slots * sizeof(int32_t));
+	free(slots);
+	return a;
+}
+
+static struct rsave_heap_struct *json_to_rsave_struct(cJSON *json)
+{
+	int nr_slots;
+	int32_t *slots = json_to_int_array(json_get_array(json, "slots"), &nr_slots);
+	struct rsave_heap_struct *s = xmalloc(sizeof(struct rsave_heap_struct) + nr_slots * sizeof(int32_t));
+	s->tag = RSAVE_STRUCT;
+	s->ref = json_get_int(json, "ref");
+	s->ctor = json_to_rsave_symbol(cJSON_GetObjectItem(json, "ctor"));
+	s->dtor = json_to_rsave_symbol(cJSON_GetObjectItem(json, "dtor"));
+	s->uk = json_get_int(json, "uk");
+	s->struct_type = json_to_rsave_symbol(cJSON_GetObjectItem(json, "struct_type"));
+	s->types = json_to_int_array(json_get_array(json, "types"), &s->nr_types);
+	s->nr_slots = nr_slots;
+	memcpy(s->slots, slots, nr_slots * sizeof(int32_t));
+	free(slots);
+	return s;
+}
+
+static void *json_to_heap_obj(cJSON *item)
+{
+	if (cJSON_IsNull(item))
+		return rsave_null;
+	cJSON *type = cJSON_GetObjectItem(item, "type");
+	if (!strcmp(type->valuestring, "globals"))
+		return json_to_rsave_frame(item, RSAVE_GLOBALS);
+	if (!strcmp(type->valuestring, "locals"))
+		return json_to_rsave_frame(item, RSAVE_LOCALS);
+	if (!strcmp(type->valuestring, "string"))
+		return json_to_rsave_string(item);
+	if (!strcmp(type->valuestring, "array"))
+		return json_to_rsave_array(item);
+	if (!strcmp(type->valuestring, "struct"))
+		return json_to_rsave_struct(item);
+	ALICE_ERROR("unknown heap object type %s", type->valuestring);
+}
+
+static struct rsave *json_to_rsave(cJSON *root)
+{
+	int i;
+	cJSON *item;
+	struct rsave *save = xcalloc(1, sizeof(struct rsave));
+	save->version = json_get_int(root, "version");
+	save->key = json_get_string(root, "key");
+	if (save->version >= 7) {
+		cJSON *comments = json_get_array(root, "comments");
+		save->comments = json_to_string_array(comments, &save->nr_comments);
+	}
+	json_to_rsave_return_record(cJSON_GetObjectItem(root, "ip"), &save->ip);
+	save->uk1 = json_get_int(root, "uk1");
+
+	save->stack = json_to_int_array(json_get_array(root, "stack"), &save->stack_size);
+
+	cJSON *call_frames = json_get_array(root, "call_frames");
+	save->nr_call_frames = cJSON_GetArraySize(call_frames);
+	save->call_frames = xcalloc(save->nr_call_frames, sizeof(struct rsave_call_frame));
+	cJSON_ArrayForEachIndex(i, item, call_frames) {
+		json_to_rsave_call_frame(item, &save->call_frames[i]);
+	}
+
+	cJSON *return_records = json_get_array(root, "return_records");
+	save->nr_return_records = cJSON_GetArraySize(return_records);
+	save->return_records = xcalloc(save->nr_return_records, sizeof(struct rsave_return_record));
+	cJSON_ArrayForEachIndex(i, item, return_records) {
+		json_to_rsave_return_record(item, &save->return_records[i]);
+	}
+
+	save->uk2 = json_get_int(root, "uk2");
+	save->uk3 = json_get_int(root, "uk3");
+	save->uk4 = json_get_int(root, "uk4");
+
+	cJSON *heap = json_get_array(root, "heap");
+	save->nr_heap_objs = cJSON_GetArraySize(heap);
+	save->heap = xcalloc(save->nr_heap_objs, sizeof(void*));
+	cJSON_ArrayForEachIndex(i, item, heap) {
+		save->heap[i] = json_to_heap_obj(item);
+	}
+
+	if (save->version >= 6) {
+		cJSON *func_names = json_get_array(root, "func_names");
+		save->func_names = json_to_string_array(func_names, &save->nr_func_names);
 	}
 	return save;
 }
@@ -254,14 +451,31 @@ int command_asd_build(int argc, char *argv[])
 	cJSON *json = cJSON_Parse(buf);
 	if (!json)
 		ALICE_ERROR("Failed to parse JSON");
-	bool encrypt = true;
-	int compression_level = 9;
-	struct gsave *save = json_to_gsave(json, &encrypt, &compression_level);
-	enum savefile_error error = gsave_write(save, out, encrypt, compression_level);
+
+	cJSON *v = cJSON_GetObjectItem(json, "encrypted");
+	bool encrypt = cJSON_IsBool(v) ? v->valueint : true;
+	v = cJSON_GetObjectItem(json, "compression_level");
+	int compression_level = cJSON_IsNumber(v) ? v->valueint : 9;
+
+	cJSON *save_type = cJSON_GetObjectItem(json, "save_type");
+	if (!cJSON_IsString(save_type)) {
+		ALICE_ERROR("not a save json");
+	}
+	enum savefile_error error;
+	if (!strcmp(save_type->valuestring, "global_save")) {
+		struct gsave *gs = json_to_gsave(json);
+		error = gsave_write(gs, out, encrypt, compression_level);
+		gsave_free(gs);
+	} else if (!strcmp(save_type->valuestring, "resume_save")) {
+		struct rsave *rs = json_to_rsave(json);
+		error = rsave_write(rs, out, encrypt, compression_level);
+		rsave_free(rs);
+	} else {
+		ALICE_ERROR("unrecognized save_type '%s'", save_type->valuestring);
+	}
 	if (error != SAVEFILE_SUCCESS)
 		ALICE_ERROR("Error writing output: %s", savefile_strerror(error));
 
-	gsave_free(save);
 	cJSON_Delete(json);
 	free(buf);
 	return 0;
