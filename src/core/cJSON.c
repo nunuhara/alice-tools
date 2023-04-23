@@ -2452,6 +2452,78 @@ CJSON_PUBLIC(cJSON *) cJSON_CreateIntArray(const int *numbers, int count)
     return a;
 }
 
+/* XXX: xsystem4 addition: callback-based CreateIntArray. */
+CJSON_PUBLIC(cJSON *) cJSON_CreateIntArray_cb(int count, int (*get_number)(int,void*), void *data)
+{
+    size_t i = 0;
+    cJSON *n = NULL;
+    cJSON *p = NULL;
+    cJSON *a = NULL;
+
+    if (count < 0)
+    {
+        return NULL;
+    }
+
+    a = cJSON_CreateArray();
+    for(i = 0; a && (i < (size_t)count); i++)
+    {
+        n = cJSON_CreateNumber(get_number(i, data));
+        if (!n)
+        {
+            cJSON_Delete(a);
+            return NULL;
+        }
+        if(!i)
+        {
+            a->child = n;
+        }
+        else
+        {
+            suffix_object(p, n);
+        }
+        p = n;
+    }
+
+    return a;
+}
+
+/* XXX: xsystem4 addition: callback-based CreateArray. */
+CJSON_PUBLIC(cJSON *) cJSON_CreateArray_cb(int count, cJSON *(*get_item)(int,void*), void *data)
+{
+    size_t i = 0;
+    cJSON *n = NULL;
+    cJSON *p = NULL;
+    cJSON *a = NULL;
+
+    if (count < 0)
+    {
+        return NULL;
+    }
+
+    a = cJSON_CreateArray();
+    for(i = 0; a && (i < (size_t)count); i++)
+    {
+        n = get_item(i, data);;
+        if (!n)
+        {
+            // XXX: NULL return is ignored
+            continue;
+        }
+        if(!i)
+        {
+            a->child = n;
+        }
+        else
+        {
+            suffix_object(p, n);
+        }
+        p = n;
+    }
+
+    return a;
+}
+
 CJSON_PUBLIC(cJSON *) cJSON_CreateFloatArray(const float *numbers, int count)
 {
     size_t i = 0;

@@ -38,6 +38,26 @@ static cJSON *to_json_string(const char *s)
 	return json;
 }
 
+static int cb_get_number(int i, void *data)
+{
+	return ((int32_t *)data)[i];
+}
+
+static cJSON *int_array_to_json(int32_t *nums, int count)
+{
+	return cJSON_CreateIntArray_cb(count, cb_get_number, nums);
+}
+
+static cJSON *cb_get_string(int i, void *data)
+{
+	return to_json_string(((char **)data)[i]);
+}
+
+static cJSON *string_array_to_json(char **strs, int count)
+{
+	return cJSON_CreateArray_cb(count, cb_get_string, strs);
+}
+
 static cJSON *create_number_wrapper(const char *key, double value)
 {
 	cJSON *o = cJSON_CreateObject();
@@ -111,10 +131,7 @@ static cJSON *value_to_json(int32_t value, enum ain_data_type type, struct gsave
 				cJSON_AddItemToObjectCS(o, "value", cJSON_CreateNull());
 				return o;
 			}
-			cJSON *dims = cJSON_CreateArray();
-			for (int i = 0; i < a->rank; i++)
-				cJSON_AddItemToArray(dims, cJSON_CreateNumber(a->dimensions[i]));
-			cJSON_AddItemToObjectCS(o, "dimensions", dims);
+			cJSON_AddItemToObjectCS(o, "dimensions", int_array_to_json(a->dimensions, a->rank));
 			struct gsave_flat_array *fa = a->flat_arrays;
 			cJSON_AddItemToObjectCS(o, "values", array_to_json(a->rank, a->dimensions, &fa, save));
 			assert(fa == a->flat_arrays + a->nr_flat_arrays);
@@ -147,6 +164,150 @@ static cJSON *gsave_to_json(struct gsave *save)
 		cJSON_AddNumberToObject(global, "unknown", g->unknown);
 	}
 
+	return root;
+}
+
+static cJSON *rsave_symbol_to_json(struct rsave_symbol *sym)
+{
+	if (sym->name)
+		return to_json_string(sym->name);
+	return cJSON_CreateNumber(sym->id);
+}
+
+static cJSON *rsave_call_frame_to_json(struct rsave_call_frame *f)
+{
+	cJSON *o = cJSON_CreateObject();
+	cJSON_AddNumberToObject(o, "type", f->type);
+	cJSON_AddNumberToObject(o, "local_ptr", f->local_ptr);
+	if (f->type == RSAVE_METHOD_CALL)
+		cJSON_AddNumberToObject(o, "struct_ptr", f->struct_ptr);
+	return o;
+}
+
+static cJSON *rsave_return_record_to_json(struct rsave_return_record *f)
+{
+	if (f->return_addr == -1)
+		return cJSON_CreateNull();
+	cJSON *o = cJSON_CreateObject();
+	cJSON_AddNumberToObject(o, "return_addr", f->return_addr);
+	cJSON_AddItemToObjectCS(o, "caller_func", to_json_string(f->caller_func));
+	cJSON_AddNumberToObject(o, "local_addr", f->local_addr);
+	cJSON_AddNumberToObject(o, "crc", f->crc);
+	return o;
+}
+
+static cJSON *rsave_frame_to_json(struct rsave_heap_frame *f)
+{
+	cJSON *o = cJSON_CreateObject();
+	cJSON_AddStringToObject(o, "type", f->tag == RSAVE_GLOBALS ? "globals" : "locals");
+	cJSON_AddNumberToObject(o, "ref", f->ref);
+	cJSON_AddItemToObjectCS(o, "func", rsave_symbol_to_json(&f->func));
+
+	cJSON *types = cJSON_CreateArray();
+	for (int i = 0; i < f->nr_types; i++)
+		cJSON_AddItemToArray(types, cJSON_CreateNumber(f->types[i]));
+	cJSON_AddItemToObjectCS(o, "types", types);
+
+	cJSON_AddItemToObjectCS(o, "slots", int_array_to_json(f->slots, f->nr_slots));
+	return o;
+}
+
+static cJSON *rsave_string_to_json(struct rsave_heap_string *s)
+{
+	cJSON *o = cJSON_CreateObject();
+	cJSON_AddStringToObject(o, "type", "string");
+	cJSON_AddNumberToObject(o, "ref", s->ref);
+	cJSON_AddNumberToObject(o, "uk", s->uk);
+	if (strlen(s->text) + 1 == (size_t)s->len) {
+		cJSON_AddItemToObjectCS(o, "text", to_json_string(s->text));
+	} else {
+		// Serialize as a byte array.
+		cJSON *bytes = cJSON_CreateArray();
+		for (int i = 0; i < s->len; i++)
+			cJSON_AddItemToArray(bytes, cJSON_CreateNumber(s->text[i]));
+		cJSON_AddItemToObjectCS(o, "text", bytes);
+	}
+	return o;
+}
+
+static cJSON *rsave_array_to_json(struct rsave_heap_array *a)
+{
+	cJSON *o = cJSON_CreateObject();
+	cJSON_AddStringToObject(o, "type", "array");
+	cJSON_AddNumberToObject(o, "ref", a->ref);
+	cJSON_AddNumberToObject(o, "rank_minus_1", a->rank_minus_1);
+	cJSON_AddNumberToObject(o, "data_type", a->data_type);
+	cJSON_AddItemToObjectCS(o, "struct_type", rsave_symbol_to_json(&a->struct_type));
+	cJSON_AddNumberToObject(o, "root_rank", a->root_rank);
+	cJSON_AddNumberToObject(o, "is_not_empty", a->is_not_empty);
+	cJSON_AddItemToObjectCS(o, "slots", int_array_to_json(a->slots, a->nr_slots));
+	return o;
+}
+
+static cJSON *rsave_struct_to_json(struct rsave_heap_struct *s)
+{
+	cJSON *o = cJSON_CreateObject();
+	cJSON_AddStringToObject(o, "type", "struct");
+	cJSON_AddNumberToObject(o, "ref", s->ref);
+	cJSON_AddItemToObjectCS(o, "ctor", rsave_symbol_to_json(&s->ctor));
+	cJSON_AddItemToObjectCS(o, "dtor", rsave_symbol_to_json(&s->dtor));
+	cJSON_AddNumberToObject(o, "uk", s->uk);
+	cJSON_AddItemToObjectCS(o, "struct_type", rsave_symbol_to_json(&s->struct_type));
+
+	cJSON *types = cJSON_CreateArray();
+	for (int i = 0; i < s->nr_types; i++)
+		cJSON_AddItemToArray(types, cJSON_CreateNumber(s->types[i]));
+	cJSON_AddItemToObjectCS(o, "types", types);
+
+	cJSON_AddItemToObjectCS(o, "slots", int_array_to_json(s->slots, s->nr_slots));
+	return o;
+}
+
+static cJSON *heap_obj_to_json(int i, void *data)
+{
+	void *obj = ((void **)data)[i];
+	enum rsave_heap_tag *tag = obj;
+	switch (*tag) {
+	case RSAVE_GLOBALS:
+	case RSAVE_LOCALS: return rsave_frame_to_json(obj);
+	case RSAVE_STRING: return rsave_string_to_json(obj);
+	case RSAVE_ARRAY:  return rsave_array_to_json(obj);
+	case RSAVE_STRUCT: return rsave_struct_to_json(obj);
+	case RSAVE_NULL:   return cJSON_CreateNull();
+	}
+	ERROR("unknown heap object tag %d", *tag);
+}
+
+static cJSON *rsave_to_json(struct rsave *save)
+{
+	cJSON *root = cJSON_CreateObject();
+	cJSON_AddStringToObject(root, "save_type", "resume_save");
+	cJSON_AddNumberToObject(root, "version", save->version);
+	cJSON_AddItemToObjectCS(root, "key", to_json_string(save->key));
+
+	if (save->version >= 7) {
+		cJSON_AddItemToObjectCS(root, "comments", string_array_to_json(save->comments, save->nr_comments));
+	}
+
+	cJSON_AddItemToObjectCS(root, "ip", rsave_return_record_to_json(&save->ip));
+	cJSON_AddNumberToObject(root, "uk1", save->uk1);
+	cJSON_AddItemToObjectCS(root, "stack", int_array_to_json(save->stack, save->stack_size));
+
+	cJSON *call_frames = cJSON_CreateArray();
+	for (int i = 0; i < save->nr_call_frames; i++)
+		cJSON_AddItemToArray(call_frames, rsave_call_frame_to_json(&save->call_frames[i]));
+	cJSON_AddItemToObjectCS(root, "call_frames", call_frames);
+
+	cJSON *return_records = cJSON_CreateArray();
+	for (int i = 0; i < save->nr_return_records; i++)
+		cJSON_AddItemToArray(return_records, rsave_return_record_to_json(&save->return_records[i]));
+	cJSON_AddItemToObjectCS(root, "return_records", return_records);
+
+	cJSON_AddNumberToObject(root, "uk2", save->uk2);
+	cJSON_AddNumberToObject(root, "uk3", save->uk3);
+	cJSON_AddNumberToObject(root, "uk4", save->uk4);
+	cJSON_AddItemToObjectCS(root, "heap", cJSON_CreateArray_cb(save->nr_heap_objs, heap_obj_to_json, save->heap));
+	cJSON_AddItemToObjectCS(root, "func_names", string_array_to_json(save->func_names, save->nr_func_names));
 	return root;
 }
 
@@ -192,23 +353,32 @@ int command_asd_dump(int argc, char *argv[])
 		return 0;
 	}
 
-	if (!memcmp(save->buf, "RSM\0", 4))
-		ALICE_ERROR("%s: Resume save is not supported yet.", argv[0]);
-
-	struct gsave *gsave = xcalloc(1, sizeof(struct gsave));
-	error = gsave_parse(save->buf, save->len, gsave);
-	if (error != SAVEFILE_SUCCESS)
-		ALICE_ERROR("Cannot parse '%s': %s", argv[0], savefile_strerror(error));
-	cJSON *json = gsave_to_json(gsave);
+	cJSON *json;
+	if (!memcmp(save->buf, "RSM\0", 4)) {
+		struct rsave *rsave = xcalloc(1, sizeof(struct rsave));
+		error = rsave_parse(save->buf, save->len, rsave);
+		if (error != SAVEFILE_SUCCESS)
+			ALICE_ERROR("Cannot parse '%s': %s", argv[0], savefile_strerror(error));
+		json = rsave_to_json(rsave);
+		rsave_free(rsave);
+	} else {
+		struct gsave *gsave = xcalloc(1, sizeof(struct gsave));
+		error = gsave_parse(save->buf, save->len, gsave);
+		if (error != SAVEFILE_SUCCESS)
+			ALICE_ERROR("Cannot parse '%s': %s", argv[0], savefile_strerror(error));
+		json = gsave_to_json(gsave);
+		gsave_free(gsave);
+	}
+	// Add some metadata about the envelope format.
 	cJSON_AddBoolToObject(json, "encrypted", save->encrypted);
 	cJSON_AddNumberToObject(json, "compression_level", save->compression_level);
+
 	char *text = cJSON_Print(json);
 	if (fputs(text, out) == EOF)
 		ALICE_ERROR("Error writing to file: %s", strerror(errno));
 
 	free(text);
 	cJSON_Delete(json);
-	gsave_free(gsave);
 	savefile_free(save);
 	return 0;
 }
