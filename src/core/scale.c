@@ -117,10 +117,6 @@ static void sample_bicubic(struct cg *in, uint8_t *out, float u, float v)
 
 struct cg *scale_cg_bicubic(struct cg *in, float scale)
 {
-	// FIXME: convert indexed image to RGBA
-	if (in->pal)
-		ERROR("scale_cg_bicubic not implemented for indexed image formats");
-
 	struct cg *out = xmalloc(sizeof(struct cg));
 	*out = *in;
 	out->metrics.w = in->metrics.w * scale;
