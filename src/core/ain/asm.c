@@ -224,15 +224,22 @@ static char *parse_identifier(possibly_unused struct asm_state *state, char *s, 
 	ASM_ERROR(state, "Invalid identifier: '%s' (bad suffix)", s);
 }
 
-static int32_t parse_integer_constant(possibly_unused struct asm_state *state, const char *arg)
+static bool _parse_integer_constant(const char *arg, int32_t *out)
 {
 	char *endptr;
 	errno = 0;
 	long i = strtol(arg, &endptr, 0);
 	if (errno || *endptr != '\0')
+		return false;
+	*out = i;
+	return true;
+}
+
+static int32_t parse_integer_constant(struct asm_state *state, const char *arg)
+{
+	int i = 0;
+	if (!_parse_integer_constant(arg, &i))
 		ASM_ERROR(state, "Invalid integer constant: '%s'", arg);
-	//if (i > INT32_MAX || i < INT32_MIN)
-	//	ASM_ERROR(state, "Integer would be truncated: %ld -> %d", i, (int32_t)i);
 	return i;
 }
 
@@ -958,6 +965,7 @@ static void _asm_enter_function(struct asm_state *state, int32_t fno)
 
 static void asm_enter_function(struct asm_state *state, int32_t fno)
 {
+	NOTICE("ENTER %d", fno);
 	_asm_enter_function(state, fno);
 	state->ain->functions[fno].address = state->buf_ptr + 6;
 	asm_write_opcode(state, FUNC);
@@ -1046,7 +1054,7 @@ static void jam_inject(struct asm_state *state, const char *filename, int fno, u
 
 static void _jam_assemble(struct asm_state *state, parse_instruction_list *code, size_t i)
 {
-		for (; i < kv_size(*code); i++) {
+	for (; i < kv_size(*code); i++) {
 		struct parse_instruction *instr = kv_A(*code, i);
 		if (instr->opcode >= PSEUDO_OP_OFFSET) {
 			handle_pseudo_op(state, instr);
@@ -1057,7 +1065,12 @@ static void _jam_assemble(struct asm_state *state, parse_instruction_list *code,
 
 		// NOTE: special case: we need to record the new function address in the ain structure
 		if (idef->opcode == FUNC) {
-			asm_enter_function(state, asm_resolve_arg(state, FUNC, T_INT, kv_A(*instr->args, 0)->text));
+			int32_t fno = 0;
+			const char *arg = kv_A(*instr->args, 0)->text;
+			if (!_parse_integer_constant(arg, &fno)) {
+				fno = asm_resolve_arg(state, FUNC, T_FUNC, arg);
+			}
+			asm_enter_function(state, fno);
 			continue;
 		} else if (idef->opcode == ENDFUNC) {
 			asm_leave_function(state);
