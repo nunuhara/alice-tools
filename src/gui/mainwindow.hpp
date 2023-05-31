@@ -30,6 +30,8 @@ struct ain;
 struct ex_value;
 struct acx;
 
+class SjisDecoder;
+
 class MainWindow : public QMainWindow
 {
 	Q_OBJECT
@@ -69,6 +71,8 @@ private:
 
         QTabWidget *tabWidget;
         Navigator *nav;
+
+	SjisDecoder *decodeDialog = nullptr;
 };
 
 #endif /* GALICE_MAINWINDOW_HPP */

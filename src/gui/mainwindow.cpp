@@ -26,6 +26,7 @@
 #include "jaf_view.hpp"
 #include "jam_view.hpp"
 #include "navigator.hpp"
+#include "sjisdecoder.hpp"
 #include "viewer.hpp"
 
 extern "C" {
@@ -101,6 +102,19 @@ void MainWindow::createActions()
         viewMenu = menuBar()->addMenu(tr("&View"));
 
         menuBar()->addSeparator();
+
+	QMenu *toolsMenu = menuBar()->addMenu(tr("&Tools"));
+
+	QAction *decodeAct = new QAction(tr("&Decode Shift-JIS"), this);
+	decodeAct->setStatusTip(tr("Decode hex-coded shift-JIS text"));
+	connect(decodeAct, &QAction::triggered, [this]{
+		if (!decodeDialog)
+			decodeDialog = new SjisDecoder(this);
+		decodeDialog->show();
+		decodeDialog->raise();
+		decodeDialog->activateWindow();
+	});
+	toolsMenu->addAction(decodeAct);
 
         QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
 
