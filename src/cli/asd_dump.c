@@ -288,6 +288,10 @@ static cJSON *rsave_to_json(struct rsave *save)
 	if (save->version >= 7) {
 		cJSON_AddItemToObjectCS(root, "comments", string_array_to_json(save->comments, save->nr_comments));
 	}
+	if (save->comments_only) {
+		cJSON_AddBoolToObject(root, "comments_only", true);
+		return root;
+	}
 
 	cJSON_AddItemToObjectCS(root, "ip", rsave_return_record_to_json(&save->ip));
 	cJSON_AddNumberToObject(root, "uk1", save->uk1);
