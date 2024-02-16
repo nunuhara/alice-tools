@@ -359,6 +359,11 @@ static struct rsave *json_to_rsave(cJSON *root)
 		cJSON *comments = json_get_array(root, "comments");
 		save->comments = json_to_string_array(comments, &save->nr_comments);
 	}
+	if (cJSON_IsTrue(cJSON_GetObjectItem(root, "comments_only"))) {
+		save->comments_only = true;
+		return save;
+	}
+
 	json_to_rsave_return_record(cJSON_GetObjectItem(root, "ip"), &save->ip);
 	save->uk1 = json_get_int(root, "uk1");
 
