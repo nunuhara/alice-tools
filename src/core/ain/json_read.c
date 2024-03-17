@@ -96,7 +96,9 @@ static void read_type_declaration(cJSON *decl, struct ain_type *dst)
 	_read_type_declaration(decl, dst);
 	if (size == 4) {
 		int i;
-		cJSON *v, *a = cJSON_GetArrayItem(decl, 4);
+		cJSON *v, *a = cJSON_GetArrayItem(decl, 3);
+		if (cJSON_IsNull(a))
+			return;
 		if (!cJSON_IsArray(a))
 			ERROR("Non-array in array-type slot");
 		if (cJSON_GetArraySize(a) == 0)
