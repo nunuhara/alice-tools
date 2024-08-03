@@ -196,11 +196,13 @@ static cJSON *rsave_return_record_to_json(struct rsave_return_record *f)
 	return o;
 }
 
-static cJSON *rsave_frame_to_json(struct rsave_heap_frame *f)
+static cJSON *rsave_frame_to_json(int32_t version, struct rsave_heap_frame *f)
 {
 	cJSON *o = cJSON_CreateObject();
 	cJSON_AddStringToObject(o, "type", f->tag == RSAVE_GLOBALS ? "globals" : "locals");
 	cJSON_AddNumberToObject(o, "ref", f->ref);
+	if (version >= 9)
+		cJSON_AddNumberToObject(o, "seq", f->seq);
 	cJSON_AddItemToObjectCS(o, "func", rsave_symbol_to_json(&f->func));
 
 	cJSON *types = cJSON_CreateArray();
@@ -208,15 +210,19 @@ static cJSON *rsave_frame_to_json(struct rsave_heap_frame *f)
 		cJSON_AddItemToArray(types, cJSON_CreateNumber(f->types[i]));
 	cJSON_AddItemToObjectCS(o, "types", types);
 
+	if (f->tag == RSAVE_LOCALS && version >= 9)
+		cJSON_AddNumberToObject(o, "struct_ptr", f->struct_ptr);
 	cJSON_AddItemToObjectCS(o, "slots", int_array_to_json(f->slots, f->nr_slots));
 	return o;
 }
 
-static cJSON *rsave_string_to_json(struct rsave_heap_string *s)
+static cJSON *rsave_string_to_json(int32_t version, struct rsave_heap_string *s)
 {
 	cJSON *o = cJSON_CreateObject();
 	cJSON_AddStringToObject(o, "type", "string");
 	cJSON_AddNumberToObject(o, "ref", s->ref);
+	if (version >= 9)
+		cJSON_AddNumberToObject(o, "seq", s->seq);
 	cJSON_AddNumberToObject(o, "uk", s->uk);
 	if (strlen(s->text) + 1 == (size_t)s->len) {
 		cJSON_AddItemToObjectCS(o, "text", to_json_string(s->text));
@@ -230,11 +236,13 @@ static cJSON *rsave_string_to_json(struct rsave_heap_string *s)
 	return o;
 }
 
-static cJSON *rsave_array_to_json(struct rsave_heap_array *a)
+static cJSON *rsave_array_to_json(int32_t version, struct rsave_heap_array *a)
 {
 	cJSON *o = cJSON_CreateObject();
 	cJSON_AddStringToObject(o, "type", "array");
 	cJSON_AddNumberToObject(o, "ref", a->ref);
+	if (version >= 9)
+		cJSON_AddNumberToObject(o, "seq", a->seq);
 	cJSON_AddNumberToObject(o, "rank_minus_1", a->rank_minus_1);
 	cJSON_AddNumberToObject(o, "data_type", a->data_type);
 	cJSON_AddItemToObjectCS(o, "struct_type", rsave_symbol_to_json(&a->struct_type));
@@ -244,11 +252,13 @@ static cJSON *rsave_array_to_json(struct rsave_heap_array *a)
 	return o;
 }
 
-static cJSON *rsave_struct_to_json(struct rsave_heap_struct *s)
+static cJSON *rsave_struct_to_json(int32_t version, struct rsave_heap_struct *s)
 {
 	cJSON *o = cJSON_CreateObject();
 	cJSON_AddStringToObject(o, "type", "struct");
 	cJSON_AddNumberToObject(o, "ref", s->ref);
+	if (version >= 9)
+		cJSON_AddNumberToObject(o, "seq", s->seq);
 	cJSON_AddItemToObjectCS(o, "ctor", rsave_symbol_to_json(&s->ctor));
 	cJSON_AddItemToObjectCS(o, "dtor", rsave_symbol_to_json(&s->dtor));
 	cJSON_AddNumberToObject(o, "uk", s->uk);
@@ -263,17 +273,30 @@ static cJSON *rsave_struct_to_json(struct rsave_heap_struct *s)
 	return o;
 }
 
+static cJSON *rsave_delegate_to_json(int32_t version, struct rsave_heap_delegate *d)
+{
+	cJSON *o = cJSON_CreateObject();
+	cJSON_AddStringToObject(o, "type", "delegate");
+	cJSON_AddNumberToObject(o, "ref", d->ref);
+	if (version >= 9)
+		cJSON_AddNumberToObject(o, "seq", d->seq);
+	cJSON_AddItemToObjectCS(o, "slots", int_array_to_json(d->slots, d->nr_slots));
+	return o;
+}
+
 static cJSON *heap_obj_to_json(int i, void *data)
 {
-	void *obj = ((void **)data)[i];
+	struct rsave *save = data;
+	void *obj = save->heap[i];
 	enum rsave_heap_tag *tag = obj;
 	switch (*tag) {
 	case RSAVE_GLOBALS:
-	case RSAVE_LOCALS: return rsave_frame_to_json(obj);
-	case RSAVE_STRING: return rsave_string_to_json(obj);
-	case RSAVE_ARRAY:  return rsave_array_to_json(obj);
-	case RSAVE_STRUCT: return rsave_struct_to_json(obj);
-	case RSAVE_NULL:   return cJSON_CreateNull();
+	case RSAVE_LOCALS:   return rsave_frame_to_json(save->version, obj);
+	case RSAVE_STRING:   return rsave_string_to_json(save->version, obj);
+	case RSAVE_ARRAY:    return rsave_array_to_json(save->version, obj);
+	case RSAVE_STRUCT:   return rsave_struct_to_json(save->version, obj);
+	case RSAVE_DELEGATE: return rsave_delegate_to_json(save->version, obj);
+	case RSAVE_NULL:     return cJSON_CreateNull();
 	}
 	ERROR("unknown heap object tag %d", *tag);
 }
@@ -310,7 +333,9 @@ static cJSON *rsave_to_json(struct rsave *save)
 	cJSON_AddNumberToObject(root, "uk2", save->uk2);
 	cJSON_AddNumberToObject(root, "uk3", save->uk3);
 	cJSON_AddNumberToObject(root, "uk4", save->uk4);
-	cJSON_AddItemToObjectCS(root, "heap", cJSON_CreateArray_cb(save->nr_heap_objs, heap_obj_to_json, save->heap));
+	if (save->version >= 9)
+		cJSON_AddNumberToObject(root, "next_seq", save->next_seq);
+	cJSON_AddItemToObjectCS(root, "heap", cJSON_CreateArray_cb(save->nr_heap_objs, heap_obj_to_json, save));
 	cJSON_AddItemToObjectCS(root, "func_names", string_array_to_json(save->func_names, save->nr_func_names));
 	return root;
 }
