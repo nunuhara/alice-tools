@@ -249,22 +249,26 @@ static void json_to_rsave_return_record(cJSON *f, struct rsave_return_record *de
 	dest->crc = json_get_int(f, "crc");
 }
 
-static struct rsave_heap_frame *json_to_rsave_frame(cJSON *json, enum rsave_heap_tag type)
+static struct rsave_heap_frame *json_to_rsave_frame(int32_t version, cJSON *json, enum rsave_heap_tag type)
 {
 	int nr_slots;
 	int32_t *slots = json_to_int_array(json_get_array(json, "slots"), &nr_slots);
 	struct rsave_heap_frame *f = xmalloc(sizeof(struct rsave_heap_frame) + nr_slots * sizeof(int32_t));
 	f->tag = type;
 	f->ref = json_get_int(json, "ref");
+	if (version >= 9)
+		f->seq = json_get_int(json, "seq");
 	f->func = json_to_rsave_symbol(cJSON_GetObjectItem(json, "func"));
 	f->types = json_to_int_array(json_get_array(json, "types"), &f->nr_types);
+	if (type == RSAVE_LOCALS && version >= 9)
+		f->struct_ptr = json_get_int(json, "struct_ptr");
 	f->nr_slots = nr_slots;
 	memcpy(f->slots, slots, nr_slots * sizeof(int32_t));
 	free(slots);
 	return f;
 }
 
-static struct rsave_heap_string *json_to_rsave_string(cJSON *json)
+static struct rsave_heap_string *json_to_rsave_string(int32_t version, cJSON *json)
 {
 	cJSON *text = cJSON_GetObjectItem(json, "text");
 	char *buf;
@@ -287,6 +291,8 @@ static struct rsave_heap_string *json_to_rsave_string(cJSON *json)
 	struct rsave_heap_string *s = xmalloc(sizeof(struct rsave_heap_string) + len);
 	s->tag = RSAVE_STRING;
 	s->ref = json_get_int(json, "ref");
+	if (version >= 9)
+		s->seq = json_get_int(json, "seq");
 	s->uk = json_get_int(json, "uk");
 	s->len = len;
 	memcpy(s->text, buf, len);
@@ -294,13 +300,15 @@ static struct rsave_heap_string *json_to_rsave_string(cJSON *json)
 	return s;
 }
 
-static struct rsave_heap_array *json_to_rsave_array(cJSON *json)
+static struct rsave_heap_array *json_to_rsave_array(int32_t version, cJSON *json)
 {
 	int nr_slots;
 	int32_t *slots = json_to_int_array(json_get_array(json, "slots"), &nr_slots);
 	struct rsave_heap_array *a = xmalloc(sizeof(struct rsave_heap_array) + nr_slots * sizeof(int32_t));
 	a->tag = RSAVE_ARRAY;
 	a->ref = json_get_int(json, "ref");
+	if (version >= 9)
+		a->seq = json_get_int(json, "seq");
 	a->rank_minus_1 = json_get_int(json, "rank_minus_1");
 	a->data_type = json_get_int(json, "data_type");
 	a->struct_type = json_to_rsave_symbol(cJSON_GetObjectItem(json, "struct_type"));
@@ -312,13 +320,15 @@ static struct rsave_heap_array *json_to_rsave_array(cJSON *json)
 	return a;
 }
 
-static struct rsave_heap_struct *json_to_rsave_struct(cJSON *json)
+static struct rsave_heap_struct *json_to_rsave_struct(int32_t version, cJSON *json)
 {
 	int nr_slots;
 	int32_t *slots = json_to_int_array(json_get_array(json, "slots"), &nr_slots);
 	struct rsave_heap_struct *s = xmalloc(sizeof(struct rsave_heap_struct) + nr_slots * sizeof(int32_t));
 	s->tag = RSAVE_STRUCT;
 	s->ref = json_get_int(json, "ref");
+	if (version >= 9)
+		s->seq = json_get_int(json, "seq");
 	s->ctor = json_to_rsave_symbol(cJSON_GetObjectItem(json, "ctor"));
 	s->dtor = json_to_rsave_symbol(cJSON_GetObjectItem(json, "dtor"));
 	s->uk = json_get_int(json, "uk");
@@ -330,21 +340,38 @@ static struct rsave_heap_struct *json_to_rsave_struct(cJSON *json)
 	return s;
 }
 
-static void *json_to_heap_obj(cJSON *item)
+static struct rsave_heap_delegate *json_to_rsave_delegate(int32_t version, cJSON *json)
+{
+	int nr_slots;
+	int32_t *slots = json_to_int_array(json_get_array(json, "slots"), &nr_slots);
+	struct rsave_heap_delegate *d = xmalloc(sizeof(struct rsave_heap_delegate) + nr_slots * sizeof(int32_t));
+	d->tag = RSAVE_DELEGATE;
+	d->ref = json_get_int(json, "ref");
+	if (version >= 9)
+		d->seq = json_get_int(json, "seq");
+	d->nr_slots = nr_slots;
+	memcpy(d->slots, slots, nr_slots * sizeof(int32_t));
+	free(slots);
+	return d;
+}
+
+static void *json_to_heap_obj(int32_t version, cJSON *item)
 {
 	if (cJSON_IsNull(item))
 		return rsave_null;
 	cJSON *type = cJSON_GetObjectItem(item, "type");
 	if (!strcmp(type->valuestring, "globals"))
-		return json_to_rsave_frame(item, RSAVE_GLOBALS);
+		return json_to_rsave_frame(version, item, RSAVE_GLOBALS);
 	if (!strcmp(type->valuestring, "locals"))
-		return json_to_rsave_frame(item, RSAVE_LOCALS);
+		return json_to_rsave_frame(version, item, RSAVE_LOCALS);
 	if (!strcmp(type->valuestring, "string"))
-		return json_to_rsave_string(item);
+		return json_to_rsave_string(version, item);
 	if (!strcmp(type->valuestring, "array"))
-		return json_to_rsave_array(item);
+		return json_to_rsave_array(version, item);
 	if (!strcmp(type->valuestring, "struct"))
-		return json_to_rsave_struct(item);
+		return json_to_rsave_struct(version, item);
+	if (!strcmp(type->valuestring, "delegate"))
+		return json_to_rsave_delegate(version, item);
 	ALICE_ERROR("unknown heap object type %s", type->valuestring);
 }
 
@@ -386,12 +413,14 @@ static struct rsave *json_to_rsave(cJSON *root)
 	save->uk2 = json_get_int(root, "uk2");
 	save->uk3 = json_get_int(root, "uk3");
 	save->uk4 = json_get_int(root, "uk4");
+	if (save->version >= 9)
+		save->next_seq = json_get_int(root, "next_seq");
 
 	cJSON *heap = json_get_array(root, "heap");
 	save->nr_heap_objs = cJSON_GetArraySize(heap);
 	save->heap = xcalloc(save->nr_heap_objs, sizeof(void*));
 	cJSON_ArrayForEachIndex(i, item, heap) {
-		save->heap[i] = json_to_heap_obj(item);
+		save->heap[i] = json_to_heap_obj(save->version, item);
 	}
 
 	if (save->version >= 6) {
