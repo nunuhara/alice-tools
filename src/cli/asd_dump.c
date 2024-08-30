@@ -385,7 +385,7 @@ int command_asd_dump(int argc, char *argv[])
 	cJSON *json;
 	if (!memcmp(save->buf, "RSM\0", 4)) {
 		struct rsave *rsave = xcalloc(1, sizeof(struct rsave));
-		error = rsave_parse(save->buf, save->len, rsave);
+		error = rsave_parse(save->buf, save->len, RSAVE_READ_ALL, rsave);
 		if (error != SAVEFILE_SUCCESS)
 			ALICE_ERROR("Cannot parse '%s': %s", argv[0], savefile_strerror(error));
 		json = rsave_to_json(rsave);
