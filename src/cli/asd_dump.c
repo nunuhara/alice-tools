@@ -92,6 +92,8 @@ static cJSON *value_to_json(int32_t value, enum ain_data_type type, struct gsave
 	case AIN_INT:
 		return cJSON_CreateNumber(value);
 	case AIN_STRING:
+		if (value == GSAVE7_EMPTY_STRING)
+			return cJSON_CreateString("");
 		return to_json_string(save->strings[value]->text);
 	case AIN_LONG_INT:
 		return create_number_wrapper("lint", value);
@@ -109,15 +111,31 @@ static cJSON *value_to_json(int32_t value, enum ain_data_type type, struct gsave
 	case AIN_STRUCT:
 		{
 			struct gsave_record *r = &save->records[value];
-			if (r->type != GSAVE_RECORD_STRUCT)
-				ERROR("unexpected type in records table: %d", r->type);
 			cJSON *o = cJSON_CreateObject();
-			cJSON_AddItemToObjectCS(o, "@type", to_json_string(r->struct_name));
-			for (int i = 0; i < r->nr_indices; i++) {
-				struct gsave_keyval *kv = &save->keyvals[r->indices[i]];
-				char *key = conv_output(kv->name);
-				cJSON_AddItemToObject(o, key, value_to_json(kv->value, kv->type, save));
-				free(key);
+			if (save->version <= 5) {
+				if (r->type != GSAVE_RECORD_STRUCT)
+					ALICE_ERROR("unexpected type in records table: %d", r->type);
+				cJSON_AddItemToObjectCS(o, "@type", to_json_string(r->struct_name));
+				for (int i = 0; i < r->nr_indices; i++) {
+					struct gsave_keyval *kv = &save->keyvals[r->indices[i]];
+					char *key = conv_output(kv->name);
+					cJSON_AddItemToObject(o, key, value_to_json(kv->value, kv->type, save));
+					free(key);
+				}
+			} else {
+				if (r->struct_index < 0)
+					ALICE_ERROR("unexpected type in records table: %d", r->type);
+				struct gsave_struct_def *sd = &save->struct_defs[r->struct_index];
+				cJSON_AddItemToObjectCS(o, "@type", to_json_string(sd->name));
+				if (r->nr_indices != sd->nr_fields)
+					ALICE_ERROR("record %d has %d fields, but struct %d has %d fields", value, r->nr_indices, r->struct_index, sd->nr_fields);
+				for (int i = 0; i < r->nr_indices; i++) {
+					struct gsave_keyval *kv = &save->keyvals[r->indices[i]];
+					struct gsave_field_def *fd = &sd->fields[i];
+					char *key = conv_output(fd->name);
+					cJSON_AddItemToObject(o, key, value_to_json(kv->value, fd->type, save));
+					free(key);
+				}
 			}
 			return o;
 		}
@@ -161,7 +179,26 @@ static cJSON *gsave_to_json(struct gsave *save)
 		cJSON_AddItemToArray(globals, global);
 		cJSON_AddItemToObjectCS(global, "name", to_json_string(g->name));
 		cJSON_AddItemToObjectCS(global, "value", value_to_json(g->value, g->type, save));
-		cJSON_AddNumberToObject(global, "unknown", g->unknown);
+		if (save->version <= 5)
+			cJSON_AddNumberToObject(global, "unknown", g->unknown);
+	}
+
+	if (save->version >= 7) {
+		cJSON *struct_defs = cJSON_CreateArray();
+		cJSON_AddItemToObjectCS(root, "struct_defs", struct_defs);
+		for (struct gsave_struct_def *sd = save->struct_defs; sd < save->struct_defs + save->nr_struct_defs; sd++) {
+			cJSON *struct_def = cJSON_CreateObject();
+			cJSON_AddItemToArray(struct_defs, struct_def);
+			cJSON_AddItemToObjectCS(struct_def, "name", to_json_string(sd->name));
+			cJSON *fields = cJSON_CreateArray();
+			cJSON_AddItemToObjectCS(struct_def, "fields", fields);
+			for (struct gsave_field_def *fd = sd->fields; fd < sd->fields + sd->nr_fields; fd++) {
+				cJSON *field = cJSON_CreateObject();
+				cJSON_AddItemToArray(fields, field);
+				cJSON_AddNumberToObject(field, "type", fd->type);
+				cJSON_AddItemToObjectCS(field, "name", to_json_string(fd->name));
+			}
+		}
 	}
 
 	return root;
@@ -298,7 +335,7 @@ static cJSON *heap_obj_to_json(int i, void *data)
 	case RSAVE_DELEGATE: return rsave_delegate_to_json(save->version, obj);
 	case RSAVE_NULL:     return cJSON_CreateNull();
 	}
-	ERROR("unknown heap object tag %d", *tag);
+	ALICE_ERROR("unknown heap object tag %d", *tag);
 }
 
 static cJSON *rsave_to_json(struct rsave *save)
