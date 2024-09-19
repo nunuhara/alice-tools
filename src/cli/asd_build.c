@@ -83,6 +83,9 @@ static void collect_flat_arrays(cJSON *a, struct gsave_array *array, struct gsav
 		dest->value = tv.value;
 		dest++;
 	}
+	if (!fa->nr_values)
+		ALICE_ERROR("empty flat_array");
+	fa->type = fa->values[0].type;
 }
 
 static struct typed_value add_value_to_gsave(cJSON *v, struct gsave *save)
@@ -98,7 +101,7 @@ static struct typed_value add_value_to_gsave(cJSON *v, struct gsave *save)
 		return TYPED_VALUE(AIN_STRING, v);
 	}
 	if (!cJSON_IsObject(v))
-		ERROR("unexpected json object: %s", cJSON_PrintUnformatted(v));
+		ALICE_ERROR("unexpected json object: %s", cJSON_PrintUnformatted(v));
 
 	cJSON *struct_name = cJSON_GetObjectItem(v, "@type");
 	if (cJSON_IsString(struct_name)) {
@@ -109,6 +112,11 @@ static struct typed_value add_value_to_gsave(cJSON *v, struct gsave *save)
 			.nr_indices = nr_fields,
 			.indices = xcalloc(nr_fields, sizeof(int32_t)),
 		};
+		if (save->version >= 7) {
+			rec.struct_index = gsave_get_struct_def(save, rec.struct_name);
+			if (rec.struct_index < 0)
+				ALICE_ERROR("no struct definition for %s", struct_name->valuestring);
+		}
 		int32_t *index = rec.indices;
 		cJSON *field;
 		cJSON_ArrayForEach(field, v) {
@@ -159,7 +167,7 @@ static struct typed_value add_value_to_gsave(cJSON *v, struct gsave *save)
 	if (cJSON_IsNumber(num)) {
 		return TYPED_VALUE(num->valueint, -1);
 	}
-	ERROR("unexpected json object: %s", cJSON_PrintUnformatted(v));
+	ALICE_ERROR("unexpected json object: %s", cJSON_PrintUnformatted(v));
 }
 
 static struct gsave *json_to_gsave(cJSON *root)
@@ -173,6 +181,27 @@ static struct gsave *json_to_gsave(cJSON *root)
 	if (save->version >= 5)
 		save->group = json_get_string(root, "group");
 
+	if (save->version >= 7) {
+		cJSON *struct_defs = json_get_array(root, "struct_defs");
+		save->nr_struct_defs = cJSON_GetArraySize(struct_defs);
+		save->struct_defs = xcalloc(save->nr_struct_defs, sizeof(struct gsave_struct_def));
+		int i;
+		cJSON *o;
+		cJSON_ArrayForEachIndex(i, o, struct_defs) {
+			struct gsave_struct_def *sd = &save->struct_defs[i];
+			sd->name = json_get_string(o, "name");
+			cJSON *fields = json_get_array(o, "fields");
+			sd->nr_fields = cJSON_GetArraySize(fields);
+			sd->fields = xcalloc(sd->nr_fields, sizeof(struct gsave_field_def));
+			int j;
+			cJSON *f;
+			cJSON_ArrayForEachIndex(j, f, fields) {
+				sd->fields[j].type = json_get_int(f, "type");
+				sd->fields[j].name = json_get_string(f, "name");
+			}
+		}
+	}
+
 	cJSON *globals = json_get_array(root, "globals");
 	int nr_globals = cJSON_GetArraySize(globals);
 	gsave_add_globals_record(save, nr_globals);
@@ -184,7 +213,8 @@ static struct gsave *json_to_gsave(cJSON *root)
 		struct typed_value tv = add_value_to_gsave(v, save);
 		save->globals[i].type = tv.type;
 		save->globals[i].value = tv.value;
-		save->globals[i].unknown = json_get_int(o, "unknown");
+		if (save->version <= 5)
+			save->globals[i].unknown = json_get_int(o, "unknown");
 	}
 	return save;
 }
