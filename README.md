@@ -63,8 +63,8 @@ Run the following commands to copy the required files for Qt,
     cp build/src/galice.exe deploy/
     windeployqt deploy/galice.exe
 
-At this point, there are still some DLLs missing from the `deploy` directory. You can run the
-following command to determine the required DLLs,
+At this point, there are still some DLLs missing from the `deploy` directory.
+You can run the following command to determine the required DLLs,
 
     ldd build/src/galice.exe | grep mingw64
 
