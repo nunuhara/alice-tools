@@ -380,12 +380,25 @@ struct jaf_block *jaf_destructor(struct string *name, struct jaf_block *body)
 	return jaf_function(type, decl, body);
 }
 
+static struct jaf_type_specifier *copy_type_specifier(struct jaf_type_specifier *type)
+{
+	if (!type)
+		return NULL;
+	struct jaf_type_specifier *out = xmalloc(sizeof(struct jaf_type_specifier));
+	*out = *type;
+	out->array_type = copy_type_specifier(type->array_type);
+	out->name = type->name ? string_dup(type->name) : NULL;
+	return out;
+}
+
 struct jaf_block *jaf_vardecl(struct jaf_type_specifier *type, struct jaf_declarator_list *declarators)
 {
 	struct jaf_block *decls = xcalloc(1, sizeof(struct jaf_block));
 	decls->nr_items = declarators->nr_decls;
 	decls->items = xcalloc(declarators->nr_decls, sizeof(struct jaf_block_item*));
 	for (size_t i = 0; i < declarators->nr_decls; i++) {
+		if (i > 0)
+			type = copy_type_specifier(type);
 		decls->items[i] = block_item(JAF_DECL_VAR);
 		init_declaration(type, decls->items[i], declarators->decls[i]);
 	}
