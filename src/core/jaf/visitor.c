@@ -167,6 +167,11 @@ void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
 		stmt->rassign.lhs = jaf_accept_expr(stmt->rassign.lhs, visitor);
 		stmt->rassign.rhs = jaf_accept_expr(stmt->rassign.rhs, visitor);
 		break;
+	case JAF_STMT_ASSERT:
+		stmt->assertion.expr = jaf_accept_expr(stmt->assertion.expr, visitor);
+		stmt->assertion.expr_string = jaf_accept_expr(stmt->assertion.expr_string, visitor);
+		stmt->assertion.file = jaf_accept_expr(stmt->assertion.file, visitor);
+		break;
 	case JAF_STMT_NULL:
 	case JAF_STMT_GOTO:
 	case JAF_STMT_CONTINUE:

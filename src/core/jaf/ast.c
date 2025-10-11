@@ -582,6 +582,23 @@ struct jaf_block_item *jaf_rassign(struct jaf_expression *lhs, struct jaf_expres
 	return item;
 }
 
+struct jaf_block_item *jaf_assert(struct jaf_expression *expr, int line, const char *file)
+{
+	struct string *str = make_string("assert(", 7);
+	struct string *expr_str = jaf_expression_to_string(expr);
+	string_append(&str, expr_str);
+	string_push_back(&str, ')');
+	string_push_back(&str, ';');
+	free_string(expr_str);
+
+	struct jaf_block_item *item = block_item(JAF_STMT_ASSERT);
+	item->assertion.expr = expr;
+	item->assertion.expr_string = jaf_string(str);
+	item->assertion.line = line;
+	item->assertion.file = jaf_string(make_string(file, strlen(file)));
+	return item;
+}
+
 static void jaf_free_argument_list(struct jaf_argument_list *list)
 {
 	for (size_t i = 0; i < list->nr_items; i++) {
@@ -747,6 +764,11 @@ void jaf_free_block_item(struct jaf_block_item *item)
 	case JAF_STMT_RASSIGN:
 		jaf_free_expr(item->rassign.lhs);
 		jaf_free_expr(item->rassign.rhs);
+		break;
+	case JAF_STMT_ASSERT:
+		jaf_free_expr(item->assertion.expr);
+		jaf_free_expr(item->assertion.expr_string);
+		jaf_free_expr(item->assertion.file);
 		break;
 	}
 	free(item);

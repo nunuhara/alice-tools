@@ -112,6 +112,7 @@ unsigned long jaf_line = 1;
 "override"                              { return OVERRIDE; }
 "this"                                  { return THIS; }
 "new"                                   { return SYM_NEW; }
+"assert"                                { return ASSERT; }
 
 {L}                                     { return check_type(); }
 {L}{A}*{AT}                             { return check_type(); }

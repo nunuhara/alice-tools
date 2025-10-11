@@ -23,6 +23,8 @@
 #include "system4.h"
 #include "system4/ain.h"
 
+struct port;
+
 #define _COMPILER_ERROR(file, line, msgf, ...)		\
 	ERROR("at %s:%d: " msgf, file ? file : "?", line, ##__VA_ARGS__)
 
@@ -339,6 +341,7 @@ enum block_item_kind {
 	JAF_STMT_DEFAULT,
 	JAF_STMT_MESSAGE,
 	JAF_STMT_RASSIGN,
+	JAF_STMT_ASSERT,
 	JAF_EOF
 };
 
@@ -414,6 +417,12 @@ struct jaf_block_item {
 			struct jaf_expression *lhs;
 			struct jaf_expression *rhs;
 		} rassign;
+		struct {
+			struct jaf_expression *expr;
+			struct jaf_expression *expr_string;
+			int line;
+			struct jaf_expression *file;
+		} assertion;
 		struct string *target; // goto
 		unsigned file_no;      // eof
 	};
@@ -506,6 +515,7 @@ struct jaf_block_item *jaf_return(struct jaf_expression *expr);
 struct jaf_block_item *jaf_message_statement(struct string *msg, struct string *func);
 struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields);
 struct jaf_block_item *jaf_rassign(struct jaf_expression *lhs, struct jaf_expression *rhs);
+struct jaf_block_item *jaf_assert(struct jaf_expression *expr, int line, const char *file);
 void jaf_free_expr(struct jaf_expression *expr);
 void jaf_free_block(struct jaf_block *block);
 
@@ -559,6 +569,7 @@ void jaf_to_initval(struct ain_initval *dst, struct jaf_expression *expr);
 
 // jaf_error.c
 const char *jaf_type_to_string(enum jaf_type type);
-void jaf_print_expression(FILE *out, struct jaf_expression *expr);
+void jaf_print_expression(struct port *out, struct jaf_expression *expr);
+struct string *jaf_expression_to_string(struct jaf_expression *expr);
 
 #endif /* AINEDIT_JAF_H */

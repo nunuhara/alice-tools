@@ -194,7 +194,7 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %token	<token>		SYM_REF REF_ASSIGN ARRAY WRAP FUNCTYPE DELEGATE
 %token	<token>		FILE_MACRO LINE_MACRO FUNC_MACRO DATE_MACRO TIME_MACRO
 
-%token	<token>		CONST OVERRIDE THIS SYM_NEW
+%token	<token>		CONST OVERRIDE THIS SYM_NEW ASSERT
 %token	<token>		BOOL CHAR INT LINT FLOAT VOID STRING INTP FLOATP HLL_PARAM HLL_FUNC HLL_FUNC_71
 %token	<token>		STRUCT UNION ENUM ELLIPSIS SYM_TRUE SYM_FALSE IMAIN_SYSTEM HLL_STRUCT
 
@@ -221,7 +221,7 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %type	<block>		compound_statement block_item_list block_item
 %type	<statement>	statement labeled_statement expression_statement selection_statement
 %type	<statement>	iteration_statement jump_statement message_statement struct_specifier
-%type	<statement>	rassign_statement
+%type	<statement>	rassign_statement assert_statement
 %type	<fundecl>	function_declarator functype_declarator
 
 /*
@@ -549,6 +549,7 @@ statement
 	| jump_statement       { $$ = $1; }
 	| message_statement    { $$ = $1; }
 	| rassign_statement    { $$ = $1; }
+	| assert_statement     { $$ = $1; }
 	;
 
 labeled_statement
@@ -606,6 +607,10 @@ message_statement
 
 rassign_statement
 	: expression REF_ASSIGN expression ';' { $$ = jaf_rassign($1, $3); }
+	;
+
+assert_statement
+	: ASSERT '(' expression ')' { $$ = jaf_assert($3, jaf_line, jaf_file); }
 	;
 
 toplevel

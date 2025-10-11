@@ -1692,6 +1692,13 @@ static void compile_statement(struct compiler_state *state, struct jaf_block_ite
 	case JAF_STMT_RASSIGN:
 		compile_rassign(state, item);
 		break;
+	case JAF_STMT_ASSERT:
+		compile_expression(state, item->assertion.expr);
+		compile_expression(state, item->assertion.expr_string);
+		compile_expression(state, item->assertion.file);
+		write_instruction1(state, PUSH, item->assertion.line);
+		write_instruction0(state, ASSERT);
+		break;
 	case JAF_EOF:
 		write_instruction1(state, _EOF, item->file_no);
 		break;

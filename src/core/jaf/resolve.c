@@ -127,6 +127,7 @@ static void jaf_resolve_statement_types(struct jaf_block_item *item, struct jaf_
 	case JAF_STMT_DEFAULT:
 	case JAF_STMT_MESSAGE:
 	case JAF_STMT_RASSIGN:
+	case JAF_STMT_ASSERT:
 	case JAF_EOF:
 		break;
 	}
