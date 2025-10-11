@@ -676,11 +676,15 @@ static void compile_unary(struct compiler_state *state, struct jaf_expression *e
 		break;
 	case JAF_PRE_INC:
 		compile_lvalue(state, expr->expr);
+		write_instruction0(state, DUP2);
 		write_instruction0(state, INC);
+		write_instruction0(state, REF);
 		break;
 	case JAF_PRE_DEC:
 		compile_lvalue(state, expr->expr);
+		write_instruction0(state, DUP2);
 		write_instruction0(state, DEC);
+		write_instruction0(state, REF);
 		break;
 	case JAF_POST_INC:
 		compile_lvalue(state, expr->expr);
