@@ -68,6 +68,7 @@ static const char *jaf_op_to_string(enum jaf_operator op)
 	case JAF_AND_ASSIGN: return "&=";
 	case JAF_XOR_ASSIGN: return "^=";
 	case JAF_OR_ASSIGN: return "|=";
+	case JAF_CHAR_ASSIGN: return "=";
 	default: ERROR("Unhandled operator: %d", op);
 	}
 }

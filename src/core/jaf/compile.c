@@ -312,6 +312,7 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		case JAF_AND_ASSIGN:    write_instruction0(state, ANDA); break;
 		case JAF_XOR_ASSIGN:    write_instruction0(state, XORA); break;
 		case JAF_OR_ASSIGN:     write_instruction0(state, ORA); break;
+		case JAF_CHAR_ASSIGN:   write_instruction0(state, C_ASSIGN); break;
 		default:                _COMPILER_ERROR(NULL, -1, "Invalid integer operator");
 		}
 	} else if (lhs_type->data == AIN_LONG_INT || lhs_type->data == AIN_REF_LONG_INT) {
@@ -761,55 +762,6 @@ static void compile_unary(struct compiler_state *state, struct jaf_expression *e
 	}
 }
 
-/*
-static bool arithmetic_arg_needs_cast(enum ain_data_type arg_type, enum ain_data_type other_type)
-{
-	if (arg_type == other_type)
-		return false;
-	switch (other_type) {
-	case AIN_INT:
-	case AIN_BOOL:
-	case AIN_ENUM:
-		// other type should be cast
-		return false;
-	case AIN_LONG_INT:
-		return arg_type != AIN_FLOAT;
-	case AIN_FLOAT:
-		return true;
-	default:
-		return false;
-	}
-}
-
-static void compile_arithmetic_arg(struct compiler_state *state, struct jaf_expression *expr,
-		enum ain_data_type other_type)
-{
-	compile_expression(state, expr);
-	if (expr->valuetype.data != other_type) {
-		switch (other_type) {
-		case AIN_INT:
-		case AIN_BOOL:
-		case AIN_ENUM:
-			// other type should be cast
-			break;
-		case AIN_LONG_INT:
-			switch (expr->valuetype.data) {
-			case AIN_INT:
-			case AIN_BOOL:
-			case AIN_ENUM:
-				_compile_cast(state, expr, other_type);
-			}
-			break;
-		case AIN_FLOAT:
-			break;
-		}
-	}
-	return;
-cast:
-	_compile_cast(state, expr, other_type);
-}
-*/
-
 static void compile_binary(struct compiler_state *state, struct jaf_expression *expr)
 {
 	size_t addr[3];
@@ -885,6 +837,7 @@ static void compile_binary(struct compiler_state *state, struct jaf_expression *
 	case JAF_AND_ASSIGN:
 	case JAF_XOR_ASSIGN:
 	case JAF_OR_ASSIGN:
+	case JAF_CHAR_ASSIGN:
 		// FIXME: I don't think this works for assigning to ref types
 		compile_lvalue(state, expr->lhs);
 		compile_expression(state, expr->rhs);
@@ -1185,7 +1138,11 @@ static void compile_subscript(struct compiler_state *state, struct jaf_expressio
 {
 	compile_lvalue(state, expr->subscript.expr);
 	compile_expression(state, expr->subscript.index);
-	compile_dereference(state, &expr->valuetype);
+	if (expr->subscript.expr->valuetype.data == AIN_STRING) {
+		write_instruction0(state, C_REF);
+	} else {
+		compile_dereference(state, &expr->valuetype);
+	}
 }
 
 static void compile_expression(struct compiler_state *state, struct jaf_expression *expr)

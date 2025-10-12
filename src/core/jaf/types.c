@@ -264,43 +264,49 @@ static enum ain_data_type jaf_type_check_weak_arithmetic(struct jaf_expression *
 	return a_type;
 }
 
-static void jaf_type_check_weak_assign(enum jaf_operator op, struct jaf_expression *lvalue, struct jaf_expression **rvalue)
+static void jaf_type_check_weak_assign(struct jaf_expression *expr)
 {
-	enum ain_data_type lv_type = strip_ref(&lvalue->valuetype);
+	enum ain_data_type lv_type = strip_ref(&expr->lhs->valuetype);
 	if (lv_type == AIN_INT) {
-		if (jaf_type_check_numeric(*rvalue) != AIN_INT)
-			CAST(rvalue, INT);
+		if (jaf_type_check_numeric(expr->rhs) != AIN_INT)
+			CAST(&expr->rhs, INT);
 	} else if (lv_type == AIN_FLOAT) {
-		switch (op) {
+		switch (expr->op) {
 		case JAF_LSHIFT_ASSIGN:
 		case JAF_RSHIFT_ASSIGN:
 		case JAF_AND_ASSIGN:
 		case JAF_XOR_ASSIGN:
 		case JAF_OR_ASSIGN:
-			JAF_ERROR(lvalue, "Invalid lvalue for assign operator");
+			JAF_ERROR(expr, "Invalid lvalue for assign operator");
 			break;
 		default:
 			break;
 		}
-		if (jaf_type_check_numeric(*rvalue) != AIN_FLOAT)
-			CAST(rvalue, FLOAT);
+		if (jaf_type_check_numeric(expr->rhs) != AIN_FLOAT)
+			CAST(&expr->rhs, FLOAT);
 	} else if (lv_type == AIN_LONG_INT) {
-		if (jaf_type_check_numeric(*rvalue) != AIN_LONG_INT)
-			CAST(rvalue, LONG_INT);
+		if (jaf_type_check_numeric(expr->rhs) != AIN_LONG_INT)
+			CAST(&expr->rhs, LONG_INT);
 	} else if (lv_type == AIN_BOOL) {
-		if (jaf_type_check_numeric(*rvalue) != AIN_BOOL)
-			CAST(rvalue, BOOL);
+		if (jaf_type_check_numeric(expr->rhs) != AIN_BOOL)
+			CAST(&expr->rhs, BOOL);
 	} else if (lv_type == AIN_STRING) {
-		if (op != JAF_ASSIGN && op != JAF_ADD_ASSIGN)
-			TYPE_ERROR(lvalue, AIN_INT); // FIXME: many types ok...
-		if (!is_string_type(*rvalue))
-			TYPE_ERROR(*rvalue, AIN_STRING);
+		if (expr->op != JAF_ASSIGN && expr->op != JAF_ADD_ASSIGN)
+			TYPE_ERROR(expr->lhs, AIN_INT); // FIXME: many types ok...
+		if (!is_string_type(expr->rhs))
+			TYPE_ERROR(expr->rhs, AIN_STRING);
 	} else if (lv_type == AIN_STRUCT) {
-		if (op != JAF_ASSIGN)
-			JAF_ERROR(lvalue, "Invalid lvalue for assign operator");
-		if ((*rvalue)->valuetype.data != AIN_STRUCT
-				&& (*rvalue)->valuetype.data != AIN_REF_STRUCT)
-			TYPE_ERROR(*rvalue, AIN_STRUCT);
+		if (expr->op != JAF_ASSIGN)
+			JAF_ERROR(expr->lhs, "Invalid lvalue for assign operator");
+		if ((expr->rhs)->valuetype.data != AIN_STRUCT
+				&& expr->rhs->valuetype.data != AIN_REF_STRUCT)
+			TYPE_ERROR(expr->rhs, AIN_STRUCT);
+	}
+	if (expr->lhs->type == JAF_EXP_SUBSCRIPT
+			&& expr->lhs->subscript.expr->valuetype.data == AIN_STRING) {
+		if (expr->op != JAF_ASSIGN)
+			JAF_ERROR(expr->lhs, "Invalid lvalue for assign operator");
+		expr->op = JAF_CHAR_ASSIGN;
 	}
 }
 
@@ -428,7 +434,7 @@ static void jaf_check_types_binary(struct jaf_env *env, struct jaf_expression *e
 	case JAF_XOR_ASSIGN:
 	case JAF_OR_ASSIGN:
 		jaf_check_type_lvalue(env, expr->lhs);
-		jaf_type_check_weak_assign(expr->op, expr->lhs, &expr->rhs);
+		jaf_type_check_weak_assign(expr);
 		expr->valuetype.data = expr->lhs->valuetype.data;
 		break;
 	default:
@@ -1208,9 +1214,13 @@ static void jaf_type_check_array(struct jaf_expression *expr)
 
 static void jaf_check_types_subscript(struct jaf_env *env, struct jaf_expression *expr)
 {
-	jaf_type_check_array(expr->subscript.expr);
 	jaf_type_check_int(expr->subscript.index);
-	array_deref_type(env, &expr->valuetype, &expr->subscript.expr->valuetype);
+	if (expr->subscript.expr->valuetype.data == AIN_STRING) {
+		expr->valuetype.data = AIN_INT;
+	} else {
+		jaf_type_check_array(expr->subscript.expr);
+		array_deref_type(env, &expr->valuetype, &expr->subscript.expr->valuetype);
+	}
 }
 
 void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr)

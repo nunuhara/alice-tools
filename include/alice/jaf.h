@@ -206,6 +206,7 @@ enum jaf_operator {
 	JAF_AND_ASSIGN,
 	JAF_XOR_ASSIGN,
 	JAF_OR_ASSIGN,
+	JAF_CHAR_ASSIGN,
 };
 
 struct string;

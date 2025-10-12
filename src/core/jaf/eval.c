@@ -228,6 +228,7 @@ static struct jaf_expression *jaf_simplify_binary(struct jaf_expression *e)
 	case JAF_AND_ASSIGN:
 	case JAF_XOR_ASSIGN:
 	case JAF_OR_ASSIGN:
+	case JAF_CHAR_ASSIGN:
 	case JAF_REQ:
 	case JAF_RNE:
 		return e;
