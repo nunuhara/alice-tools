@@ -18,6 +18,8 @@
 #include <string.h>
 #include "system4.h"
 #include "system4/string.h"
+#include "system4/utfsjis.h"
+#include "alice.h"
 #include "alice/jaf.h"
 
 static struct jaf_expression *jaf_simplify_negation(struct jaf_expression *in)
@@ -302,8 +304,8 @@ static struct jaf_expression *jaf_simplify_cast(struct jaf_expression *in)
 static struct jaf_expression *jaf_simplify_char(struct jaf_expression *in)
 {
 	int c = 0;
-	int size = in->s->size;
-	char *s = in->s->text;
+	char *s = conv_output(in->s->text);
+	int size = strlen(s);
 	if (size <= 0)
 		goto invalid;
 	if (s[0] == '\\') {
@@ -315,11 +317,16 @@ static struct jaf_expression *jaf_simplify_char(struct jaf_expression *in)
 		default: goto invalid;
 		}
 	}
-	if (size != 1)
+	// XXX: assuming output encoding is SJIS
+	if (size == 1)
+		c = s[0];
+	else if (size == 2)
+		c = ((uint8_t)s[1] << 8) | (uint8_t)s[0];
+	else
 		goto invalid;
-	c = s[0];
 valid:
 	free_string(in->s);
+	free(s);
 	in->type = JAF_EXP_INT;
 	in->i = c;
 	return in;
