@@ -201,7 +201,7 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %token	CASE DEFAULT IF ELSE SYM_SWITCH WHILE DO FOR GOTO CONTINUE BREAK SYM_RETURN
 
 %type	<token>		unary_operator assignment_operator type_qualifier atomic_type_specifier
-%type	<string>	string param_identifer
+%type	<string>	string param_identifer function_name
 %type	<expression>	initializer
 %type	<expression>	postfix_expression unary_expression cast_expression
 %type	<expression>	multiplicative_expression additive_expression shift_expression
@@ -656,9 +656,14 @@ function_declaration
 	;
 
 function_declarator
-	: IDENTIFIER '(' parameter_list ')' { $$ = jaf_function_declarator($1, $3); }
-	| IDENTIFIER '(' ')'                { $$ = jaf_function_declarator($1, NULL); }
-	| IDENTIFIER '(' VOID ')'           { $$ = jaf_function_declarator($1, NULL); }
+	: function_name '(' parameter_list ')' { $$ = jaf_function_declarator($1, $3); }
+	| function_name '(' ')'                { $$ = jaf_function_declarator($1, NULL); }
+	| function_name '(' VOID ')'           { $$ = jaf_function_declarator($1, NULL); }
+	;
+
+function_name
+	: IDENTIFIER { $$ = $1; }
+	| IDENTIFIER '@' IDENTIFIER { $$ = jaf_method_name($1, $3); }
 	;
 
 parameter_list

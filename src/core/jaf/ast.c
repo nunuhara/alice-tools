@@ -138,6 +138,14 @@ struct jaf_expression *jaf_this(void)
 	return jaf_expr(JAF_EXP_THIS, 0);
 }
 
+struct string *jaf_method_name(struct string *ns, struct string *name)
+{
+	string_push_back(&ns, '@');
+	string_append(&ns, name);
+	free_string(name);
+	return ns;
+}
+
 struct jaf_expression *jaf_unary_expr(enum jaf_operator op, struct jaf_expression *expr)
 {
 	struct jaf_expression *e = jaf_expr(JAF_EXP_UNARY, op);

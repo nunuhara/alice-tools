@@ -470,6 +470,7 @@ struct jaf_expression *jaf_string(struct string *text);
 struct jaf_expression *jaf_char(struct string *text);
 struct jaf_expression *jaf_identifier(struct string *name);
 struct jaf_expression *jaf_this(void);
+struct string *jaf_method_name(struct string *ns, struct string *name);
 struct jaf_expression *jaf_unary_expr(enum jaf_operator op, struct jaf_expression *expr);
 struct jaf_expression *jaf_binary_expr(enum jaf_operator op, struct jaf_expression *lhs, struct jaf_expression *rhs);
 struct jaf_expression *jaf_ternary_expr(struct jaf_expression *test, struct jaf_expression *cons, struct jaf_expression *alt);

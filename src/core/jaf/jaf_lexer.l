@@ -34,7 +34,7 @@ O   [0-7]
 D   [0-9]
 NZ  [1-9]
 L   ([a-zA-Z_]|{UCH})
-A   ([a-zA-Z_0-9:@#]|{UCH})
+A   ([a-zA-Z_0-9:#]|{UCH})
 AT  ([a-zA-Z_0-9]|{UCH})
 H   [a-fA-F0-9]
 HP  (0[xX])
