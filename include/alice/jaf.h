@@ -47,7 +47,7 @@ enum jaf_type {
 	JAF_INT,
 	JAF_BOOL,
 	JAF_FLOAT,
-	JAF_LINT,
+	JAF_LONG_INT,
 	JAF_STRING,
 	JAF_STRUCT,
 	JAF_ENUM,

@@ -25,8 +25,8 @@
 #include "alice/jaf.h"
 
 // TODO: better error messages
-#define TYPE_ERROR(expr, expected) JAF_ERROR(expr, "Type error (expected %s; got %s)", strdup(ain_strtype(NULL, expected, -1)), strdup(ain_strtype(NULL, expr->valuetype.data, -1)))
-#define TYPE_CHECK(expr, expected) { if (expr->valuetype.data != expected) TYPE_ERROR(expr, expected); }
+#define TYPE_ERROR(expr, expected) JAF_ERROR(expr, "Type error (expected %s; got %s)", strdup(ain_strtype(NULL, expected, -1)), strdup(ain_strtype(NULL, (expr)->valuetype.data, -1)))
+#define TYPE_CHECK(expr, expected) { if ((expr)->valuetype.data != expected) TYPE_ERROR(expr, expected); }
 
 static enum ain_data_type strip_ref(struct ain_type *type)
 {
@@ -142,23 +142,6 @@ static enum ain_data_type jaf_type_check_int(struct jaf_expression *expr)
 	}
 }
 
-// Determine the result type when combining different numeric types.
-// Precedence is: float > lint > int
-static enum ain_data_type jaf_merge_types(enum ain_data_type a, enum ain_data_type b)
-{
-	if (a == b)
-		return a;
-	if (a == AIN_FLOAT || b == AIN_FLOAT)
-		return AIN_FLOAT;
-	if (a == AIN_LONG_INT || b == AIN_LONG_INT) {
-		return AIN_LONG_INT;
-	}
-	// bool + enum = int
-	// int + bool = int
-	// int + enum = int
-	return AIN_INT;
-}
-
 void jaf_check_type_lvalue(possibly_unused struct jaf_env *env, struct jaf_expression *e)
 {
 	switch (e->type) {
@@ -227,6 +210,65 @@ static bool is_string_type(struct jaf_expression *expr)
 	return expr->valuetype.data == AIN_STRING || expr->valuetype.data == AIN_REF_STRING;
 }
 
+#define CAST(v, t) ( \
+	*v = jaf_cast_expression(JAF_##t, *v), \
+	(*v)->valuetype.data = AIN_##t \
+)
+
+static enum ain_data_type jaf_type_check_weak_arithmetic(struct jaf_expression **a,
+		struct jaf_expression **b)
+{
+	enum ain_data_type a_type = jaf_type_check_numeric(*a);
+	enum ain_data_type b_type = jaf_type_check_numeric(*b);
+	if (a_type == b_type)
+		return a_type;
+	if (a_type == AIN_FLOAT)
+		return CAST(b, FLOAT);
+	if (b_type == AIN_FLOAT)
+		return CAST(a, FLOAT);
+	if (a_type == AIN_LONG_INT)
+		return CAST(b, LONG_INT);
+	if (b_type == AIN_LONG_INT)
+		return CAST(a, LONG_INT);
+	return a_type;
+}
+
+static void jaf_type_check_weak_assign(enum jaf_operator op, struct jaf_expression *lvalue, struct jaf_expression **rvalue)
+{
+	enum ain_data_type lv_type = strip_ref(&lvalue->valuetype);
+	if (lv_type == AIN_INT) {
+		if (jaf_type_check_numeric(*rvalue) != AIN_INT)
+			CAST(rvalue, INT);
+	} else if (lv_type == AIN_FLOAT) {
+		switch (op) {
+		case JAF_LSHIFT_ASSIGN:
+		case JAF_RSHIFT_ASSIGN:
+		case JAF_AND_ASSIGN:
+		case JAF_XOR_ASSIGN:
+		case JAF_OR_ASSIGN:
+			JAF_ERROR(lvalue, "Invalid lvalue for assign operator");
+			break;
+		default:
+			break;
+		}
+		if (jaf_type_check_numeric(*rvalue) != AIN_FLOAT)
+			CAST(rvalue, FLOAT);
+	} else if (lv_type == AIN_LONG_INT) {
+		if (jaf_type_check_numeric(*rvalue) != AIN_LONG_INT)
+			CAST(rvalue, LONG_INT);
+	} else if (lv_type == AIN_BOOL) {
+		if (jaf_type_check_numeric(*rvalue) != AIN_BOOL)
+			CAST(rvalue, BOOL);
+	} else if (lv_type == AIN_STRING) {
+		if (op != JAF_ASSIGN && op != JAF_ADD_ASSIGN)
+			TYPE_ERROR(lvalue, AIN_INT); // FIXME: many types ok...
+		if (!is_string_type(*rvalue))
+			TYPE_ERROR(*rvalue, AIN_STRING);
+	}
+}
+
+#undef CAST
+
 static void jaf_check_types_binary(struct jaf_env *env, struct jaf_expression *expr)
 {
 	switch (expr->op) {
@@ -234,7 +276,7 @@ static void jaf_check_types_binary(struct jaf_env *env, struct jaf_expression *e
 	case JAF_MULTIPLY:
 	case JAF_DIVIDE:
 	case JAF_MINUS:
-		expr->valuetype.data = jaf_merge_types(jaf_type_check_numeric(expr->lhs), jaf_type_check_numeric(expr->rhs));
+		expr->valuetype.data = jaf_type_check_weak_arithmetic(&expr->lhs, &expr->rhs);
 		break;
 	case JAF_PLUS:
 		if (is_string_type(expr->lhs)) {
@@ -242,7 +284,7 @@ static void jaf_check_types_binary(struct jaf_env *env, struct jaf_expression *e
 				TYPE_ERROR(expr->rhs, AIN_STRING);
 			expr->valuetype.data = AIN_STRING;
 		} else {
-			expr->valuetype.data = jaf_merge_types(jaf_type_check_numeric(expr->lhs), jaf_type_check_numeric(expr->rhs));
+			expr->valuetype.data = jaf_type_check_weak_arithmetic(&expr->lhs, &expr->rhs);
 		}
 		break;
 	// integer ops
@@ -290,8 +332,7 @@ static void jaf_check_types_binary(struct jaf_env *env, struct jaf_expression *e
 				TYPE_ERROR(expr->rhs, AIN_STRING);
 			expr->valuetype.data = AIN_INT;
 		} else {
-			jaf_type_check_numeric(expr->lhs);
-			jaf_type_check_numeric(expr->rhs);
+			jaf_type_check_weak_arithmetic(&expr->lhs, &expr->rhs);
 			expr->valuetype.data = AIN_INT;
 		}
 		break;
@@ -314,8 +355,7 @@ static void jaf_check_types_binary(struct jaf_env *env, struct jaf_expression *e
 	case JAF_XOR_ASSIGN:
 	case JAF_OR_ASSIGN:
 		jaf_check_type_lvalue(env, expr->lhs);
-		// FIXME: need to coerce types (?)
-		jaf_check_type(expr->rhs, &expr->lhs->valuetype);
+		jaf_type_check_weak_assign(expr->op, expr->lhs, &expr->rhs);
 		expr->valuetype.data = expr->lhs->valuetype.data;
 		break;
 	default:

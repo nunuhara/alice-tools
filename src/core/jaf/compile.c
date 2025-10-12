@@ -614,8 +614,6 @@ static bool _compile_cast(struct compiler_state *state, struct jaf_expression *e
 
 	if (src_type == dst_type)
 		return true;
-	if (src_type == dst_type)
-		return true;
 	if (src_type == AIN_INT) {
 		if (dst_type == AIN_FLOAT) {
 			write_instruction0(state, ITOF);
@@ -623,6 +621,8 @@ static bool _compile_cast(struct compiler_state *state, struct jaf_expression *e
 			write_instruction0(state, I_STRING);
 		} else if (dst_type == AIN_LONG_INT) {
 			write_instruction0(state, ITOLI);
+		} else if (dst_type == AIN_BOOL) {
+			write_instruction0(state, ITOB);
 		} else {
 			return false;
 		}
@@ -635,6 +635,9 @@ static bool _compile_cast(struct compiler_state *state, struct jaf_expression *e
 		} else if (dst_type == AIN_LONG_INT) {
 			write_instruction0(state, FTOI);
 			write_instruction0(state, ITOLI);
+		} else if (dst_type == AIN_BOOL) {
+			write_instruction0(state, FTOI);
+			write_instruction0(state, ITOB);
 		} else {
 			return false;
 		}
