@@ -37,6 +37,13 @@ static struct jaf_expression *jaf_expr(enum jaf_expression_type type, enum jaf_o
 	return e;
 }
 
+struct jaf_expression *jaf_null(void)
+{
+	struct jaf_expression *e = jaf_expr(JAF_EXP_NULL, 0);
+	e->valuetype.data = AIN_VOID;
+	return e;
+}
+
 struct jaf_expression *jaf_integer(int i)
 {
 	struct jaf_expression *e = jaf_expr(JAF_EXP_INT, 0);
@@ -653,6 +660,7 @@ void jaf_free_expr(struct jaf_expression *expr)
 	case JAF_EXP_INT:
 	case JAF_EXP_FLOAT:
 	case JAF_EXP_THIS:
+	case JAF_EXP_NULL:
 		break;
 	case JAF_EXP_STRING:
 	case JAF_EXP_CHAR:

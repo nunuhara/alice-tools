@@ -272,6 +272,8 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		case JAF_GTE:           write_instruction0(state, F_GTE); break;
 		case JAF_EQ:            write_instruction0(state, F_EQUALE); break;
 		case JAF_NEQ:           write_instruction0(state, F_NOTE); break;
+		case JAF_REQ:           write_instruction0(state, R_EQUALE); break;
+		case JAF_RNE:           write_instruction0(state, R_NOTE); break;
 		case JAF_ASSIGN:        write_instruction0(state, F_ASSIGN); break;
 		case JAF_MUL_ASSIGN:    write_instruction0(state, F_MULA); break;
 		case JAF_DIV_ASSIGN:    write_instruction0(state, F_DIVA); break;
@@ -294,11 +296,11 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		case JAF_GTE:           write_instruction0(state, GTE); break;
 		case JAF_EQ:            write_instruction0(state, EQUALE); break;
 		case JAF_NEQ:           write_instruction0(state, NOTE); break;
+		case JAF_REQ:           write_instruction0(state, R_EQUALE); break;
+		case JAF_RNE:           write_instruction0(state, R_NOTE); break;
 		case JAF_BIT_AND:       write_instruction0(state, AND); break;
 		case JAF_BIT_XOR:       write_instruction0(state, XOR); break;
 		case JAF_BIT_IOR:       write_instruction0(state, OR); break;
-		//case JAF_LOG_AND:       write_instruction0(state, AND); break;
-		//case JAF_LOG_OR:        write_instruction0(state, OR); break;
 		case JAF_ASSIGN:        write_instruction0(state, ASSIGN); break;
 		case JAF_MUL_ASSIGN:    write_instruction0(state, MULA); break;
 		case JAF_DIV_ASSIGN:    write_instruction0(state, DIVA); break;
@@ -327,11 +329,11 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		case JAF_GTE:           write_instruction0(state, GTE); break;
 		case JAF_EQ:            write_instruction0(state, EQUALE); break;
 		case JAF_NEQ:           write_instruction0(state, NOTE); break;
+		case JAF_REQ:           write_instruction0(state, R_EQUALE); break;
+		case JAF_RNE:           write_instruction0(state, R_NOTE); break;
 		case JAF_BIT_AND:       write_instruction0(state, AND); break;
 		case JAF_BIT_XOR:       write_instruction0(state, XOR); break;
 		case JAF_BIT_IOR:       write_instruction0(state, OR); break;
-		//case JAF_LOG_AND:       write_instruction0(state, AND); break;
-		//case JAF_LOG_OR:        write_instruction0(state, OR); break;
 		case JAF_ASSIGN:        write_instruction0(state, LI_ASSIGN); break;
 		case JAF_MUL_ASSIGN:    write_instruction0(state, LI_MULA); break;
 		case JAF_DIV_ASSIGN:    write_instruction0(state, LI_DIVA); break;
@@ -354,6 +356,8 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		case JAF_GTE:        write_instruction0(state, S_GTE); break;
 		case JAF_EQ:         write_instruction0(state, S_EQUALE); break;
 		case JAF_NEQ:        write_instruction0(state, S_NOTE); break;
+		case JAF_REQ:        write_instruction0(state, EQUALE); break;
+		case JAF_RNE:        write_instruction0(state, NOTE); break;
 		case JAF_ASSIGN:     write_instruction0(state, S_ASSIGN); break;
 		case JAF_REMAINDER:
 			switch (rhs_type) {
@@ -367,7 +371,11 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		default:             _COMPILER_ERROR(NULL, -1, "Invalid string operator");
 		}
 	} else {
-		_COMPILER_ERROR(NULL, -1, "Invalid operator type");
+		switch (op) {
+		case JAF_REQ: write_instruction0(state, EQUALE); break;
+		case JAF_RNE: write_instruction0(state, NOTE); break;
+		default:      _COMPILER_ERROR(NULL, -1, "Invalid operator type");
+		}
 	}
 }
 
@@ -493,6 +501,21 @@ static void compile_lvalue(struct compiler_state *state, struct jaf_expression *
 		compile_expression(state, expr);
 	} else if (expr->type == JAF_EXP_NEW) {
 		compile_new_lvalue(state, expr);
+	} else if (expr->type == JAF_EXP_NULL) {
+		write_instruction1(state, PUSH, -1);
+		switch (expr->valuetype.data) {
+		case AIN_REF_INT:
+		case AIN_REF_FLOAT:
+		case AIN_REF_BOOL:
+		case AIN_REF_LONG_INT:
+		case AIN_REF_ENUM:
+			write_instruction1(state, PUSH, 0);
+			break;
+		case AIN_VOID:
+			COMPILER_ERROR(expr, "Untyped NULL");
+		default:
+			break;
+		}
 	} else {
 		COMPILER_ERROR(expr, "Invalid lvalue (expression type %d)", expr->type);
 	}
@@ -795,6 +818,16 @@ static void compile_binary(struct compiler_state *state, struct jaf_expression *
 	case JAF_BIT_IOR:
 		compile_expression(state, expr->lhs);
 		compile_expression(state, expr->rhs);
+		write_instruction_for_op(state, expr->op, expr->lhs->valuetype.data, expr->rhs->valuetype.data);
+		break;
+	case JAF_REQ:
+		compile_lvalue(state, expr->lhs);
+		compile_lvalue(state, expr->rhs);
+		write_instruction_for_op(state, expr->op, expr->lhs->valuetype.data, expr->rhs->valuetype.data);
+		break;
+	case JAF_RNE:
+		compile_lvalue(state, expr->lhs);
+		compile_lvalue(state, expr->rhs);
 		write_instruction_for_op(state, expr->op, expr->lhs->valuetype.data, expr->rhs->valuetype.data);
 		break;
 	case JAF_LOG_AND:
@@ -1205,6 +1238,23 @@ static void compile_expression(struct compiler_state *state, struct jaf_expressi
 		break;
 	case JAF_EXP_CHAR:
 		COMPILER_ERROR(expr, "Unresolved character constant"); // should have been simplified to int
+		break;
+	case JAF_EXP_NULL:
+		switch (expr->valuetype.data) {
+		case AIN_FUNC_TYPE:
+		case AIN_IMAIN_SYSTEM:
+			write_instruction1(state, PUSH, 0);
+			break;
+		case AIN_DELEGATE:
+			write_instruction0(state, DG_NEW);
+			break;
+		case AIN_STRING:
+			write_instruction1(state, S_PUSH, 0);
+			break;
+		default:
+			COMPILER_ERROR(expr, "Unimplemented NULL rvalue type: %d", expr->valuetype.data);
+			break;
+		}
 		break;
 	}
 }
@@ -1629,6 +1679,39 @@ static void compile_rassign(struct compiler_state *state, struct jaf_block_item 
 	compile_unlock_peek(state);
 }
 
+static void compile_return(struct compiler_state *state, struct jaf_block_item *item)
+{
+	if (!item->expr) {
+		write_instruction0(state, RETURN);
+		return;
+	}
+
+	switch (item->expr->valuetype.data) {
+	case AIN_REF_INT:
+	case AIN_REF_FLOAT:
+	case AIN_REF_LONG_INT:
+	case AIN_REF_BOOL:
+	case AIN_REF_FUNC_TYPE:
+		compile_lvalue(state, item->expr);
+		write_instruction0(state, DUP_U2);
+		write_instruction0(state, SP_INC);
+		break;
+	case AIN_REF_STRING:
+	case AIN_REF_STRUCT:
+	case AIN_REF_ARRAY_TYPE:
+		compile_lvalue(state, item->expr);
+		write_instruction0(state, DUP);
+		write_instruction0(state, SP_INC);
+		break;
+	default:
+		if (ain_is_ref_data_type(item->expr->valuetype.data))
+			COMPILER_ERROR(item, "Unimplemented ref type as return value");
+		compile_expression(state, item->expr);
+		break;
+	}
+	write_instruction0(state, RETURN);
+}
+
 static void compile_statement(struct compiler_state *state, struct jaf_block_item *item)
 {
 	if (item->is_scope) {
@@ -1686,9 +1769,7 @@ static void compile_statement(struct compiler_state *state, struct jaf_block_ite
 		compile_break(state, item);
 		break;
 	case JAF_STMT_RETURN:
-		if (item->expr)
-			compile_expression(state, item->expr);
-		write_instruction0(state, RETURN);
+		compile_return(state, item);
 		break;
 	case JAF_STMT_CASE:
 		COMPILER_ERROR(item, "switch not supported");

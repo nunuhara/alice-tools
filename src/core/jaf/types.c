@@ -78,6 +78,21 @@ static enum ain_data_type add_ref(struct ain_type *type)
 
 }
 
+static bool ain_type_equal(struct ain_type *a, struct ain_type *b)
+{
+	if (a->data != b->data)
+		return false;
+	if (a->struc != b->struc)
+		return false;
+	if (a->rank != b->rank)
+		return false;
+	if (!a->array_type != !b->array_type)
+		return false;
+	if (a->array_type && !ain_type_equal(a->array_type, b->array_type))
+		return false;
+	return true;
+}
+
 static bool jaf_type_equal(struct ain_type *a, struct ain_type *b)
 {
 	enum ain_data_type a_data = strip_ref(a), b_data = strip_ref(b);
@@ -95,6 +110,20 @@ static bool jaf_type_equal(struct ain_type *a, struct ain_type *b)
 	if (a_data == AIN_FUNC_TYPE && a->struc != b->struc)
 		return false;
 	return true;
+}
+
+static bool is_numeric(enum ain_data_type t)
+{
+	switch (t) {
+	case AIN_INT:
+	case AIN_FLOAT:
+	case AIN_BOOL:
+	case AIN_LONG_INT:
+	case AIN_ENUM:
+		return true;
+	default:
+		return false;
+	}
 }
 
 static enum ain_data_type jaf_type_check_numeric(struct jaf_expression *expr)
@@ -149,6 +178,7 @@ void jaf_check_type_lvalue(possibly_unused struct jaf_env *env, struct jaf_expre
 	case JAF_EXP_MEMBER:
 	case JAF_EXP_SUBSCRIPT:
 	case JAF_EXP_NEW:
+	case JAF_EXP_NULL:
 		break;
 	default:
 		JAF_ERROR(e, "Invalid expression as lvalue");
@@ -336,6 +366,42 @@ static void jaf_check_types_binary(struct jaf_env *env, struct jaf_expression *e
 			expr->valuetype.data = AIN_INT;
 		}
 		break;
+	case JAF_REQ:
+	case JAF_RNE: {
+		// edge case: `NULL === NULL` / `NULL !== NULL`
+		// simplify to numeric comparison to avoid untyped NULL
+		if (expr->lhs->type == JAF_EXP_NULL && expr->rhs->type == JAF_EXP_NULL) {
+			expr->op = expr->op == JAF_REQ ? JAF_EQ : JAF_NEQ;
+			expr->rhs->type = JAF_EXP_INT;
+			expr->lhs->type = JAF_EXP_INT;
+			expr->rhs->valuetype.data = AIN_INT;
+			expr->lhs->valuetype.data = AIN_INT;
+			expr->rhs->i = -1;
+			expr->lhs->i = -1;
+			expr->valuetype.data = AIN_INT;
+			break;
+		}
+
+		// ensure types are reference types
+		enum ain_data_type lhs_type = expr->lhs->valuetype.data;
+		enum ain_data_type rhs_type = expr->rhs->valuetype.data;
+		if (expr->lhs->type != JAF_EXP_NULL && !ain_is_ref_data_type(lhs_type))
+			JAF_ERROR(expr->lhs, "Non reference type in reference comparison");
+		if (expr->rhs->type != JAF_EXP_NULL && !ain_is_ref_data_type(rhs_type))
+			JAF_ERROR(expr->rhs, "Non reference type in reference comparison");
+
+		// type NULLs
+		if (expr->lhs->type == JAF_EXP_NULL) {
+			ain_copy_type(&expr->lhs->valuetype, &expr->rhs->valuetype);
+		} else if (expr->rhs->type == JAF_EXP_NULL) {
+			ain_copy_type(&expr->rhs->valuetype, &expr->lhs->valuetype);
+		}
+
+		// ensure comparison of like types
+		if (!ain_type_equal(&expr->lhs->valuetype, &expr->rhs->valuetype))
+			JAF_ERROR(expr, "Types in reference comparison are unequal");
+		break;
+	}
 	// boolean ops
 	case JAF_LOG_AND:
 	case JAF_LOG_OR:
@@ -1189,6 +1255,10 @@ void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr)
 	case JAF_EXP_SUBSCRIPT:
 		jaf_check_types_subscript(env, expr);
 		break;
+	case JAF_EXP_NULL:
+		// XXX: Need context to type NULLs
+		expr->valuetype.data = AIN_VOID;
+		break;
 	case JAF_EXP_SYSCALL:
 	case JAF_EXP_HLLCALL:
 	case JAF_EXP_METHOD_CALL:
@@ -1196,20 +1266,6 @@ void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr)
 	case JAF_EXP_SUPER_CALL:
 		// these should be JAF_EXP_FUNCALLs initially
 		JAF_ERROR(expr, "Unexpected expression type");
-	}
-}
-
-static bool is_numeric(enum ain_data_type type)
-{
-	switch (type) {
-	case AIN_INT:
-	case AIN_FLOAT:
-	case AIN_LONG_INT:
-	case AIN_BOOL:
-	case AIN_ENUM:
-		return true;
-	default:
-		return false;
 	}
 }
 

@@ -206,12 +206,32 @@ static void jaf_analyze_stmt_post(struct jaf_block_item *stmt, struct jaf_visito
 	case JAF_STMT_MESSAGE:
 		analyze_message(env, stmt);
 		break;
+	case JAF_STMT_RETURN: {
+		assert(env->func_no >= 0 && env->func_no < env->ain->nr_functions);
+		struct ain_type *rtype = &env->ain->functions[env->func_no].return_type;
+		if (rtype->data == AIN_VOID && stmt->expr)
+			JAF_ERROR(stmt, "Return with value in void function");
+		if (rtype->data != AIN_VOID && !stmt->expr)
+			JAF_ERROR(stmt, "Return without a value in non-void function");
+		if (!stmt->expr)
+			break;
+		if (stmt->expr->type == JAF_EXP_NULL) {
+			ain_copy_type(&stmt->expr->valuetype, rtype);
+		} else {
+			jaf_check_type(stmt->expr, rtype);
+		}
+		break;
+	}
 	case JAF_STMT_RASSIGN:
 		jaf_check_type_lvalue(env, stmt->rassign.lhs);
-		jaf_check_type_lvalue(env, stmt->rassign.rhs);
 		if (!ain_is_ref_data_type(stmt->rassign.lhs->valuetype.data))
 			JAF_ERROR(stmt, "LHS of reference assignment is not a reference type");
-		jaf_check_type(stmt->rassign.rhs, &stmt->rassign.lhs->valuetype);
+		if (stmt->rassign.rhs->type == JAF_EXP_NULL) {
+			ain_copy_type(&stmt->rassign.rhs->valuetype, &stmt->rassign.lhs->valuetype);
+		} else {
+			jaf_check_type_lvalue(env, stmt->rassign.rhs);
+			jaf_check_type(stmt->rassign.rhs, &stmt->rassign.lhs->valuetype);
+		}
 		break;
 	default:
 		break;

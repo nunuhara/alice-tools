@@ -160,6 +160,7 @@ enum jaf_expression_type {
 	JAF_EXP_SEQ,
 	JAF_EXP_SUBSCRIPT,
 	JAF_EXP_CHAR,
+	JAF_EXP_NULL,
 };
 
 enum jaf_operator {
@@ -187,6 +188,8 @@ enum jaf_operator {
 	JAF_GTE,
 	JAF_EQ,
 	JAF_NEQ,
+	JAF_REQ,
+	JAF_RNE,
 	JAF_BIT_AND,
 	JAF_BIT_XOR,
 	JAF_BIT_IOR,
@@ -461,6 +464,7 @@ _Noreturn void jaf_expression_error(struct jaf_expression *expr, const char *msg
 _Noreturn void jaf_block_item_error(struct jaf_block_item *item, const char *msgf, ...);
 
 // jaf_ast.c
+struct jaf_expression *jaf_null(void);
 struct jaf_expression *jaf_integer(int i);
 struct jaf_expression *jaf_parse_integer(struct string *text);
 struct jaf_expression *jaf_float(float f);

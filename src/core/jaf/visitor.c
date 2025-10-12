@@ -83,6 +83,7 @@ struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr, struct jaf_v
 	case JAF_EXP_STRING:
 	case JAF_EXP_IDENTIFIER:
 	case JAF_EXP_THIS:
+	case JAF_EXP_NULL:
 		break;
 	}
 

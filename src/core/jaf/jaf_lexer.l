@@ -113,6 +113,7 @@ unsigned long jaf_line = 1;
 "this"                                  { return THIS; }
 "new"                                   { return SYM_NEW; }
 "assert"                                { return ASSERT; }
+"NULL"					{ return SYM_NULL; }
 
 {L}                                     { return check_type(); }
 {L}{A}*{AT}                             { return check_type(); }
@@ -153,6 +154,8 @@ unsigned long jaf_line = 1;
 ">="					{ return GE_OP; }
 "=="					{ return EQ_OP; }
 "!="					{ return NE_OP; }
+"==="					{ return REQ_OP; }
+"!=="					{ return RNE_OP; }
 ";"					{ return ';'; }
 ("{"|"<%")				{ return '{'; }
 ("}"|"%>")				{ return '}'; }

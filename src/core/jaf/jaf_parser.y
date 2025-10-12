@@ -187,14 +187,14 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %token	<string>	I_CONSTANT F_CONSTANT C_CONSTANT STRING_LITERAL
 %token	<string>	IDENTIFIER TYPEDEF_NAME ENUMERATION_CONSTANT
 
-%token	<token>		INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
+%token	<token>		INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP REQ_OP RNE_OP
 %token	<token>		AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
 %token	<token>		SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
 %token	<token>		XOR_ASSIGN OR_ASSIGN
 %token	<token>		SYM_REF REF_ASSIGN ARRAY WRAP FUNCTYPE DELEGATE
 %token	<token>		FILE_MACRO LINE_MACRO FUNC_MACRO DATE_MACRO TIME_MACRO
 
-%token	<token>		CONST OVERRIDE THIS SYM_NEW ASSERT
+%token	<token>		CONST OVERRIDE THIS SYM_NEW ASSERT SYM_NULL
 %token	<token>		BOOL CHAR INT LINT FLOAT VOID STRING INTP FLOATP HLL_PARAM HLL_FUNC HLL_FUNC_71
 %token	<token>		STRUCT UNION ENUM ELLIPSIS SYM_TRUE SYM_FALSE IMAIN_SYSTEM HLL_STRUCT
 
@@ -248,6 +248,7 @@ constant
 	| F_CONSTANT           { $$ = jaf_parse_float($1); }
 	| SYM_TRUE             { $$ = jaf_integer(1); }
 	| SYM_FALSE            { $$ = jaf_integer(0); }
+	| SYM_NULL             { $$ = jaf_null(); }
 	| ENUMERATION_CONSTANT { ERROR("Enums not supported"); } /* after it has been defined as such */
 	;
 
@@ -332,9 +333,11 @@ relational_expression
 	;
 
 equality_expression
-	: relational_expression                           { $$ = $1; }
-	| equality_expression EQ_OP relational_expression { $$ = jaf_binary_expr(JAF_EQ,  $1, $3); }
-	| equality_expression NE_OP relational_expression { $$ = jaf_binary_expr(JAF_NEQ, $1, $3); }
+	: relational_expression                            { $$ = $1; }
+	| equality_expression EQ_OP relational_expression  { $$ = jaf_binary_expr(JAF_EQ,  $1, $3); }
+	| equality_expression NE_OP relational_expression  { $$ = jaf_binary_expr(JAF_NEQ, $1, $3); }
+	| equality_expression REQ_OP relational_expression { $$ = jaf_binary_expr(JAF_REQ, $1, $3); }
+	| equality_expression RNE_OP relational_expression { $$ = jaf_binary_expr(JAF_RNE, $1, $3); }
 	;
 
 and_expression

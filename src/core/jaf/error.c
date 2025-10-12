@@ -50,6 +50,8 @@ static const char *jaf_op_to_string(enum jaf_operator op)
 	case JAF_GTE: return ">=";
 	case JAF_EQ: return "==";
 	case JAF_NEQ: return "!=";
+	case JAF_REQ: return "===";
+	case JAF_RNE: return "!==";
 	case JAF_BIT_AND: return "&";
 	case JAF_BIT_XOR: return "^";
 	case JAF_BIT_IOR: return "|";
@@ -232,6 +234,9 @@ void jaf_print_expression(struct port *out, struct jaf_expression *expr)
 	case JAF_EXP_CHAR:
 		// FIXME: shift-jis
 		port_printf(out, "'%c'", (char)expr->i);
+		break;
+	case JAF_EXP_NULL:
+		port_printf(out, "NULL");
 		break;
 	default:
 		ERROR("Unhandled expression type: %d", expr->type);
