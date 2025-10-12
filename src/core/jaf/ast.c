@@ -668,6 +668,11 @@ void jaf_free_expr(struct jaf_expression *expr)
 		break;
 	case JAF_EXP_IDENTIFIER:
 		free_string(expr->ident.name);
+		if (expr->ident.is_const) {
+			if (expr->ident.val.data_type == AIN_STRING) {
+				free(expr->ident.val.string_value);
+			}
+		}
 		break;
 	case JAF_EXP_UNARY:
 		jaf_free_expr(expr->expr);
