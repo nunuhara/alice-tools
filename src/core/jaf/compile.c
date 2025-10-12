@@ -359,12 +359,15 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		case JAF_REQ:        write_instruction0(state, EQUALE); break;
 		case JAF_RNE:        write_instruction0(state, NOTE); break;
 		case JAF_ASSIGN:     write_instruction0(state, S_ASSIGN); break;
+		case JAF_ADD_ASSIGN: write_instruction0(state, S_PLUSA2); break;
 		case JAF_REMAINDER:
 			switch (rhs_type->data) {
 			case AIN_INT:
-			case AIN_ENUM:   write_instruction1(state, S_MOD, 2); break;
-			case AIN_FLOAT:  write_instruction1(state, S_MOD, 3); break;
-			case AIN_STRING: write_instruction1(state, S_MOD, 4); break;
+			case AIN_ENUM:     write_instruction1(state, S_MOD, 2); break;
+			case AIN_FLOAT:    write_instruction1(state, S_MOD, 3); break;
+			case AIN_STRING:   write_instruction1(state, S_MOD, 4); break;
+			case AIN_BOOL:     write_instruction1(state, S_MOD, 48); break;
+			case AIN_LONG_INT: write_instruction1(state, S_MOD, 56); break;
 			default:         _COMPILER_ERROR(NULL, -1, "Invalid type for string formatting");
 			}
 			break;
