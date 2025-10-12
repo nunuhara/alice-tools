@@ -102,6 +102,18 @@ static struct jaf_expression *simplify_cast_to_float(struct jaf_expression *e)
 	return jaf_cast_expression(JAF_FLOAT, e);
 }
 
+static struct jaf_expression *jaf_simplify_string_concat(struct jaf_expression *e)
+{
+	if (e->lhs->type != JAF_EXP_STRING || e->rhs->type != JAF_EXP_STRING)
+		return e;
+	struct jaf_expression *r = e->lhs;
+	string_append(&r->s, e->rhs->s);
+	free_string(e->rhs->s);
+	free(e->rhs);
+	free(e);
+	return r;
+}
+
 static void jaf_normalize_for_arithmetic(struct jaf_expression *e)
 {
 	if (e->lhs->valuetype.data == AIN_FLOAT || e->rhs->valuetype.data == AIN_FLOAT) {
@@ -173,7 +185,10 @@ static struct jaf_expression *jaf_simplify_binary(struct jaf_expression *e)
 	case JAF_REMAINDER:
 		return jaf_simplify_remainder(e);
 	case JAF_PLUS:
-		return jaf_simplify_plus(e);
+		if (e->lhs->type == JAF_EXP_STRING)
+			return jaf_simplify_string_concat(e);
+		else
+			return jaf_simplify_plus(e);
 	case JAF_MINUS:
 		return jaf_simplify_minus(e);
 	case JAF_LSHIFT:
