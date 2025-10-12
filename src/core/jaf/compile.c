@@ -1515,7 +1515,10 @@ static void compile_for(struct compiler_state *state, struct jaf_block *init, st
 	compile_block(state, init);
 	// loop test
 	addr[0] = state->out.index; // address of loop test
-	compile_expression(state, test);
+	if (test)
+		compile_expression(state, test);
+	else
+		write_instruction1(state, PUSH, 1);
 	addr[1] = state->out.index + 2; // address of address of loop end
 	write_instruction1(state, IFZ, 0);
 	addr[2] = state->out.index + 2; // address of address of loop body

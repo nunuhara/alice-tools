@@ -537,10 +537,14 @@ struct jaf_block_item *jaf_do_while_loop(struct jaf_expression *test, struct jaf
 
 struct jaf_block_item *jaf_for_loop(struct jaf_block *init, struct jaf_block_item *test, struct jaf_expression *after, struct jaf_block_item *body)
 {
-	assert(test->kind == JAF_STMT_EXPRESSION);
+	assert(test->kind == JAF_STMT_EXPRESSION || test->kind == JAF_STMT_NULL);
 	struct jaf_block_item *item = block_item(JAF_STMT_FOR);
 	item->for_loop.init = init;
-	item->for_loop.test = test->expr;
+	if (test->kind == JAF_STMT_NULL) {
+		item->for_loop.test = NULL;
+	} else {
+		item->for_loop.test = test->expr;
+	}
 	item->for_loop.after = after;
 	item->for_loop.body = body;
 	free(test);

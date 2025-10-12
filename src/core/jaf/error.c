@@ -328,8 +328,12 @@ void jaf_print_block_item(struct port *out, struct jaf_block_item *item)
 		for (size_t i = 0; i < item->for_loop.init->nr_items; i++) {
 			jaf_print_block_item(out, item->for_loop.init->items[i]);
 		}
-		port_putc(out, ' ');
-		jaf_print_expression(out, item->for_loop.test);
+		port_putc(out, ';');
+		if (item->for_loop.test) {
+			port_putc(out, ' ');
+			jaf_print_expression(out, item->for_loop.test);
+		}
+		port_putc(out, ';');
 		if (item->for_loop.after) {
 			port_putc(out, ' ');
 			jaf_print_expression(out, item->for_loop.after);
