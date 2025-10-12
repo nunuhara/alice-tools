@@ -191,6 +191,7 @@ void jaf_check_type_lvalue(possibly_unused struct jaf_env *env, struct jaf_expre
 	case AIN_LONG_INT:
 	case AIN_STRING:
 	case AIN_ENUM:
+	case AIN_STRUCT:
 	case AIN_REF_INT:
 	case AIN_REF_FLOAT:
 	case AIN_REF_BOOL:
@@ -294,6 +295,12 @@ static void jaf_type_check_weak_assign(enum jaf_operator op, struct jaf_expressi
 			TYPE_ERROR(lvalue, AIN_INT); // FIXME: many types ok...
 		if (!is_string_type(*rvalue))
 			TYPE_ERROR(*rvalue, AIN_STRING);
+	} else if (lv_type == AIN_STRUCT) {
+		if (op != JAF_ASSIGN)
+			JAF_ERROR(lvalue, "Invalid lvalue for assign operator");
+		if ((*rvalue)->valuetype.data != AIN_STRUCT
+				&& (*rvalue)->valuetype.data != AIN_REF_STRUCT)
+			TYPE_ERROR(*rvalue, AIN_STRUCT);
 	}
 }
 

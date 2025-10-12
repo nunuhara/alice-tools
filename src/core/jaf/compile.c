@@ -258,9 +258,9 @@ static bool is_integer_type(enum ain_data_type type)
 	}
 }
 
-static void write_instruction_for_op(struct compiler_state *state, enum jaf_operator op, enum ain_data_type lhs_type, enum ain_data_type rhs_type)
+static void write_instruction_for_op(struct compiler_state *state, enum jaf_operator op, struct ain_type *lhs_type, struct ain_type *rhs_type)
 {
-	if (lhs_type == AIN_FLOAT || lhs_type == AIN_REF_FLOAT) {
+	if (lhs_type->data == AIN_FLOAT || lhs_type->data == AIN_REF_FLOAT) {
 		switch (op) {
 		case JAF_MULTIPLY:      write_instruction0(state, F_MUL); break;
 		case JAF_DIVIDE:        write_instruction0(state, F_DIV); break;
@@ -281,7 +281,7 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		case JAF_SUB_ASSIGN:    write_instruction0(state, F_MINUSA); break;
 		default:                _COMPILER_ERROR(NULL, -1, "Invalid floating point operator");
 		}
-	} else if (is_integer_type(lhs_type)) {
+	} else if (is_integer_type(lhs_type->data)) {
 		switch (op) {
 		case JAF_MULTIPLY:      write_instruction0(state, MUL); break;
 		case JAF_DIVIDE:        write_instruction0(state, DIV); break;
@@ -314,7 +314,7 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		case JAF_OR_ASSIGN:     write_instruction0(state, ORA); break;
 		default:                _COMPILER_ERROR(NULL, -1, "Invalid integer operator");
 		}
-	} else if (lhs_type == AIN_LONG_INT || lhs_type == AIN_REF_LONG_INT) {
+	} else if (lhs_type->data == AIN_LONG_INT || lhs_type->data == AIN_REF_LONG_INT) {
 		switch (op) {
 		case JAF_MULTIPLY:      write_instruction0(state, LI_MUL); break;
 		case JAF_DIVIDE:        write_instruction0(state, LI_DIV); break;
@@ -347,7 +347,7 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		case JAF_OR_ASSIGN:     write_instruction0(state, LI_ORA); break;
 		default:                _COMPILER_ERROR(NULL, -1, "Invalid long integer operator");
 		}
-	} else if (lhs_type == AIN_STRING || lhs_type == AIN_REF_STRING) {
+	} else if (lhs_type->data == AIN_STRING || lhs_type->data == AIN_REF_STRING) {
 		switch (op) {
 		case JAF_PLUS:       write_instruction0(state, S_ADD); break;
 		case JAF_LT:         write_instruction0(state, S_LT); break;
@@ -360,7 +360,7 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 		case JAF_RNE:        write_instruction0(state, NOTE); break;
 		case JAF_ASSIGN:     write_instruction0(state, S_ASSIGN); break;
 		case JAF_REMAINDER:
-			switch (rhs_type) {
+			switch (rhs_type->data) {
 			case AIN_INT:
 			case AIN_ENUM:   write_instruction1(state, S_MOD, 2); break;
 			case AIN_FLOAT:  write_instruction1(state, S_MOD, 3); break;
@@ -369,6 +369,14 @@ static void write_instruction_for_op(struct compiler_state *state, enum jaf_oper
 			}
 			break;
 		default:             _COMPILER_ERROR(NULL, -1, "Invalid string operator");
+		}
+	} else if (lhs_type->data == AIN_STRUCT || lhs_type->data == AIN_REF_STRUCT) {
+		switch (op) {
+		case JAF_ASSIGN:
+			write_instruction1(state, PUSH, lhs_type->struc);
+			write_instruction0(state, SR_ASSIGN);
+			break;
+		default:         _COMPILER_ERROR(NULL, -1, "Invalid struct operator");
 		}
 	} else {
 		switch (op) {
@@ -625,6 +633,9 @@ static void compile_pop(struct compiler_state *state, enum ain_data_type type)
 	case AIN_REF_STRING:
 		write_instruction0(state, AIN_VERSION_GTE(state->ain, 11, 0) ? DELETE : S_POP);
 		break;
+	case AIN_STRUCT:
+		write_instruction0(state, SR_POP);
+		break;
 	default:
 		_COMPILER_ERROR(NULL, -1, "Unsupported type");
 	}
@@ -818,17 +829,17 @@ static void compile_binary(struct compiler_state *state, struct jaf_expression *
 	case JAF_BIT_IOR:
 		compile_expression(state, expr->lhs);
 		compile_expression(state, expr->rhs);
-		write_instruction_for_op(state, expr->op, expr->lhs->valuetype.data, expr->rhs->valuetype.data);
+		write_instruction_for_op(state, expr->op, &expr->lhs->valuetype, &expr->rhs->valuetype);
 		break;
 	case JAF_REQ:
 		compile_lvalue(state, expr->lhs);
 		compile_lvalue(state, expr->rhs);
-		write_instruction_for_op(state, expr->op, expr->lhs->valuetype.data, expr->rhs->valuetype.data);
+		write_instruction_for_op(state, expr->op, &expr->lhs->valuetype, &expr->rhs->valuetype);
 		break;
 	case JAF_RNE:
 		compile_lvalue(state, expr->lhs);
 		compile_lvalue(state, expr->rhs);
-		write_instruction_for_op(state, expr->op, expr->lhs->valuetype.data, expr->rhs->valuetype.data);
+		write_instruction_for_op(state, expr->op, &expr->lhs->valuetype, &expr->rhs->valuetype);
 		break;
 	case JAF_LOG_AND:
 		compile_expression(state, expr->lhs);
@@ -874,7 +885,7 @@ static void compile_binary(struct compiler_state *state, struct jaf_expression *
 		// FIXME: I don't think this works for assigning to ref types
 		compile_lvalue(state, expr->lhs);
 		compile_expression(state, expr->rhs);
-		write_instruction_for_op(state, expr->op, expr->valuetype.data, expr->rhs->valuetype.data);
+		write_instruction_for_op(state, expr->op, &expr->valuetype, &expr->rhs->valuetype);
 		break;
 	default:
 		COMPILER_ERROR(expr, "Invalid binary operator");
@@ -1355,8 +1366,17 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 		}
 		break;
 	case AIN_STRUCT:
-		write_instruction1(state, SH_LOCALDELETE, decl->var_no); // FIXME: use verbose version
+		write_instruction1(state, SH_LOCALDELETE, decl->var_no);
 		write_instruction2(state, SH_LOCALCREATE, decl->var_no, decl->valuetype.struc);
+		if (decl->init) {
+			write_instruction0(state, PUSHLOCALPAGE);
+			write_instruction1(state, PUSH, decl->var_no);
+			write_instruction0(state, REF);
+			compile_expression(state, decl->init);
+			write_instruction1(state, PUSH, decl->valuetype.struc);
+			write_instruction0(state, SR_ASSIGN);
+			write_instruction0(state, SR_POP);
+		}
 		break;
 	case AIN_REF_INT:
 	case AIN_REF_BOOL:
