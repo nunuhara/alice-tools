@@ -1065,10 +1065,94 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 		write_instruction1(state, PUSH, 1); // number of chars?
 		write_instruction0(state, S_ERASE2);
 		break;
+	case A_ALLOC:
+		compile_variable(state, expr->call.fun->member.struc);
+		for (int i = 0; i < expr->call.args->nr_items; i++) {
+			compile_expression(state, expr->call.args->items[i]);
+		}
+		write_instruction1(state, PUSH, expr->call.args->nr_items);
+		write_instruction0(state, A_ALLOC);
+		break;
+	case A_REALLOC:
+		compile_variable(state, expr->call.fun->member.struc);
+		for (int i = 0; i < expr->call.args->nr_items; i++) {
+			compile_expression(state, expr->call.args->items[i]);
+		}
+		write_instruction1(state, PUSH, expr->call.args->nr_items);
+		write_instruction0(state, A_REALLOC);
+		break;
+	case A_FREE:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction0(state, A_FREE);
+		break;
 	case A_NUMOF:
 		compile_variable(state, expr->call.fun->member.struc);
-		write_instruction1(state, PUSH, 1); // TODO: push actual rank?
+		if (expr->call.args->nr_items > 0) {
+			compile_expression(state, expr->call.args->items[0]);
+		} else {
+			write_instruction1(state, PUSH, 1);
+		}
 		write_instruction0(state, A_NUMOF);
+		break;
+	case A_COPY:
+		compile_variable(state, expr->call.fun->member.struc);
+		compile_expression(state, expr->call.args->items[0]);
+		compile_expression(state, expr->call.args->items[1]);
+		compile_expression(state, expr->call.args->items[2]);
+		compile_expression(state, expr->call.args->items[3]);
+		write_instruction0(state, A_COPY);
+		break;
+	case A_FILL:
+		compile_variable(state, expr->call.fun->member.struc);
+		compile_expression(state, expr->call.args->items[0]);
+		compile_expression(state, expr->call.args->items[1]);
+		compile_expression(state, expr->call.args->items[2]);
+		write_instruction0(state, A_FILL);
+		break;
+	case A_PUSHBACK:
+		compile_variable(state, expr->call.fun->member.struc);
+		compile_expression(state, expr->call.args->items[0]);
+		write_instruction0(state, A_PUSHBACK);
+		break;
+	case A_POPBACK:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction0(state, A_POPBACK);
+		break;
+	case A_EMPTY:
+		compile_variable(state, expr->call.fun->member.struc);
+		write_instruction0(state, A_EMPTY);
+		break;
+	case A_ERASE:
+		compile_variable(state, expr->call.fun->member.struc);
+		compile_expression(state, expr->call.args->items[0]);
+		write_instruction0(state, A_ERASE);
+		break;
+	case A_INSERT:
+		compile_variable(state, expr->call.fun->member.struc);
+		compile_expression(state, expr->call.args->items[0]);
+		compile_expression(state, expr->call.args->items[1]);
+		write_instruction0(state, A_INSERT);
+		break;
+	case A_SORT:
+		compile_variable(state, expr->call.fun->member.struc);
+		if (expr->call.args->nr_items > 0) {
+			compile_expression(state, expr->call.args->items[0]);
+		} else {
+			write_instruction1(state, PUSH, 0);
+		}
+		write_instruction0(state, A_SORT);
+		break;
+	case A_FIND:
+		compile_variable(state, expr->call.fun->member.struc);
+		compile_expression(state, expr->call.args->items[0]);
+		compile_expression(state, expr->call.args->items[1]);
+		compile_expression(state, expr->call.args->items[2]);
+		if (expr->call.args->nr_items > 3) {
+			compile_expression(state, expr->call.args->items[3]);
+		} else {
+			write_instruction1(state, PUSH, 0);
+		}
+		write_instruction0(state, A_FIND);
 		break;
 	default:
 		JAF_ERROR(expr, "Unimplemented builtin method");

@@ -156,14 +156,23 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 	_COMPILER_ERROR(NULL, -1, "Unknown type: %d", type);
 }
 
+static int jaf_to_ain_struct_type(struct jaf_type_specifier *in)
+{
+	switch (in->type) {
+	case JAF_STRUCT:
+	case JAF_FUNCTYPE:
+	case JAF_DELEGATE:
+	case JAF_ENUM:
+		return in->struct_no;
+	default:
+		return -1;
+	}
+}
+
 void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_specifier *in)
 {
 	out->data = jaf_to_ain_data_type(ain, in);
-	if (in->type == JAF_STRUCT || in->type == JAF_FUNCTYPE || in->type == JAF_DELEGATE || in->type == JAF_ENUM) {
-		out->struc = in->struct_no;
-	} else {
-		out->struc = -1;
-	}
+	out->struc = jaf_to_ain_struct_type(in);
 	if (in->type == JAF_ARRAY) {
 		out->rank = in->rank;
 		if (AIN_VERSION_GTE(ain, 11, 0)) {
@@ -175,6 +184,8 @@ void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_spec
 			if (out->array_type->data == AIN_STRUCT || out->array_type->data == AIN_REF_STRUCT) {
 				out->struc = out->array_type->data;
 			}
+		} else {
+			out->struc = jaf_to_ain_struct_type(in->array_type);
 		}
 	} else if (in->type == JAF_WRAP) {
 		if (!AIN_VERSION_GTE(ain, 11, 0)) {

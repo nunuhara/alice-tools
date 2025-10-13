@@ -126,8 +126,9 @@ enum jaf_builtin_method {
 	JAF_ARRAY_ERASE,
 	JAF_ARRAY_INSERT,
 	JAF_ARRAY_SORT,
+	JAF_ARRAY_FIND,
 };
-#define JAF_NR_BUILTINS (JAF_ARRAY_SORT+1)
+#define JAF_NR_BUILTINS (JAF_ARRAY_FIND+1)
 
 enum jaf_type_qualifier {
 	JAF_QUAL_CONST       = 1,

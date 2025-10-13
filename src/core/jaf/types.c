@@ -817,43 +817,72 @@ struct builtin {
 	enum ain_data_type return_type;
 	enum ain_data_type type;
 	const char *name;
-	int nr_args;
+	int min_args;
+	int max_args;
 	enum opcode opcode;
 };
 
 static struct builtin builtins[] = {
-	[JAF_INT_STRING]        = { AIN_STRING, AIN_INT, "String",        0, I_STRING },
-	[JAF_FLOAT_STRING]      = { AIN_STRING, AIN_FLOAT, "String",      0, FTOS },
-	[JAF_STRING_INT]        = { AIN_INT,    AIN_STRING, "Int",        0, STOI },
-	[JAF_STRING_LENGTH]     = { AIN_INT,    AIN_STRING, "Length",     0, S_LENGTH },
-	[JAF_STRING_LENGTHBYTE] = { AIN_INT,    AIN_STRING, "LengthByte", 0, S_LENGTHBYTE },
-	[JAF_STRING_EMPTY]      = { AIN_INT,    AIN_STRING, "Empty",      0, S_EMPTY },
-	[JAF_STRING_FIND]       = { AIN_INT,    AIN_STRING, "Find",       1, S_FIND },
-	[JAF_STRING_GETPART]    = { AIN_STRING, AIN_STRING, "GetPart",    2, S_GETPART },
-	[JAF_STRING_PUSHBACK]   = { AIN_VOID,   AIN_STRING, "PushBack",   1, S_PUSHBACK },
-	[JAF_STRING_POPBACK]    = { AIN_VOID,   AIN_STRING, "PopBack",    0, S_POPBACK },
-	[JAF_STRING_ERASE]      = { AIN_VOID,   AIN_STRING, "Erase",      1, S_ERASE },
-	[JAF_ARRAY_ALLOC]       = { AIN_VOID,   AIN_ARRAY, "Alloc",       1, A_ALLOC },
-	[JAF_ARRAY_REALLOC]     = { AIN_VOID,   AIN_ARRAY, "Realloc",     1, A_REALLOC },
-	[JAF_ARRAY_FREE]        = { AIN_VOID,   AIN_ARRAY, "Free",        0, A_FREE },
-	[JAF_ARRAY_NUMOF]       = { AIN_INT,    AIN_ARRAY, "Numof",       0, A_NUMOF },
-	[JAF_ARRAY_COPY]        = { AIN_INT,    AIN_ARRAY, "Copy",        4, A_COPY },
-	[JAF_ARRAY_FILL]        = { AIN_INT,    AIN_ARRAY, "Fill",        3, A_FILL },
-	[JAF_ARRAY_PUSHBACK]    = { AIN_VOID,   AIN_ARRAY, "PushBack",    1, A_PUSHBACK },
-	[JAF_ARRAY_POPBACK]     = { AIN_VOID,   AIN_ARRAY, "PopBack",     0, A_POPBACK },
-	[JAF_ARRAY_EMPTY]       = { AIN_INT,    AIN_ARRAY, "Empty",       0, A_EMPTY },
-	[JAF_ARRAY_ERASE]       = { AIN_INT,    AIN_ARRAY, "Erase",       1, A_ERASE },
-	[JAF_ARRAY_INSERT]      = { AIN_VOID,   AIN_ARRAY, "Insert",      2, A_INSERT },
-	[JAF_ARRAY_SORT]        = { AIN_VOID,   AIN_ARRAY, "Sort",        1, A_SORT },
+	[JAF_INT_STRING]        = { AIN_STRING, AIN_INT, "String",        0, 0, I_STRING },
+	[JAF_FLOAT_STRING]      = { AIN_STRING, AIN_FLOAT, "String",      0, 0, FTOS },
+	[JAF_STRING_INT]        = { AIN_INT,    AIN_STRING, "Int",        0, 0, STOI },
+	[JAF_STRING_LENGTH]     = { AIN_INT,    AIN_STRING, "Length",     0, 0, S_LENGTH },
+	[JAF_STRING_LENGTHBYTE] = { AIN_INT,    AIN_STRING, "LengthByte", 0, 0, S_LENGTHBYTE },
+	[JAF_STRING_EMPTY]      = { AIN_INT,    AIN_STRING, "Empty",      0, 0, S_EMPTY },
+	[JAF_STRING_FIND]       = { AIN_INT,    AIN_STRING, "Find",       1, 1, S_FIND },
+	[JAF_STRING_GETPART]    = { AIN_STRING, AIN_STRING, "GetPart",    2, 2, S_GETPART },
+	[JAF_STRING_PUSHBACK]   = { AIN_VOID,   AIN_STRING, "PushBack",   1, 1, S_PUSHBACK },
+	[JAF_STRING_POPBACK]    = { AIN_VOID,   AIN_STRING, "PopBack",    0, 0, S_POPBACK },
+	[JAF_STRING_ERASE]      = { AIN_VOID,   AIN_STRING, "Erase",      1, 1, S_ERASE },
+	[JAF_ARRAY_ALLOC]       = { AIN_VOID,   AIN_ARRAY, "Alloc",       1, 255, A_ALLOC },
+	[JAF_ARRAY_REALLOC]     = { AIN_VOID,   AIN_ARRAY, "Realloc",     1, 1, A_REALLOC },
+	[JAF_ARRAY_FREE]        = { AIN_VOID,   AIN_ARRAY, "Free",        0, 0, A_FREE },
+	[JAF_ARRAY_NUMOF]       = { AIN_INT,    AIN_ARRAY, "Numof",       0, 1, A_NUMOF },
+	[JAF_ARRAY_COPY]        = { AIN_INT,    AIN_ARRAY, "Copy",        4, 4, A_COPY },
+	[JAF_ARRAY_FILL]        = { AIN_INT,    AIN_ARRAY, "Fill",        3, 3, A_FILL },
+	[JAF_ARRAY_PUSHBACK]    = { AIN_VOID,   AIN_ARRAY, "PushBack",    1, 1, A_PUSHBACK },
+	[JAF_ARRAY_POPBACK]     = { AIN_VOID,   AIN_ARRAY, "PopBack",     0, 0, A_POPBACK },
+	[JAF_ARRAY_EMPTY]       = { AIN_INT,    AIN_ARRAY, "Empty",       0, 0, A_EMPTY },
+	[JAF_ARRAY_ERASE]       = { AIN_INT,    AIN_ARRAY, "Erase",       1, 1, A_ERASE },
+	[JAF_ARRAY_INSERT]      = { AIN_VOID,   AIN_ARRAY, "Insert",      2, 2, A_INSERT },
+	[JAF_ARRAY_SORT]        = { AIN_VOID,   AIN_ARRAY, "Sort",        0, 1, A_SORT },
+	[JAF_ARRAY_FIND]        = { AIN_INT,    AIN_ARRAY, "Find",        3, 4, A_FIND },
 };
+
+static enum ain_data_type array_data_type(struct ain_type *type);
+
+static void jaf_check_comparator_type(struct jaf_env *env, struct jaf_expression *expr,
+		struct ain_type *val_type)
+{
+	if (expr->valuetype.data != AIN_FUNCTION)
+		JAF_ERROR(expr, "Type error (expected comparator; got %s)",
+				ain_strtype_d(env->ain, &expr->valuetype));
+	assert(expr->valuetype.struc >= 0 && expr->valuetype.struc < env->ain->nr_functions);
+	struct ain_function *f = &env->ain->functions[expr->valuetype.struc];
+	if (f->nr_args != 2)
+		JAF_ERROR(expr, "Wrong number of arguments to comparator (expected 2; got %d)",
+				f->nr_args);
+	if (val_type->data == AIN_STRUCT) {
+		if (f->vars[0].type.data != AIN_REF_STRUCT
+				|| f->vars[1].type.data != AIN_REF_STRUCT
+				|| f->vars[0].type.struc != val_type->struc
+				|| f->vars[1].type.struc != val_type->struc)
+			JAF_ERROR(expr, "Wrong argument type for comparator");
+	} else if (f->vars[0].type.data != val_type->data
+			|| f->vars[1].type.data != val_type->data) {
+		JAF_ERROR(expr, "Wrong argument type for comparator");
+	}
+}
 
 static void jaf_check_types_builtin_call(struct jaf_env *env, struct jaf_expression *expr)
 {
 	struct builtin *builtin = &builtins[expr->call.fun->member.member_no];
-	if (expr->call.args->nr_items != builtin->nr_args) {
+	if (expr->call.args->nr_items < builtin->min_args)
+		JAF_ERROR(expr, "Too few arguments to builtin method: %s.%s",
+				_builtin_type_name(builtin->type), builtin->name);
+	if (expr->call.args->nr_items > builtin->max_args)
 		JAF_ERROR(expr, "Too many arguments to builtin method: %s.%s",
 				_builtin_type_name(builtin->type), builtin->name);
-	}
 
 	expr->type = JAF_EXP_BUILTIN_CALL;
 	expr->valuetype.data = builtin->return_type;
@@ -861,6 +890,11 @@ static void jaf_check_types_builtin_call(struct jaf_env *env, struct jaf_express
 
 	struct ain_type int_type = { .data = AIN_INT };
 	struct ain_type str_type = { .data = AIN_STRING };
+	struct ain_type val_type = { .data = AIN_VOID };
+	if (builtin->type == AIN_ARRAY) {
+		val_type.data = array_data_type(&expr->call.fun->member.struc->valuetype);
+		val_type.struc = expr->call.fun->member.struc->valuetype.struc;
+	}
 	struct jaf_argument_list *args = expr->call.args;
 	switch ((enum jaf_builtin_method)expr->call.fun->member.member_no) {
 	case JAF_STRING_FIND:
@@ -877,34 +911,54 @@ static void jaf_check_types_builtin_call(struct jaf_env *env, struct jaf_express
 		jaf_check_type(args->items[0], &int_type);
 		break;
 	case JAF_ARRAY_ALLOC:
-		jaf_check_type(args->items[0], &int_type);
+		for (int i = 0; i < args->nr_items; i++) {
+			jaf_check_type(args->items[i], &int_type);
+		}
+		// check nr args matches array rank
 		break;
 	case JAF_ARRAY_REALLOC:
-		jaf_check_type(args->items[0], &int_type);
+		for (int i = 0; i < args->nr_items; i++) {
+			jaf_check_type(args->items[i], &int_type);
+		}
+		// check nr args matches array rank
+		break;
+	case JAF_ARRAY_NUMOF:
+		if (args->nr_items > 0)
+			jaf_check_type(args->items[0], &int_type);
 		break;
 	case JAF_ARRAY_COPY:
 		jaf_check_type(args->items[0], &int_type);
-		// array lvalue of same type
+		jaf_check_type(args->items[1], &expr->call.fun->member.struc->valuetype);
 		jaf_check_type(args->items[2], &int_type);
 		jaf_check_type(args->items[3], &int_type);
 		break;
 	case JAF_ARRAY_FILL:
 		jaf_check_type(args->items[0], &int_type);
 		jaf_check_type(args->items[1], &int_type);
-		// type of array data
+		jaf_check_type(args->items[2], &val_type);
 		break;
 	case JAF_ARRAY_PUSHBACK:
-		// type of array data
+		jaf_check_type(args->items[0], &val_type);
 		break;
 	case JAF_ARRAY_ERASE:
 		jaf_check_type(args->items[0], &int_type);
 		break;
 	case JAF_ARRAY_INSERT:
 		jaf_check_type(args->items[0], &int_type);
-		// type of array data
+		jaf_check_type(args->items[1], &val_type);
 		break;
 	case JAF_ARRAY_SORT:
-		// comparator function
+		if (args->nr_items > 0) {
+			jaf_check_comparator_type(env, args->items[0], &val_type);
+		}
+		break;
+	case JAF_ARRAY_FIND:
+		jaf_check_type(args->items[0], &int_type);
+		jaf_check_type(args->items[1], &int_type);
+		jaf_check_type(args->items[2], &val_type);
+		if (args->nr_items > 3) {
+			jaf_check_comparator_type(env, args->items[3], &val_type);
+		}
 		break;
 	case JAF_INT_STRING:
 	case JAF_FLOAT_STRING:
@@ -914,7 +968,6 @@ static void jaf_check_types_builtin_call(struct jaf_env *env, struct jaf_express
 	case JAF_STRING_EMPTY:
 	case JAF_STRING_POPBACK:
 	case JAF_ARRAY_FREE:
-	case JAF_ARRAY_NUMOF:
 	case JAF_ARRAY_POPBACK:
 	case JAF_ARRAY_EMPTY:
 		break;
