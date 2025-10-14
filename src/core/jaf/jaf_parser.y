@@ -431,7 +431,7 @@ atomic_type_specifier
 	| HLL_FUNC_71      { $$ = JAF_HLL_FUNC_71; }
 	| HLL_FUNC         { $$ = JAF_HLL_FUNC; }
 	| HLL_STRUCT       { $$ = JAF_STRUCT; }
-	| DELEGATE         { $$ = JAF_DELEGATE; }
+//	| DELEGATE         { $$ = JAF_DELEGATE; }
 	| IMAIN_SYSTEM     { $$ = JAF_IMAIN_SYSTEM; }
 	;
 
@@ -666,7 +666,7 @@ function_declarator
 
 function_name
 	: IDENTIFIER { $$ = $1; }
-	| IDENTIFIER '@' IDENTIFIER { $$ = jaf_method_name($1, $3); }
+	| TYPEDEF_NAME '@' IDENTIFIER { $$ = jaf_method_name($1, $3); }
 	;
 
 parameter_list

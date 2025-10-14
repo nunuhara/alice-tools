@@ -688,8 +688,14 @@ static bool _compile_cast(struct compiler_state *state, struct jaf_expression *e
 		} else {
 			return false;
 		}
+	} else if (src_type == AIN_BOOL) {
+		if (dst_type == AIN_INT || dst_type == AIN_LONG_INT) {
+			/* nothing */
+		} else if (dst_type == AIN_FLOAT) {
+			write_instruction0(state, ITOF);
+		}
 	} else {
-		return false;;
+		return false;
 	}
 	return true;
 }
@@ -1199,7 +1205,7 @@ static void compile_cast(struct compiler_state *state, struct jaf_expression *ex
 	compile_expression(state, expr->cast.expr);
 	if (!_compile_cast(state, expr->cast.expr, expr->valuetype.data)) {
 		JAF_ERROR(expr, "Unsupported cast: %s to %s",
-			ain_strtype(state->ain, expr->valuetype.data, -1),
+			ain_strtype(state->ain, expr->cast.expr->valuetype.data, -1),
 			jaf_type_to_string(expr->cast.type));
 	}
 }

@@ -30,8 +30,8 @@ struct port;
 
 #define COMPILER_ERROR(obj, msgf, ...) \
 	_Generic((obj),\
-		 struct jaf_expression*: _COMPILER_ERROR(obj->file, obj->line, msgf, ##__VA_ARGS__),\
-		 struct jaf_block_item*: _COMPILER_ERROR(obj->file, obj->line, msgf, ##__VA_ARGS__))
+		 struct jaf_expression*: _COMPILER_ERROR((obj)->file, (obj)->line, msgf, ##__VA_ARGS__),\
+		 struct jaf_block_item*: _COMPILER_ERROR((obj)->file, (obj)->line, msgf, ##__VA_ARGS__))
 
 #define _JAF_ERROR(file, line, msgf, ...)				\
 	jaf_generic_error(file, line, msgf, ##__VA_ARGS__)
@@ -81,6 +81,7 @@ enum _ain_type {
 	_AIN_METHOD   = 1005, // member: method reference (e.g. obj.method)
 	_AIN_BUILTIN  = 1006, // member: builtin method reference (e.g. "string".Split)
 	_AIN_SUPER    = 1007, // super call - can be either function or method call
+	_AIN_NULLTYPE = 1008, // untyped NULL expression
 };
 #define AIN_FUNCTION ((enum ain_data_type)_AIN_FUNCTION)
 #define AIN_LIBRARY  ((enum ain_data_type)_AIN_LIBRARY)
@@ -90,6 +91,7 @@ enum _ain_type {
 #define AIN_METHOD   ((enum ain_data_type)_AIN_METHOD)
 #define AIN_BUILTIN  ((enum ain_data_type)_AIN_BUILTIN)
 #define AIN_SUPER    ((enum ain_data_type)_AIN_SUPER)
+#define AIN_NULLTYPE ((enum ain_data_type)_AIN_NULLTYPE)
 
 /*
  * Built-in libraries; these are negative to disambiguate between true built-ins
@@ -538,9 +540,8 @@ void jaf_build(struct ain *out, const char **files, unsigned nr_files, const cha
 struct jaf_expression *jaf_simplify(struct jaf_expression *in);
 
 // jaf_types.c
-void jaf_derive_types(struct jaf_env *env, struct jaf_expression *expr);
-void jaf_check_type(struct jaf_expression *expr, struct ain_type *type);
-void jaf_check_type_lvalue(possibly_unused struct jaf_env *env, struct jaf_expression *e);
+void jaf_type_check_expression(struct jaf_env *env, struct jaf_expression *expr);
+void jaf_type_check_statement(struct jaf_env *env, struct jaf_block_item *stmt);
 
 // jaf_static_analysis.c
 struct jaf_block *jaf_static_analyze(struct ain *ain, struct jaf_block *block);

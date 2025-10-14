@@ -23,102 +23,6 @@
 #include "alice.h"
 #include "alice/jaf.h"
 
-static void analyze_array_allocation(possibly_unused struct jaf_env *env, struct jaf_block_item *item)
-{
-	struct jaf_vardecl *decl = &item->var;
-	if (!decl->array_dims)
-		return;
-	for (size_t i = 0; i < decl->type->rank; i++) {
-		if (decl->array_dims[i]->type != JAF_EXP_INT)
-			JAF_ERROR(item, "Invalid expression as array size");
-	}
-}
-
-static void analyze_const_declaration(struct jaf_env *env, struct jaf_block_item *item)
-{
-	struct jaf_vardecl *decl = &item->var;
-	if (!decl->init) {
-		JAF_ERROR(item, "const declaration without an initializer");
-	}
-	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
-
-	env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+2,
-				     sizeof(struct jaf_env_local));
-	env->locals[env->nr_locals].name = decl->name->text;
-	env->locals[env->nr_locals].is_const = true;
-	jaf_to_initval(&env->locals[env->nr_locals].val, decl->init);
-	env->nr_locals++;
-}
-
-static void analyze_global_declaration(struct jaf_env *env, struct jaf_block_item *item)
-{
-	struct jaf_vardecl *decl = &item->var;
-	if (!decl->init)
-		return;
-
-	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
-	jaf_check_type(decl->init, &decl->valuetype);
-
-	// add initval to ain object
-	int no = ain_add_initval(env->ain, decl->var_no);
-	jaf_to_initval(&env->ain->global_initvals[no], decl->init);
-	analyze_array_allocation(env, item);
-}
-
-void jaf_env_add_local(struct jaf_env *env, char *name, int var_no)
-{
-	assert(env->func_no >= 0 && env->func_no < env->ain->nr_functions);
-	struct ain_function *f = &env->ain->functions[env->func_no];
-	assert(var_no >= 0 && var_no < f->nr_vars);
-	struct ain_variable *v = &f->vars[var_no];
-
-	env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+2,
-				     sizeof(struct jaf_env_local));
-	env->locals[env->nr_locals].name = name;
-
-	switch (v->type.data) {
-	case AIN_REF_INT:
-	case AIN_REF_FLOAT:
-	case AIN_REF_BOOL:
-	case AIN_REF_LONG_INT:
-		assert(var_no+1 < f->nr_vars);
-		env->locals[env->nr_locals].no = var_no;
-		env->locals[env->nr_locals++].var = v;
-		env->locals[env->nr_locals].name = "";
-		env->locals[env->nr_locals].no = var_no + 1;
-		env->locals[env->nr_locals].var = v + 1;
-		break;
-	default:
-		env->locals[env->nr_locals].no = var_no;
-		env->locals[env->nr_locals++].var = v;
-		break;
-	}
-}
-
-static void analyze_local_declaration(struct jaf_env *env, struct jaf_block_item *item)
-{
-	struct jaf_vardecl *decl = &item->var;
-	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
-	if (decl->init) {
-		jaf_check_type(decl->init, &decl->valuetype);
-	}
-	analyze_array_allocation(env, item);
-	jaf_env_add_local(env, decl->name->text, decl->var_no);
-}
-
-static void analyze_message(struct jaf_env *env, struct jaf_block_item *item)
-{
-	if (!item->msg.func) {
-		item->msg.func_no = -1;
-		return;
-	}
-
-	char *u = conv_output(item->msg.func->text);
-	if ((item->msg.func_no = ain_get_function(env->ain, u)) < 0)
-		JAF_ERROR(item, "Undefined function: %s", item->msg.func->text);
-	free(u);
-}
-
 /*
  * Create a new empty scope.
  */
@@ -192,50 +96,7 @@ static void jaf_analyze_stmt_post(struct jaf_block_item *stmt, struct jaf_visito
 {
 	struct jaf_env *env = visitor->data;
 
-	switch (stmt->kind) {
-	case JAF_DECL_VAR:
-		assert(stmt->var.type);
-		if (stmt->var.type->qualifiers & JAF_QUAL_CONST) {
-			analyze_const_declaration(env, stmt);
-		} else if (env->parent) {
-			analyze_local_declaration(env, stmt);
-		} else {
-			analyze_global_declaration(env, stmt);
-		}
-		break;
-	case JAF_STMT_MESSAGE:
-		analyze_message(env, stmt);
-		break;
-	case JAF_STMT_RETURN: {
-		assert(env->func_no >= 0 && env->func_no < env->ain->nr_functions);
-		struct ain_type *rtype = &env->ain->functions[env->func_no].return_type;
-		if (rtype->data == AIN_VOID && stmt->expr)
-			JAF_ERROR(stmt, "Return with value in void function");
-		if (rtype->data != AIN_VOID && !stmt->expr)
-			JAF_ERROR(stmt, "Return without a value in non-void function");
-		if (!stmt->expr)
-			break;
-		if (stmt->expr->type == JAF_EXP_NULL) {
-			ain_copy_type(&stmt->expr->valuetype, rtype);
-		} else {
-			jaf_check_type(stmt->expr, rtype);
-		}
-		break;
-	}
-	case JAF_STMT_RASSIGN:
-		jaf_check_type_lvalue(env, stmt->rassign.lhs);
-		if (!ain_is_ref_data_type(stmt->rassign.lhs->valuetype.data))
-			JAF_ERROR(stmt, "LHS of reference assignment is not a reference type");
-		if (stmt->rassign.rhs->type == JAF_EXP_NULL) {
-			ain_copy_type(&stmt->rassign.rhs->valuetype, &stmt->rassign.lhs->valuetype);
-		} else {
-			jaf_check_type_lvalue(env, stmt->rassign.rhs);
-			jaf_check_type(stmt->rassign.rhs, &stmt->rassign.lhs->valuetype);
-		}
-		break;
-	default:
-		break;
-	}
+	jaf_type_check_statement(env, stmt);
 
 	// restore previous scope
 	switch (stmt->kind) {
@@ -256,7 +117,7 @@ static struct jaf_expression *jaf_analyze_expr(struct jaf_expression *expr, stru
 	if (expr->type == JAF_EXP_NEW) {
 		visitor->stmt->is_scope = true;
 	}
-	jaf_derive_types(visitor->data, expr);
+	jaf_type_check_expression(visitor->data, expr);
 	return jaf_simplify(expr);
 }
 
