@@ -79,8 +79,10 @@ static void jaf_analyze_stmt_pre(struct jaf_block_item *stmt, struct jaf_visitor
 	// create a new scope
 	switch (stmt->kind) {
 	case JAF_DECL_FUN:
-		visitor->data = env = push_function_env(visitor->data, &stmt->fun);
-		jaf_to_ain_type(env->ain, &stmt->fun.valuetype, stmt->fun.type);
+		if (stmt->fun.body) {
+			visitor->data = env = push_function_env(visitor->data, &stmt->fun);
+			jaf_to_ain_type(env->ain, &stmt->fun.valuetype, stmt->fun.type);
+		}
 		break;
 	case JAF_STMT_COMPOUND:
 	case JAF_STMT_SWITCH:
@@ -101,6 +103,9 @@ static void jaf_analyze_stmt_post(struct jaf_block_item *stmt, struct jaf_visito
 	// restore previous scope
 	switch (stmt->kind) {
 	case JAF_DECL_FUN:
+		if (!stmt->fun.body)
+			break;
+		// fallthrough
 	case JAF_STMT_COMPOUND:
 	case JAF_STMT_SWITCH:
 	case JAF_STMT_FOR:

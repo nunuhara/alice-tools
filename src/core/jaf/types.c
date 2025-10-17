@@ -199,7 +199,7 @@ static bool type_equal(struct ain_type *expected, struct ain_type *actual)
 			return true;
 		}
 	}
-#define T(a,b) (((a) << 16) | (b))
+#define T(a,b) (((a) << 8) | (b))
 	switch (T(expected->data, actual->data)) {
 	case T(AIN_INT, AIN_BOOL):
 	case T(AIN_INT, AIN_LONG_INT):
@@ -296,6 +296,16 @@ static struct jaf_expression *coerce_cast(enum ain_data_type t, struct jaf_expre
 	cast->line = e->line;
 	cast->file = e->file;
 	cast->valuetype.data = t;
+	return cast;
+}
+
+static struct jaf_expression *cast_to_method(struct jaf_expression *e)
+{
+	struct jaf_expression *cast = jaf_cast_expression(JAF_FUNCTYPE, e);
+	cast->line = e->line;
+	cast->file = e->file;
+	cast->valuetype.data = AIN_METHOD;
+	cast->valuetype.struc = e->valuetype.struc;
 	return cast;
 }
 
@@ -441,21 +451,30 @@ static struct ain_function_type get_method(struct jaf_env *env, int no, int *str
 
 }
 
-static void check_delegate_compatible(struct jaf_env *env, struct ain_type *t, struct jaf_expression *rhs)
+static void check_delegate_compatible(struct jaf_env *env, struct ain_type *t, struct jaf_expression **_rhs)
 {
+	struct jaf_expression *rhs = *_rhs;
 	assert(t->struc >= 0 && t->struc < env->ain->nr_delegates);
 	struct ain_function_type *dg = get_delegate(env, t->struc);
 	switch ((int)rhs->valuetype.data) {
-	case AIN_METHOD:
-		break;
-	case AIN_DELEGATE: {
-		struct ain_function_type *dg2 = get_delegate(env, rhs->valuetype.struc);
-		if (!functype_compatible(dg, dg2))
+	case AIN_METHOD: {
+		int struct_no;
+		struct ain_function_type m = get_method(env, rhs->valuetype.struc, &struct_no);
+		if (!functype_compatible(dg, &m))
 			TYPE_ERROR(rhs, t->data);
 		break;
 	}
 	case AIN_FUNCTION:
-		// TODO: sys4lang allows cast of function to method here
+		struct ain_function_type f = get_function(env, rhs->valuetype.struc);
+		if (!functype_compatible(dg, &f))
+			TYPE_ERROR(rhs, t->data);
+		*_rhs = rhs = cast_to_method(rhs);
+		break;
+	case AIN_DELEGATE: {
+		if (rhs->valuetype.struc != t->struc)
+			TYPE_ERROR(rhs, t->data);
+		break;
+	}
 	default:
 		TYPE_ERROR(rhs, t->data);
 	}
@@ -495,8 +514,7 @@ static void check_assign(struct jaf_env *env, struct ain_type *t, struct jaf_exp
 		break;
 	}
 	case AIN_DELEGATE:
-		check_delegate_compatible(env, t, rhs);
-		// TODO
+		check_delegate_compatible(env, t, _rhs);
 		break;
 	case AIN_FUNCTION:
 		if (rhs->valuetype.data == AIN_FUNCTION) {
@@ -515,8 +533,13 @@ static void check_assign(struct jaf_env *env, struct ain_type *t, struct jaf_exp
 			struct ain_function_type f2 = get_method(env, rhs->valuetype.struc, &s2);
 			if (s != s2 || !functype_compatible(&f, &f2))
 				TYPE_ERROR(rhs, t->data);
+		} else if (rhs->valuetype.data == AIN_FUNCTION) {
+			struct ain_function_type f = get_function(env, t->struc);
+			struct ain_function_type f2 = get_function(env, rhs->valuetype.struc);
+			if (!functype_compatible(&f, &f2))
+				TYPE_ERROR(rhs, t->data);
+			*_rhs = rhs = cast_to_method(rhs);
 		} else {
-			// TODO: sys4lang allows cast of function to method here
 			TYPE_ERROR(rhs, t->data);
 		}
 		break;
@@ -692,7 +715,7 @@ static void type_check_assign(struct jaf_env *env, struct jaf_expression *expr)
 			type_check(&string_type, expr->rhs);
 		} else if (expr->lhs->valuetype.data == AIN_DELEGATE
 				&& (expr->op == JAF_ADD_ASSIGN || expr->op == JAF_SUB_ASSIGN)) {
-			COMPILER_ERROR(expr, "Delegate +/- not implemented");
+			check_delegate_compatible(env, &expr->lhs->valuetype, &expr->rhs);
 		} else {
 			type_check_numeric(expr->lhs);
 			type_check_numeric(expr->rhs);
@@ -789,8 +812,28 @@ static void type_check_binary(struct jaf_env *env, struct jaf_expression *expr)
 		if (expr->lhs->valuetype.data == AIN_STRING) {
 			type_check(&string_type, expr->rhs);
 		} else if (expr->lhs->valuetype.data == AIN_FUNC_TYPE) {
-			// TODO
-			COMPILER_ERROR(expr, "functype comparison not implemented");
+			switch ((int)expr->rhs->valuetype.data) {
+			case AIN_NULLTYPE:
+				expr->rhs->valuetype = expr->lhs->valuetype;
+				break;
+			case AIN_FUNCTION: {
+				struct ain_function_type *ft = get_functype(env, expr->lhs->valuetype.struc);
+				struct ain_function_type f = get_function(env, expr->rhs->valuetype.struc);
+				if (!functype_compatible(ft, &f))
+					TYPE_ERROR(expr->rhs, AIN_FUNC_TYPE);
+				break;
+			}
+			case AIN_FUNC_TYPE:
+				break;
+			default:
+				TYPE_ERROR(expr->rhs, AIN_FUNC_TYPE);
+			}
+			if (expr->rhs->valuetype.data == AIN_NULLTYPE) {
+				expr->rhs->valuetype = expr->lhs->valuetype;
+			} else if (expr->rhs->valuetype.data == AIN_FUNCTION) {
+
+			} else {
+			}
 		} else {
 			type_coerce_numerics(expr, expr->op, &expr->lhs, &expr->rhs);
 		}
@@ -938,6 +981,16 @@ static void type_check_functype_call(struct jaf_env *env, struct jaf_expression 
 	expr->call.func_no = ft_no;
 }
 
+static void type_check_delegate_call(struct jaf_env *env, struct jaf_expression *expr)
+{
+	int dg_no = expr->call.fun->valuetype.struc;
+	assert(dg_no >= 0 && dg_no < env->ain->nr_delegates);
+
+	check_functype_arguments(env, expr, expr->call.args, &env->ain->delegates[dg_no]);
+	expr->valuetype = env->ain->delegates[dg_no].return_type;
+	expr->call.func_no = dg_no;
+}
+
 static void type_check_system_call(struct jaf_env *env, struct jaf_expression *expr)
 {
 	expr->type = JAF_EXP_SYSCALL;
@@ -1078,6 +1131,7 @@ static const char *_builtin_type_name(enum ain_data_type type)
 	case AIN_FLOAT: return "Float";
 	case AIN_STRING: return "String";
 	case AIN_ARRAY: return "Array";
+	case AIN_DELEGATE: return "Delegate";
 	default: _COMPILER_ERROR(NULL, -1, "Invalid type for builtin");
 	}
 }
@@ -1122,6 +1176,9 @@ static struct builtin builtins[] = {
 	[JAF_ARRAY_INSERT]      = { AIN_VOID,   AIN_ARRAY, "Insert",      2, 2, A_INSERT },
 	[JAF_ARRAY_SORT]        = { AIN_VOID,   AIN_ARRAY, "Sort",        0, 1, A_SORT },
 	[JAF_ARRAY_FIND]        = { AIN_INT,    AIN_ARRAY, "Find",        3, 4, A_FIND },
+	[JAF_DELEGATE_NUMOF]    = { AIN_INT,    AIN_DELEGATE, "Numof",    0, 0, DG_NUMOF },
+	[JAF_DELEGATE_EXIST]    = { AIN_INT,    AIN_DELEGATE, "Exist",    1, 1, DG_EXIST },
+	[JAF_DELEGATE_CLEAR]    = { AIN_VOID,   AIN_DELEGATE, "Clear",    0, 0, DG_CLEAR },
 };
 
 static enum ain_data_type array_data_type(struct ain_type *type);
@@ -1233,6 +1290,9 @@ static void type_check_builtin_call(struct jaf_env *env, struct jaf_expression *
 			jaf_check_comparator_type(env, args->items[3], &val_type);
 		}
 		break;
+	case JAF_DELEGATE_EXIST:
+		check_delegate_compatible(env, &expr->call.fun->member.struc->valuetype, &args->items[0]);
+		break;
 	case JAF_INT_STRING:
 	case JAF_FLOAT_STRING:
 	case JAF_STRING_INT:
@@ -1243,6 +1303,8 @@ static void type_check_builtin_call(struct jaf_env *env, struct jaf_expression *
 	case JAF_ARRAY_FREE:
 	case JAF_ARRAY_POPBACK:
 	case JAF_ARRAY_EMPTY:
+	case JAF_DELEGATE_NUMOF:
+	case JAF_DELEGATE_CLEAR:
 		break;
 	default:
 		COMPILER_ERROR(expr, "Invalid builtin");
@@ -1279,6 +1341,9 @@ static void type_check_call(struct jaf_env *env, struct jaf_expression *expr)
 		break;
 	case AIN_FUNC_TYPE:
 		type_check_functype_call(env, expr);
+		break;
+	case AIN_DELEGATE:
+		type_check_delegate_call(env, expr);
 		break;
 	case AIN_SYSCALL:
 		type_check_system_call(env, expr);
@@ -1478,6 +1543,7 @@ static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 			expr->member.member_no = no;
 		} else if ((no = get_method_no(env->ain, struct_type, name)) >= 0) {
 			expr->valuetype.data = AIN_METHOD;
+			expr->valuetype.struc = no;
 			expr->member.member_no = no;
 		} else {
 			// FIXME: show struct name
@@ -1531,6 +1597,19 @@ static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 		}
 		expr->valuetype.data = AIN_BUILTIN;
 		expr->member.object_no = JAF_BUILTIN_STRING;
+		break;
+	}
+	case AIN_DELEGATE:
+	case AIN_REF_DELEGATE: {
+		if (AIN_VERSION_GTE(env->ain, 8, 0)) {
+			jaf_check_types_hll_builtin(env, expr);
+			break;
+		}
+		if ((expr->member.member_no = get_builtin_no(AIN_DELEGATE, name)) < 0) {
+			JAF_ERROR(expr, "Invalid delegate builtin: %s", name);
+		}
+		expr->valuetype.data = AIN_BUILTIN;
+		expr->member.object_no = JAF_BUILTIN_DELEGATE;
 		break;
 	}
 	case AIN_LIBRARY: {

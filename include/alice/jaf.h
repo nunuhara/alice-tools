@@ -73,15 +73,15 @@ enum _jaf_type {
  * be written to the .ain file.
  */
 enum _ain_type {
-	_AIN_FUNCTION = 1000, // identifier: function
-	_AIN_LIBRARY  = 1001, // identifier: HLL library
-	_AIN_SYSTEM   = 1002, // identifier: system library
-	_AIN_SYSCALL  = 1003, // member: system call reference (e.g. system.Output)
-	_AIN_HLLCALL  = 1004, // member: hll call (e.g. Library.Function)
-	_AIN_METHOD   = 1005, // member: method reference (e.g. obj.method)
-	_AIN_BUILTIN  = 1006, // member: builtin method reference (e.g. "string".Split)
-	_AIN_SUPER    = 1007, // super call - can be either function or method call
-	_AIN_NULLTYPE = 1008, // untyped NULL expression
+	_AIN_FUNCTION = 255 - 0, // identifier: function
+	_AIN_LIBRARY  = 255 - 1, // identifier: HLL library
+	_AIN_SYSTEM   = 255 - 2, // identifier: system library
+	_AIN_SYSCALL  = 255 - 3, // member: system call reference (e.g. system.Output)
+	_AIN_HLLCALL  = 255 - 4, // member: hll call (e.g. Library.Function)
+	_AIN_METHOD   = 255 - 5, // member: method reference (e.g. obj.method)
+	_AIN_BUILTIN  = 255 - 6, // member: builtin method reference (e.g. "string".Split)
+	_AIN_SUPER    = 255 - 7, // super call - can be either function or method call
+	_AIN_NULLTYPE = 255 - 8, // untyped NULL expression
 };
 #define AIN_FUNCTION ((enum ain_data_type)_AIN_FUNCTION)
 #define AIN_LIBRARY  ((enum ain_data_type)_AIN_LIBRARY)
@@ -98,10 +98,11 @@ enum _ain_type {
  * and the special HLL built-ins that replaced them.
  */
 enum jaf_builtin_lib {
-	JAF_BUILTIN_INT    = -1,
-	JAF_BUILTIN_FLOAT  = -2,
-	JAF_BUILTIN_STRING = -3,
-	JAF_BUILTIN_ARRAY  = -4,
+	JAF_BUILTIN_INT      = -1,
+	JAF_BUILTIN_FLOAT    = -2,
+	JAF_BUILTIN_STRING   = -3,
+	JAF_BUILTIN_ARRAY    = -4,
+	JAF_BUILTIN_DELEGATE = -5,
 };
 
 enum jaf_builtin_method {
@@ -129,8 +130,11 @@ enum jaf_builtin_method {
 	JAF_ARRAY_INSERT,
 	JAF_ARRAY_SORT,
 	JAF_ARRAY_FIND,
+	JAF_DELEGATE_NUMOF,
+	JAF_DELEGATE_EXIST,
+	JAF_DELEGATE_CLEAR,
 };
-#define JAF_NR_BUILTINS (JAF_ARRAY_FIND+1)
+#define JAF_NR_BUILTINS (JAF_DELEGATE_CLEAR+1)
 
 enum jaf_type_qualifier {
 	JAF_QUAL_CONST       = 1,

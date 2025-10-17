@@ -84,7 +84,7 @@ static void write_argument(struct compiler_state *state, uint32_t arg)
 
 static void write_instruction0(struct compiler_state *state, uint16_t opcode)
 {
-	if (state->ain->version >= 14) {
+	if (AIN_VERSION_GTE(state->ain, 14, 0)) {
 		if (opcode == REF) {
 			write_opcode(state, X_REF);
 			write_argument(state, 1);
@@ -113,6 +113,19 @@ static void write_instruction1(struct compiler_state *state, uint16_t opcode, ui
 	if (opcode == S_MOD && state->ain->version <= 8) {
 		write_instruction1(state, PUSH, arg0);
 		write_instruction0(state, S_MOD);
+	} else if (opcode == SH_LOCALDELETE && AIN_VERSION_GTE(state->ain, 12, 0)) {
+		write_instruction0(state, PUSHLOCALPAGE);
+		write_instruction1(state, PUSH, arg0);
+		write_instruction0(state, DUP2);
+		write_instruction0(state, REF);
+		write_instruction0(state, DELETE);
+		write_instruction1(state, PUSH, -1);
+		write_instruction0(state, ASSIGN);
+		write_instruction0(state, POP);
+	} else if (opcode == SH_LOCALREF && AIN_VERSION_GTE(state->ain, 6, 1)) {
+		write_instruction0(state, PUSHLOCALPAGE);
+		write_instruction1(state, PUSH, arg0);
+		write_instruction0(state, REF);
 	} else {
 		write_opcode(state, opcode);
 		write_argument(state, arg0);
@@ -121,6 +134,25 @@ static void write_instruction1(struct compiler_state *state, uint16_t opcode, ui
 
 static void write_instruction2(struct compiler_state *state, uint16_t opcode, uint32_t arg0, uint32_t arg1)
 {
+	if (opcode == SH_LOCALCREATE && state->ain->version >= 12) {
+		write_instruction0(state, PUSHLOCALPAGE);
+		write_instruction1(state, PUSH, arg0);
+		write_instruction0(state, DUP2);
+		write_instruction0(state, REF);
+		write_instruction0(state, DELETE);
+		write_instruction0(state, DUP2);
+		write_instruction2(state, NEW, arg1, -1);
+		write_instruction0(state, ASSIGN);
+		write_instruction0(state, POP);
+		write_instruction0(state, POP);
+		write_instruction0(state, POP);
+	} else if (opcode == SH_LOCALASSIGN && AIN_VERSION_GTE(state->ain, 6, 1)) {
+		write_instruction0(state, PUSHLOCALPAGE);
+		write_instruction1(state, PUSH, arg0);
+		write_instruction1(state, PUSH, arg1);
+		write_instruction0(state, ASSIGN);
+		write_instruction0(state, POP);
+	}
 	write_opcode(state, opcode);
 	write_argument(state, arg0);
 	write_argument(state, arg1);
@@ -243,152 +275,242 @@ static uint32_t flo2int(float f)
 	return v.i;
 }
 
-static bool is_integer_type(enum ain_data_type type)
+static int incdec_instruction(enum jaf_operator op, enum ain_data_type t)
 {
-	switch (type) {
-	case AIN_INT:
+	if (t == AIN_LONG_INT || t == AIN_REF_LONG_INT) {
+		switch (op) {
+		case JAF_PRE_INC:
+		case JAF_POST_INC:
+			return LI_INC;
+		case JAF_PRE_DEC:
+		case JAF_POST_DEC:
+			return LI_DEC;
+		default:
+			_COMPILER_ERROR(NULL, -1, "Invalid inc/dec expression");
+		}
+	}
+	switch (op) {
+	case JAF_PRE_INC:
+	case JAF_POST_INC:
+		return INC;
+	case JAF_PRE_DEC:
+	case JAF_POST_DEC:
+		return DEC;
+	default:
+		_COMPILER_ERROR(NULL, -1, "Invalid inc/dec expression");
+	}
+}
+
+static enum ain_data_type strip_ref(struct ain_type *type)
+{
+	switch (type->data) {
+	case AIN_REF_INT:             return AIN_INT;
+	case AIN_REF_FLOAT:           return AIN_FLOAT;
+	case AIN_REF_STRING:          return AIN_STRING;
+	case AIN_REF_STRUCT:          return AIN_STRUCT;
+	case AIN_REF_ENUM:            return AIN_ENUM;
+	case AIN_REF_ARRAY_INT:       return AIN_ARRAY_INT;
+	case AIN_REF_ARRAY_FLOAT:     return AIN_ARRAY_FLOAT;
+	case AIN_REF_ARRAY_STRING:    return AIN_ARRAY_STRING;
+	case AIN_REF_ARRAY_STRUCT:    return AIN_ARRAY_STRUCT;
+	case AIN_REF_FUNC_TYPE:       return AIN_FUNC_TYPE;
+	case AIN_REF_ARRAY_FUNC_TYPE: return AIN_ARRAY_FUNC_TYPE;
+	case AIN_REF_BOOL:            return AIN_BOOL;
+	case AIN_REF_ARRAY_BOOL:      return AIN_ARRAY_BOOL;
+	case AIN_REF_LONG_INT:        return AIN_LONG_INT;
+	case AIN_REF_ARRAY_LONG_INT:  return AIN_ARRAY_LONG_INT;
+	case AIN_REF_ARRAY:           return AIN_ARRAY;
+	case AIN_WRAP:
+		assert(type->array_type);
+		return type->array_type->data;
+	default:                      return type->data;
+	}
+}
+
+static bool is_numeric_ref(struct ain_type *t)
+{
+	switch (t->data) {
 	case AIN_REF_INT:
-	case AIN_BOOL:
+	case AIN_REF_LONG_INT:
 	case AIN_REF_BOOL:
-	case AIN_ENUM:
-	case AIN_REF_ENUM:
 		return true;
 	default:
 		return false;
 	}
 }
 
-static void write_instruction_for_op(struct compiler_state *state, enum jaf_operator op, struct ain_type *lhs_type, struct ain_type *rhs_type)
+static void write_instruction_for_arithmetic_op(struct compiler_state *state,
+		enum jaf_operator op, struct ain_type *lhs_type, struct ain_type *rhs_type)
 {
-	if (lhs_type->data == AIN_FLOAT || lhs_type->data == AIN_REF_FLOAT) {
-		switch (op) {
-		case JAF_MULTIPLY:      write_instruction0(state, F_MUL); break;
-		case JAF_DIVIDE:        write_instruction0(state, F_DIV); break;
-		case JAF_PLUS:          write_instruction0(state, F_ADD); break;
-		case JAF_MINUS:         write_instruction0(state, F_SUB); break;
-		case JAF_LT:            write_instruction0(state, F_LT); break;
-		case JAF_GT:            write_instruction0(state, F_GT); break;
-		case JAF_LTE:           write_instruction0(state, F_LTE); break;
-		case JAF_GTE:           write_instruction0(state, F_GTE); break;
-		case JAF_EQ:            write_instruction0(state, F_EQUALE); break;
-		case JAF_NEQ:           write_instruction0(state, F_NOTE); break;
-		case JAF_REQ:           write_instruction0(state, R_EQUALE); break;
-		case JAF_RNE:           write_instruction0(state, R_NOTE); break;
-		case JAF_ASSIGN:        write_instruction0(state, F_ASSIGN); break;
-		case JAF_MUL_ASSIGN:    write_instruction0(state, F_MULA); break;
-		case JAF_DIV_ASSIGN:    write_instruction0(state, F_DIVA); break;
-		case JAF_ADD_ASSIGN:    write_instruction0(state, F_PLUSA); break;
-		case JAF_SUB_ASSIGN:    write_instruction0(state, F_MINUSA); break;
-		default:                _COMPILER_ERROR(NULL, -1, "Invalid floating point operator");
-		}
-	} else if (is_integer_type(lhs_type->data)) {
-		switch (op) {
-		case JAF_MULTIPLY:      write_instruction0(state, MUL); break;
-		case JAF_DIVIDE:        write_instruction0(state, DIV); break;
-		case JAF_REMAINDER:     write_instruction0(state, MOD); break;
-		case JAF_PLUS:          write_instruction0(state, ADD); break;
-		case JAF_MINUS:         write_instruction0(state, SUB); break;
-		case JAF_LSHIFT:        write_instruction0(state, LSHIFT); break;
-		case JAF_RSHIFT:        write_instruction0(state, RSHIFT); break;
-		case JAF_LT:            write_instruction0(state, LT); break;
-		case JAF_GT:            write_instruction0(state, GT); break;
-		case JAF_LTE:           write_instruction0(state, LTE); break;
-		case JAF_GTE:           write_instruction0(state, GTE); break;
-		case JAF_EQ:            write_instruction0(state, EQUALE); break;
-		case JAF_NEQ:           write_instruction0(state, NOTE); break;
-		case JAF_REQ:           write_instruction0(state, R_EQUALE); break;
-		case JAF_RNE:           write_instruction0(state, R_NOTE); break;
-		case JAF_BIT_AND:       write_instruction0(state, AND); break;
-		case JAF_BIT_XOR:       write_instruction0(state, XOR); break;
-		case JAF_BIT_IOR:       write_instruction0(state, OR); break;
-		case JAF_ASSIGN:        write_instruction0(state, ASSIGN); break;
-		case JAF_MUL_ASSIGN:    write_instruction0(state, MULA); break;
-		case JAF_DIV_ASSIGN:    write_instruction0(state, DIVA); break;
-		case JAF_MOD_ASSIGN:    write_instruction0(state, MODA); break;
-		case JAF_ADD_ASSIGN:    write_instruction0(state, PLUSA); break;
-		case JAF_SUB_ASSIGN:    write_instruction0(state, MINUSA); break;
-		case JAF_LSHIFT_ASSIGN: write_instruction0(state, LSHIFTA); break;
-		case JAF_RSHIFT_ASSIGN: write_instruction0(state, RSHIFTA); break;
-		case JAF_AND_ASSIGN:    write_instruction0(state, ANDA); break;
-		case JAF_XOR_ASSIGN:    write_instruction0(state, XORA); break;
-		case JAF_OR_ASSIGN:     write_instruction0(state, ORA); break;
-		case JAF_CHAR_ASSIGN:   write_instruction0(state, C_ASSIGN); break;
-		default:                _COMPILER_ERROR(NULL, -1, "Invalid integer operator");
-		}
-	} else if (lhs_type->data == AIN_LONG_INT || lhs_type->data == AIN_REF_LONG_INT) {
-		switch (op) {
-		case JAF_MULTIPLY:      write_instruction0(state, LI_MUL); break;
-		case JAF_DIVIDE:        write_instruction0(state, LI_DIV); break;
-		case JAF_REMAINDER:     write_instruction0(state, LI_MOD); break;
-		case JAF_PLUS:          write_instruction0(state, LI_ADD); break;
-		case JAF_MINUS:         write_instruction0(state, LI_SUB); break;
-		case JAF_LSHIFT:        write_instruction0(state, LSHIFT); break;
-		case JAF_RSHIFT:        write_instruction0(state, RSHIFT); break;
-		case JAF_LT:            write_instruction0(state, LT); break;
-		case JAF_GT:            write_instruction0(state, GT); break;
-		case JAF_LTE:           write_instruction0(state, LTE); break;
-		case JAF_GTE:           write_instruction0(state, GTE); break;
-		case JAF_EQ:            write_instruction0(state, EQUALE); break;
-		case JAF_NEQ:           write_instruction0(state, NOTE); break;
-		case JAF_REQ:           write_instruction0(state, R_EQUALE); break;
-		case JAF_RNE:           write_instruction0(state, R_NOTE); break;
-		case JAF_BIT_AND:       write_instruction0(state, AND); break;
-		case JAF_BIT_XOR:       write_instruction0(state, XOR); break;
-		case JAF_BIT_IOR:       write_instruction0(state, OR); break;
-		case JAF_ASSIGN:        write_instruction0(state, LI_ASSIGN); break;
-		case JAF_MUL_ASSIGN:    write_instruction0(state, LI_MULA); break;
-		case JAF_DIV_ASSIGN:    write_instruction0(state, LI_DIVA); break;
-		case JAF_MOD_ASSIGN:    write_instruction0(state, LI_MODA); break;
-		case JAF_ADD_ASSIGN:    write_instruction0(state, LI_PLUSA); break;
-		case JAF_SUB_ASSIGN:    write_instruction0(state, LI_MINUSA); break;
-		case JAF_LSHIFT_ASSIGN: write_instruction0(state, LI_LSHIFTA); break;
-		case JAF_RSHIFT_ASSIGN: write_instruction0(state, LI_RSHIFTA); break;
-		case JAF_AND_ASSIGN:    write_instruction0(state, LI_ANDA); break;
-		case JAF_XOR_ASSIGN:    write_instruction0(state, LI_XORA); break;
-		case JAF_OR_ASSIGN:     write_instruction0(state, LI_ORA); break;
-		default:                _COMPILER_ERROR(NULL, -1, "Invalid long integer operator");
-		}
-	} else if (lhs_type->data == AIN_STRING || lhs_type->data == AIN_REF_STRING) {
-		switch (op) {
-		case JAF_PLUS:       write_instruction0(state, S_ADD); break;
-		case JAF_LT:         write_instruction0(state, S_LT); break;
-		case JAF_GT:         write_instruction0(state, S_GT); break;
-		case JAF_LTE:        write_instruction0(state, S_LTE); break;
-		case JAF_GTE:        write_instruction0(state, S_GTE); break;
-		case JAF_EQ:         write_instruction0(state, S_EQUALE); break;
-		case JAF_NEQ:        write_instruction0(state, S_NOTE); break;
-		case JAF_REQ:        write_instruction0(state, EQUALE); break;
-		case JAF_RNE:        write_instruction0(state, NOTE); break;
-		case JAF_ASSIGN:     write_instruction0(state, S_ASSIGN); break;
-		case JAF_ADD_ASSIGN: write_instruction0(state, S_PLUSA2); break;
-		case JAF_REMAINDER:
-			switch (rhs_type->data) {
-			case AIN_INT:
-			case AIN_ENUM:     write_instruction1(state, S_MOD, 2); break;
-			case AIN_FLOAT:    write_instruction1(state, S_MOD, 3); break;
-			case AIN_STRING:   write_instruction1(state, S_MOD, 4); break;
-			case AIN_BOOL:     write_instruction1(state, S_MOD, 48); break;
-			case AIN_LONG_INT: write_instruction1(state, S_MOD, 56); break;
-			default:         _COMPILER_ERROR(NULL, -1, "Invalid type for string formatting");
-			}
-			break;
-		default:             _COMPILER_ERROR(NULL, -1, "Invalid string operator");
-		}
-	} else if (lhs_type->data == AIN_STRUCT || lhs_type->data == AIN_REF_STRUCT) {
-		switch (op) {
-		case JAF_ASSIGN:
-			write_instruction1(state, PUSH, lhs_type->struc);
-			write_instruction0(state, SR_ASSIGN);
-			break;
-		default:         _COMPILER_ERROR(NULL, -1, "Invalid struct operator");
-		}
-	} else {
-		switch (op) {
-		case JAF_REQ: write_instruction0(state, EQUALE); break;
-		case JAF_RNE: write_instruction0(state, NOTE); break;
-		default:      _COMPILER_ERROR(NULL, -1, "Invalid operator type");
+	if (ain_is_ref_data_type(lhs_type->data)) {
+		if (op == JAF_REQ) {
+			write_instruction0(state, is_numeric_ref(lhs_type) ? R_EQUALE : EQUALE);
+			return;
+		} else if (op == JAF_RNE) {
+			write_instruction0(state, is_numeric_ref(lhs_type) ? R_NOTE : NOTE);
+			return;
 		}
 	}
+#define T(t, op) (((t) << 8) | (op))
+	switch (T(strip_ref(lhs_type), op)) {
+	case T(AIN_INT, JAF_EQ):
+	case T(AIN_LONG_INT, JAF_EQ):
+	case T(AIN_BOOL, JAF_EQ):
+	case T(AIN_FUNC_TYPE, JAF_EQ):      write_instruction0(state, EQUALE); break;
+	case T(AIN_INT, JAF_NEQ):
+	case T(AIN_LONG_INT, JAF_NEQ):
+	case T(AIN_BOOL, JAF_NEQ):
+	case T(AIN_FUNC_TYPE, JAF_NEQ):      write_instruction0(state, NOTE); break;
+	case T(AIN_INT, JAF_PLUS):           write_instruction0(state, ADD); break;
+	case T(AIN_INT, JAF_MINUS):          write_instruction0(state, SUB); break;
+	case T(AIN_INT, JAF_MULTIPLY):       write_instruction0(state, MUL); break;
+	case T(AIN_INT, JAF_DIVIDE):         write_instruction0(state, DIV); break;
+	case T(AIN_INT, JAF_REMAINDER):      write_instruction0(state, MOD); break;
+	case T(AIN_INT, JAF_LT):
+case T(AIN_LONG_INT, JAF_LT):        write_instruction0(state, LT); break;
+	case T(AIN_INT, JAF_GT):
+	case T(AIN_LONG_INT, JAF_GT):        write_instruction0(state, GT); break;
+	case T(AIN_INT, JAF_LTE):
+	case T(AIN_LONG_INT, JAF_LTE):       write_instruction0(state, LTE); break;
+	case T(AIN_INT, JAF_GTE):
+	case T(AIN_LONG_INT, JAF_GTE):       write_instruction0(state, GTE); break;
+	case T(AIN_INT, JAF_BIT_IOR):
+	case T(AIN_BOOL, JAF_BIT_IOR):       write_instruction0(state, OR); break;
+	case T(AIN_INT, JAF_BIT_XOR):
+	case T(AIN_BOOL, JAF_BIT_XOR):       write_instruction0(state, XOR); break;
+	case T(AIN_INT, JAF_BIT_AND):
+	case T(AIN_BOOL, JAF_BIT_AND):       write_instruction0(state, AND); break;
+	case T(AIN_INT, JAF_LSHIFT):
+	case T(AIN_BOOL, JAF_LSHIFT):        write_instruction0(state, LSHIFT); break;
+	case T(AIN_INT, JAF_RSHIFT):
+	case T(AIN_BOOL, JAF_RSHIFT):        write_instruction0(state, RSHIFT); break;
+	case T(AIN_LONG_INT, JAF_PLUS):      write_instruction0(state, LI_ADD); break;
+	case T(AIN_LONG_INT, JAF_MINUS):     write_instruction0(state, LI_SUB); break;
+	case T(AIN_LONG_INT, JAF_MULTIPLY):  write_instruction0(state, LI_MUL); break;
+	case T(AIN_LONG_INT, JAF_DIVIDE):    write_instruction0(state, LI_DIV); break;
+	case T(AIN_LONG_INT, JAF_REMAINDER): write_instruction0(state, LI_MOD); break;
+	case T(AIN_FLOAT, JAF_PLUS):         write_instruction0(state, F_ADD); break;
+	case T(AIN_FLOAT, JAF_MINUS):        write_instruction0(state, F_SUB); break;
+	case T(AIN_FLOAT, JAF_MULTIPLY):     write_instruction0(state, F_MUL); break;
+	case T(AIN_FLOAT, JAF_DIVIDE):       write_instruction0(state, F_DIV); break;
+	case T(AIN_FLOAT, JAF_EQ):           write_instruction0(state, F_EQUALE); break;
+	case T(AIN_FLOAT, JAF_NEQ):          write_instruction0(state, F_NOTE); break;
+	case T(AIN_FLOAT, JAF_LT):           write_instruction0(state, F_LT); break;
+	case T(AIN_FLOAT, JAF_GT):           write_instruction0(state, F_GT); break;
+	case T(AIN_FLOAT, JAF_LTE):          write_instruction0(state, F_LTE); break;
+	case T(AIN_FLOAT, JAF_GTE):          write_instruction0(state, F_GTE); break;
+	case T(AIN_STRING, JAF_PLUS):        write_instruction0(state, S_ADD); break;
+	case T(AIN_STRING, JAF_EQ):          write_instruction0(state, S_EQUALE); break;
+	case T(AIN_STRING, JAF_NEQ):         write_instruction0(state, S_NOTE); break;
+	case T(AIN_STRING, JAF_LT):          write_instruction0(state, S_LT); break;
+	case T(AIN_STRING, JAF_GT):          write_instruction0(state, S_GT); break;
+	case T(AIN_STRING, JAF_LTE):         write_instruction0(state, S_LTE); break;
+	case T(AIN_STRING, JAF_GTE):         write_instruction0(state, S_GTE); break;
+	case T(AIN_STRING, JAF_REMAINDER):
+		switch (strip_ref(rhs_type)) {
+		case AIN_INT:      write_instruction1(state, S_MOD, 2); break;
+		case AIN_FLOAT:    write_instruction1(state, S_MOD, 3); break;
+		case AIN_STRING:   write_instruction1(state, S_MOD, 4); break;
+		case AIN_BOOL:     write_instruction1(state, S_MOD, 48); break;
+		case AIN_LONG_INT: write_instruction1(state, S_MOD, 56); break;
+		default:           _COMPILER_ERROR(NULL, -1, "Invalid type for string formatting");
+		}
+		break;
+	default: _COMPILER_ERROR(NULL, -1, "Invalid operator: %d", op);
+	}
+#undef T
+}
+
+static void write_instruction_for_assignment_op(struct compiler_state *state,
+		enum jaf_operator op, struct ain_type *lhs_type, struct ain_type *rhs_type)
+{
+#define T(op, t) (((op) << 8) | (t))
+	switch (T(op, strip_ref(rhs_type))) {
+	case T(JAF_ASSIGN, AIN_INT):
+	case T(JAF_ASSIGN, AIN_BOOL):
+	case T(JAF_ASSIGN, AIN_FUNCTION):
+	case T(JAF_ASSIGN, AIN_FUNC_TYPE):       write_instruction0(state, ASSIGN); break;
+	case T(JAF_ADD_ASSIGN, AIN_INT):
+	case T(JAF_ADD_ASSIGN, AIN_BOOL):        write_instruction0(state, PLUSA); break;
+	case T(JAF_SUB_ASSIGN, AIN_INT):
+	case T(JAF_SUB_ASSIGN, AIN_BOOL):        write_instruction0(state, MINUSA); break;
+	case T(JAF_MUL_ASSIGN, AIN_INT):
+	case T(JAF_MUL_ASSIGN, AIN_BOOL):        write_instruction0(state, MULA); break;
+	case T(JAF_DIV_ASSIGN, AIN_INT):
+	case T(JAF_DIV_ASSIGN, AIN_BOOL):        write_instruction0(state, DIVA); break;
+	case T(JAF_MOD_ASSIGN, AIN_INT):
+	case T(JAF_MOD_ASSIGN, AIN_BOOL):        write_instruction0(state, MODA); break;
+	case T(JAF_OR_ASSIGN, AIN_INT):
+	case T(JAF_OR_ASSIGN, AIN_BOOL):         write_instruction0(state, ORA); break;
+	case T(JAF_XOR_ASSIGN, AIN_INT):
+	case T(JAF_XOR_ASSIGN, AIN_BOOL):        write_instruction0(state, XORA); break;
+	case T(JAF_AND_ASSIGN, AIN_INT):
+	case T(JAF_AND_ASSIGN, AIN_BOOL):        write_instruction0(state, ANDA); break;
+	case T(JAF_LSHIFT_ASSIGN, AIN_INT):
+	case T(JAF_LSHIFT_ASSIGN, AIN_BOOL):     write_instruction0(state, LSHIFTA); break;
+	case T(JAF_RSHIFT_ASSIGN, AIN_INT):
+	case T(JAF_RSHIFT_ASSIGN, AIN_BOOL):     write_instruction0(state, RSHIFTA); break;
+	case T(JAF_CHAR_ASSIGN, AIN_INT):        write_instruction0(state, C_ASSIGN); break;
+	case T(JAF_ASSIGN, AIN_LONG_INT):        write_instruction0(state, LI_ASSIGN); break;
+	case T(JAF_ADD_ASSIGN, AIN_LONG_INT):    write_instruction0(state, LI_PLUSA); break;
+	case T(JAF_SUB_ASSIGN, AIN_LONG_INT):    write_instruction0(state, LI_MINUSA); break;
+	case T(JAF_MUL_ASSIGN, AIN_LONG_INT):    write_instruction0(state, LI_MULA); break;
+	case T(JAF_DIV_ASSIGN, AIN_LONG_INT):    write_instruction0(state, LI_DIVA); break;
+	case T(JAF_MOD_ASSIGN, AIN_LONG_INT):    write_instruction0(state, LI_MODA); break;
+	case T(JAF_AND_ASSIGN, AIN_LONG_INT):    write_instruction0(state, LI_ANDA); break;
+	case T(JAF_OR_ASSIGN, AIN_LONG_INT):     write_instruction0(state, LI_ORA); break;
+	case T(JAF_XOR_ASSIGN, AIN_LONG_INT):    write_instruction0(state, LI_XORA); break;
+	case T(JAF_LSHIFT_ASSIGN, AIN_LONG_INT): write_instruction0(state, LI_LSHIFTA); break;
+	case T(JAF_RSHIFT_ASSIGN, AIN_LONG_INT): write_instruction0(state, LI_RSHIFTA); break;
+	case T(JAF_ASSIGN, AIN_FLOAT):           write_instruction0(state, F_ASSIGN); break;
+	case T(JAF_ADD_ASSIGN, AIN_FLOAT):       write_instruction0(state, F_PLUSA); break;
+	case T(JAF_SUB_ASSIGN, AIN_FLOAT):       write_instruction0(state, F_MINUSA); break;
+	case T(JAF_MUL_ASSIGN, AIN_FLOAT):       write_instruction0(state, F_MULA); break;
+	case T(JAF_DIV_ASSIGN, AIN_FLOAT):       write_instruction0(state, F_DIVA); break;
+	case T(JAF_ASSIGN, AIN_METHOD):          write_instruction0(state, DG_SET); break;
+	case T(JAF_ASSIGN, AIN_DELEGATE):        write_instruction0(state, DG_ASSIGN); break;
+	case T(JAF_ADD_ASSIGN, AIN_METHOD):      write_instruction0(state, DG_ADD); break;
+	case T(JAF_ADD_ASSIGN, AIN_DELEGATE):    write_instruction0(state, DG_PLUSA); break;
+	case T(JAF_SUB_ASSIGN, AIN_METHOD):      write_instruction0(state, DG_ERASE); break;
+	case T(JAF_SUB_ASSIGN, AIN_DELEGATE):    write_instruction0(state, DG_MINUSA); break;
+	case T(JAF_ASSIGN, AIN_STRUCT):
+		write_instruction1(state, PUSH, rhs_type->struc);
+		write_instruction0(state, SR_ASSIGN);
+		break;
+	case T(JAF_ASSIGN, AIN_STRING):
+		switch (strip_ref(lhs_type)) {
+		case AIN_FUNC_TYPE:
+			write_instruction1(state, PUSH, lhs_type->struc);
+			write_instruction0(state, FT_ASSIGNS);
+			break;
+		case AIN_DELEGATE:
+			write_instruction1(state, PUSH, -1);
+			write_instruction0(state, SWAP);
+			write_instruction1(state, PUSH, lhs_type->struc);
+			write_instruction0(state, DG_STR_TO_METHOD);
+			write_instruction0(state, DG_SET);
+			break;
+		case AIN_STRING:
+			write_instruction0(state, S_ASSIGN);
+			break;
+		default:
+			_COMPILER_ERROR(NULL, -1, "Invalid string assignment");
+		}
+		break;
+	case T(JAF_ADD_ASSIGN, AIN_STRING):
+		switch (strip_ref(lhs_type)) {
+		// FIXME: delegate
+		case AIN_STRING:
+			write_instruction0(state, S_PLUSA2);
+			break;
+		default:
+			_COMPILER_ERROR(NULL, -1, "Invalid string assignment");
+		}
+		break;
+	default:
+		_COMPILER_ERROR(NULL, -1, "Invalid operator: %d", op);
+	}
+#undef T
 }
 
 static void compile_block(struct compiler_state *state, struct jaf_block *block);
@@ -426,25 +548,49 @@ static void compile_unlock_peek(struct compiler_state *state)
 	}
 }
 
+static struct ain_variable *get_local_variable(struct compiler_state *state, int var_no)
+{
+	assert(state->func_no >= 0 && state->func_no < state->ain->nr_functions);
+	assert(var_no >= 0 && var_no < state->ain->functions[state->func_no].nr_vars);
+	return &state->ain->functions[state->func_no].vars[var_no];
+}
+
+static struct ain_variable *get_global_variable(struct compiler_state *state, int var_no)
+{
+	assert(var_no >= 0 && var_no < state->ain->nr_globals);
+	return &state->ain->globals[var_no];
+}
+
 static struct ain_variable *get_identifier_variable(struct compiler_state *state, enum ain_variable_type type, int var_no)
 {
 	if (type == AIN_VAR_LOCAL)
-		return &state->ain->functions[state->func_no].vars[var_no];
+		return get_local_variable(state, var_no);
 	if (type == AIN_VAR_GLOBAL)
-		return &state->ain->globals[var_no];
+		return get_global_variable(state, var_no);
 	_COMPILER_ERROR(NULL, -1, "Invalid variable type");
+}
+
+static void compile_local_ref(struct compiler_state *state, int var_no)
+{
+	write_instruction0(state, PUSHLOCALPAGE);
+	write_instruction1(state, PUSH, var_no);
+}
+
+static void compile_global_ref(struct compiler_state *state, int var_no)
+{
+	write_instruction0(state, PUSHGLOBALPAGE);
+	write_instruction1(state, PUSH, var_no);
 }
 
 static void compile_identifier_ref(struct compiler_state *state, enum ain_variable_type type, int var_no)
 {
 	if (type == AIN_VAR_LOCAL) {
-		write_instruction0(state, PUSHLOCALPAGE);
+		compile_local_ref(state, var_no);
 	} else if (type == AIN_VAR_GLOBAL) {
-		write_instruction0(state, PUSHGLOBALPAGE);
+		compile_global_ref(state, var_no);
 	} else {
 		_COMPILER_ERROR(NULL, -1, "Invalid variable type");
 	}
-	write_instruction1(state, PUSH, var_no);
 }
 
 static void compile_lvalue_after(struct compiler_state *state, enum ain_data_type type)
@@ -470,6 +616,7 @@ static void compile_lvalue_after(struct compiler_state *state, enum ain_data_typ
 	case AIN_REF_STRUCT:
 	case AIN_ARRAY:
 	case AIN_REF_ARRAY:
+	case AIN_DELEGATE:
 		write_instruction0(state, REF);
 		break;
 	default:
@@ -480,7 +627,7 @@ static void compile_lvalue_after(struct compiler_state *state, enum ain_data_typ
 static void compile_lvalue(struct compiler_state *state, struct jaf_expression *expr);
 static void compile_new_lvalue(struct compiler_state *state, struct jaf_expression *expr);
 
-static void compile_variable(struct compiler_state *state, struct jaf_expression *expr)
+static void compile_variable_ref(struct compiler_state *state, struct jaf_expression *expr)
 {
 	if (expr->type == JAF_EXP_IDENTIFIER) {
 		compile_identifier_ref(state, expr->ident.var_type, expr->ident.var_no);
@@ -498,19 +645,48 @@ static void compile_variable(struct compiler_state *state, struct jaf_expression
 static void compile_lvalue(struct compiler_state *state, struct jaf_expression *expr)
 {
 	if (expr->type == JAF_EXP_IDENTIFIER) {
-		struct ain_variable *v = get_identifier_variable(state, expr->ident.var_type, expr->ident.var_no);
-		compile_identifier_ref(state, expr->ident.var_type, expr->ident.var_no);
-		compile_lvalue_after(state, v->type.data);
+		struct ain_variable *v = get_identifier_variable(state, expr->ident.var_type,
+				expr->ident.var_no);
+		switch (v->type.data) {
+		case AIN_STRING:
+		case AIN_ARRAY_TYPE:
+		case AIN_STRUCT:
+		case AIN_REF_STRING:
+		case AIN_REF_ARRAY_TYPE:
+		case AIN_REF_STRUCT:
+			if (expr->ident.var_type == AIN_VAR_LOCAL)
+				write_instruction1(state, SH_LOCALREF, expr->ident.var_no);
+			else
+				write_instruction1(state, SH_GLOBALREF, expr->ident.var_no);
+			break;
+		default:
+			compile_identifier_ref(state, expr->ident.var_type, expr->ident.var_no);
+			compile_lvalue_after(state, v->type.data);
+			break;
+		}
 	} else if (expr->type == JAF_EXP_MEMBER) {
-		compile_lvalue(state, expr->member.struc);
-		write_instruction1(state, PUSH, expr->member.member_no);
-		compile_lvalue_after(state, expr->valuetype.data);
+		switch (expr->valuetype.data) {
+		case AIN_STRING:
+		case AIN_ARRAY_TYPE:
+		case AIN_STRUCT:
+		case AIN_DELEGATE:
+		case AIN_REF_STRING:
+		case AIN_REF_ARRAY_TYPE:
+		case AIN_REF_STRUCT:
+			write_instruction0(state, SH_STRUCTREF);
+			break;
+		default:
+			compile_lvalue(state, expr->member.struc);
+			write_instruction1(state, PUSH, expr->member.member_no);
+			compile_lvalue_after(state, expr->valuetype.data);
+			break;
+		}
 	} else if (expr->type == JAF_EXP_SUBSCRIPT) {
 		compile_lvalue(state, expr->subscript.expr);  // page
 		compile_expression(state, expr->subscript.index); // page-index
 		compile_lvalue_after(state, expr->valuetype.data);
 	} else if (expr->type == JAF_EXP_THIS) {
-		compile_expression(state, expr);
+		write_instruction0(state, PUSHSTRUCTPAGE);
 	} else if (expr->type == JAF_EXP_NEW) {
 		compile_new_lvalue(state, expr);
 	} else if (expr->type == JAF_EXP_NULL) {
@@ -581,8 +757,13 @@ static void compile_dereference(struct compiler_state *state, struct ain_type *t
 			write_instruction1(state, SR_REF, type->struc);
 		}
 		break;
+	case AIN_DELEGATE:
+	case AIN_REF_DELEGATE:
+		write_instruction0(state, REF);
+		write_instruction0(state, DG_COPY);
+		break;
 	default:
-		_COMPILER_ERROR(NULL, -1, "Unsupported type");
+		_COMPILER_ERROR(NULL, -1, "Unsupported type: %d", type->data);
 	}
 }
 
@@ -619,26 +800,28 @@ static void compile_identifier(struct compiler_state *state, struct jaf_expressi
  */
 static void compile_pop(struct compiler_state *state, enum ain_data_type type)
 {
-	switch (type) {
+	if (type == AIN_STRING || type == AIN_REF_STRING) {
+		write_instruction0(state, AIN_VERSION_GTE(state->ain, 11, 0) ? DELETE : S_POP);
+		return;
+	}
+	switch ((int)type) {
 	case AIN_VOID:
 		break;
 	case AIN_INT:
 	case AIN_FLOAT:
 	case AIN_BOOL:
 	case AIN_LONG_INT:
-	case AIN_REF_INT:
-	case AIN_REF_FLOAT:
-	case AIN_REF_BOOL:
-	case AIN_REF_LONG_INT:
-	case AIN_REF_STRUCT: // ...
+	case AIN_FUNC_TYPE:
+	case AIN_REF_TYPE:
+	case AIN_FUNCTION:
+	case AIN_METHOD:
 		write_instruction0(state, POP);
-		break;
-	case AIN_STRING:
-	case AIN_REF_STRING:
-		write_instruction0(state, AIN_VERSION_GTE(state->ain, 11, 0) ? DELETE : S_POP);
 		break;
 	case AIN_STRUCT:
 		write_instruction0(state, SR_POP);
+		break;
+	case AIN_DELEGATE:
+		write_instruction0(state, DG_POP);
 		break;
 	default:
 		_COMPILER_ERROR(NULL, -1, "Unsupported type");
@@ -694,6 +877,10 @@ static bool _compile_cast(struct compiler_state *state, struct jaf_expression *e
 		} else if (dst_type == AIN_FLOAT) {
 			write_instruction0(state, ITOF);
 		}
+	} else if (src_type == AIN_FUNCTION) {
+		assert(dst_type == AIN_METHOD);
+		write_instruction1(state, PUSH, -1);
+		write_instruction0(state, SWAP);
 	} else {
 		return false;
 	}
@@ -790,17 +977,15 @@ static void compile_binary(struct compiler_state *state, struct jaf_expression *
 	case JAF_BIT_IOR:
 		compile_expression(state, expr->lhs);
 		compile_expression(state, expr->rhs);
-		write_instruction_for_op(state, expr->op, &expr->lhs->valuetype, &expr->rhs->valuetype);
+		write_instruction_for_arithmetic_op(state, expr->op, &expr->lhs->valuetype,
+				&expr->rhs->valuetype);
 		break;
 	case JAF_REQ:
-		compile_lvalue(state, expr->lhs);
-		compile_lvalue(state, expr->rhs);
-		write_instruction_for_op(state, expr->op, &expr->lhs->valuetype, &expr->rhs->valuetype);
-		break;
 	case JAF_RNE:
 		compile_lvalue(state, expr->lhs);
 		compile_lvalue(state, expr->rhs);
-		write_instruction_for_op(state, expr->op, &expr->lhs->valuetype, &expr->rhs->valuetype);
+		write_instruction_for_arithmetic_op(state, expr->op, &expr->lhs->valuetype,
+				&expr->rhs->valuetype);
 		break;
 	case JAF_LOG_AND:
 		compile_expression(state, expr->lhs);
@@ -844,10 +1029,15 @@ static void compile_binary(struct compiler_state *state, struct jaf_expression *
 	case JAF_XOR_ASSIGN:
 	case JAF_OR_ASSIGN:
 	case JAF_CHAR_ASSIGN:
-		// FIXME: I don't think this works for assigning to ref types
 		compile_lvalue(state, expr->lhs);
+		if (AIN_VERSION_GTE(state->ain, 14, 0) && expr->lhs->valuetype.data == AIN_STRING) {
+			write_instruction1(state, X_DUP, 2);
+			write_instruction1(state, X_REF, 1);
+			write_instruction0(state, DELETE);
+		}
 		compile_expression(state, expr->rhs);
-		write_instruction_for_op(state, expr->op, &expr->valuetype, &expr->rhs->valuetype);
+		write_instruction_for_assignment_op(state, expr->op, &expr->lhs->valuetype,
+				&expr->rhs->valuetype);
 		break;
 	default:
 		COMPILER_ERROR(expr, "Invalid binary operator");
@@ -879,6 +1069,23 @@ static bool ain_ref_type(enum ain_data_type type)
 	}
 }
 
+#define AIN_REF_SCALAR_TYPE \
+	AIN_REF_INT: \
+	case AIN_REF_BOOL: \
+	case AIN_REF_FLOAT: \
+	case AIN_REF_LONG_INT: \
+	case AIN_REF_FUNC_TYPE
+
+static bool is_ref_scalar(enum ain_data_type type)
+{
+	switch (type) {
+	case AIN_REF_SCALAR_TYPE:
+		return true;
+	default:
+		return false;
+	}
+}
+
 /*
  * Emit the code for passing an argument to a function by reference.
  * FIXME: need to emit different code if argument is a reference-typed variable
@@ -902,6 +1109,9 @@ static void compile_argument(struct compiler_state *state, struct jaf_expression
 {
 	if (ain_ref_type(type)) {
 		compile_reference_argument(state, arg);
+	} else if (type == AIN_DELEGATE) {
+		compile_expression(state, arg);
+		write_instruction0(state, DG_NEW_FROM_METHOD);
 	} else {
 		compile_expression(state, arg);
 	}
@@ -909,8 +1119,8 @@ static void compile_argument(struct compiler_state *state, struct jaf_expression
 
 static void compile_function_arguments(struct compiler_state *state, struct jaf_argument_list *args, int func_no)
 {
+	struct ain_function *f = &state->ain->functions[func_no];
 	for (size_t i = 0; i < args->nr_items; i++) {
-		struct ain_function *f = &state->ain->functions[func_no];
 		compile_argument(state, args->items[i], f->vars[args->var_nos[i]].type.data);
 	}
 }
@@ -925,13 +1135,12 @@ static void jaf_compile_functype_call(struct compiler_state *state, struct jaf_e
 	struct ain_function_type *f = &state->ain->function_types[expr->call.func_no];
 	for (size_t i = 0; i < expr->call.args->nr_items; i++) {
 		enum ain_data_type type = f->variables[expr->call.args->var_nos[i]].type.data;
-		if (ain_ref_type(type)) {
-			compile_reference_argument(state, expr->call.args->items[i]);
+		compile_argument(state, expr->call.args->items[i], type);
+		if (is_ref_scalar(type)) {
 			write_instruction0(state, DUP2_X1);
 			write_instruction0(state, POP);
 			write_instruction0(state, POP);
 		} else {
-			compile_expression(state, expr->call.args->items[i]);
 			write_instruction0(state, SWAP);
 		}
 	}
@@ -939,10 +1148,29 @@ static void jaf_compile_functype_call(struct compiler_state *state, struct jaf_e
 	write_instruction0(state, CALLFUNC2);
 }
 
+static void jaf_compile_delegate_call(struct compiler_state *state, struct jaf_expression *expr)
+{
+	assert(expr->call.func_no >= 0 && expr->call.func_no < state->ain->nr_delegates);
+	struct ain_function_type *dg = &state->ain->delegates[expr->call.func_no];
+	compile_lvalue(state, expr->call.fun);
+	for (size_t i = 0; i < expr->call.args->nr_items; i++) {
+		enum ain_data_type type = dg->variables[expr->call.args->var_nos[i]].type.data;
+		compile_argument(state, expr->call.args->items[i], type);
+		write_instruction1(state, DG_CALLBEGIN, expr->call.func_no);
+		size_t loop_addr = state->out.index;
+		write_instruction2(state, DG_CALL, expr->call.func_no, 0);
+		write_instruction1(state, JUMP, loop_addr);
+		buffer_write_int32_at(&state->out, loop_addr + 6, state->out.index);
+	}
+}
+
 static void compile_funcall(struct compiler_state *state, struct jaf_expression *expr)
 {
 	if (expr->call.fun->valuetype.data == AIN_FUNC_TYPE) {
 		jaf_compile_functype_call(state, expr);
+		return;
+	} else if (expr->call.fun->valuetype.data == AIN_DELEGATE) {
+		jaf_compile_delegate_call(state, expr);
 		return;
 	}
 	compile_function_arguments(state, expr->call.args, expr->call.func_no);
@@ -1012,67 +1240,67 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 {
 	switch (expr->call.func_no) {
 	case I_STRING:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, REF);
 		write_instruction0(state, I_STRING);
 		break;
 	case FTOS:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, REF);
 		write_instruction1(state, PUSH, -1);
 		write_instruction0(state, FTOS);
 		break;
 	case STOI:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, S_REF);
 		write_instruction0(state, STOI);
 		break;
 	case S_LENGTH:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, S_LENGTH);
 		break;
 	case S_LENGTHBYTE:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, S_LENGTHBYTE);
 		break;
 	case S_EMPTY:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, S_REF);
 		write_instruction0(state, S_EMPTY);
 		break;
 	case S_FIND:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, S_REF);
 		compile_expression(state, expr->call.args->items[0]);
 		write_instruction0(state, S_FIND);
 		break;
 	case S_GETPART:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, S_REF);
 		compile_expression(state, expr->call.args->items[0]);
 		compile_expression(state, expr->call.args->items[1]);
 		write_instruction0(state, S_GETPART);
 		break;
 	case S_PUSHBACK:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, REF);
 		compile_expression(state, expr->call.args->items[0]);
 		write_instruction0(state, S_PUSHBACK2);
 		break;
 	case S_POPBACK:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, REF);
 		write_instruction0(state, S_POPBACK2);
 		break;
 	case S_ERASE:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, REF);
 		compile_expression(state, expr->call.args->items[0]);
 		write_instruction1(state, PUSH, 1); // number of chars?
 		write_instruction0(state, S_ERASE2);
 		break;
 	case A_ALLOC:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		for (int i = 0; i < expr->call.args->nr_items; i++) {
 			compile_expression(state, expr->call.args->items[i]);
 		}
@@ -1080,7 +1308,7 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 		write_instruction0(state, A_ALLOC);
 		break;
 	case A_REALLOC:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		for (int i = 0; i < expr->call.args->nr_items; i++) {
 			compile_expression(state, expr->call.args->items[i]);
 		}
@@ -1088,11 +1316,11 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 		write_instruction0(state, A_REALLOC);
 		break;
 	case A_FREE:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, A_FREE);
 		break;
 	case A_NUMOF:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		if (expr->call.args->nr_items > 0) {
 			compile_expression(state, expr->call.args->items[0]);
 		} else {
@@ -1101,7 +1329,7 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 		write_instruction0(state, A_NUMOF);
 		break;
 	case A_COPY:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		compile_expression(state, expr->call.args->items[0]);
 		compile_expression(state, expr->call.args->items[1]);
 		compile_expression(state, expr->call.args->items[2]);
@@ -1109,38 +1337,38 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 		write_instruction0(state, A_COPY);
 		break;
 	case A_FILL:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		compile_expression(state, expr->call.args->items[0]);
 		compile_expression(state, expr->call.args->items[1]);
 		compile_expression(state, expr->call.args->items[2]);
 		write_instruction0(state, A_FILL);
 		break;
 	case A_PUSHBACK:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		compile_expression(state, expr->call.args->items[0]);
 		write_instruction0(state, A_PUSHBACK);
 		break;
 	case A_POPBACK:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, A_POPBACK);
 		break;
 	case A_EMPTY:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, A_EMPTY);
 		break;
 	case A_ERASE:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		compile_expression(state, expr->call.args->items[0]);
 		write_instruction0(state, A_ERASE);
 		break;
 	case A_INSERT:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		compile_expression(state, expr->call.args->items[0]);
 		compile_expression(state, expr->call.args->items[1]);
 		write_instruction0(state, A_INSERT);
 		break;
 	case A_SORT:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		if (expr->call.args->nr_items > 0) {
 			compile_expression(state, expr->call.args->items[0]);
 		} else {
@@ -1149,7 +1377,7 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 		write_instruction0(state, A_SORT);
 		break;
 	case A_FIND:
-		compile_variable(state, expr->call.fun->member.struc);
+		compile_variable_ref(state, expr->call.fun->member.struc);
 		compile_expression(state, expr->call.args->items[0]);
 		compile_expression(state, expr->call.args->items[1]);
 		compile_expression(state, expr->call.args->items[2]);
@@ -1159,6 +1387,18 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 			write_instruction1(state, PUSH, 0);
 		}
 		write_instruction0(state, A_FIND);
+		break;
+	case DG_NUMOF:
+		compile_lvalue(state, expr->call.fun->member.struc);
+		write_instruction0(state, DG_NUMOF);
+		break;
+	case DG_EXIST:
+		compile_lvalue(state, expr->call.fun->member.struc);
+		compile_expression(state, expr->call.args->items[0]);
+		write_instruction0(state, DG_EXIST);
+	case DG_CLEAR:
+		compile_lvalue(state, expr->call.fun->member.struc);
+		write_instruction0(state, DG_CLEAR);
 		break;
 	default:
 		JAF_ERROR(expr, "Unimplemented builtin method");
@@ -1213,8 +1453,12 @@ static void compile_cast(struct compiler_state *state, struct jaf_expression *ex
 static void compile_member(struct compiler_state *state, struct jaf_expression *expr)
 {
 	compile_lvalue(state, expr->member.struc);
-	write_instruction1(state, PUSH, expr->member.member_no);
-	compile_dereference(state, &expr->valuetype);
+	if (expr->valuetype.data == AIN_METHOD) {
+		write_instruction1(state, PUSH, expr->valuetype.struc);
+	} else {
+		write_instruction1(state, PUSH, expr->member.member_no);
+		compile_dereference(state, &expr->valuetype);
+	}
 }
 
 static void compile_seq(struct compiler_state *state, struct jaf_expression *expr)
@@ -1320,40 +1564,65 @@ static void compile_expression(struct compiler_state *state, struct jaf_expressi
 	}
 }
 
-static void compile_nullexpr(struct compiler_state *state, enum ain_data_type type)
+static void compile_expr_and_pop(struct compiler_state *state, struct jaf_expression *expr)
 {
-	switch (type) {
-	case AIN_VOID:
+	switch (expr->type) {
+	case JAF_EXP_BINARY:
+		if (expr->op == JAF_ASSIGN
+				&& expr->lhs->type == JAF_EXP_IDENTIFIER
+				&& !expr->lhs->ident.is_const
+				&& expr->lhs->ident.var_type == AIN_VAR_LOCAL
+				&& expr->rhs->type == JAF_EXP_INT) {
+			int var_no = expr->lhs->ident.var_no;
+			struct ain_variable *v = get_local_variable(state, var_no);
+			if (!ain_is_ref_data_type(v->type.data)) {
+				write_instruction2(state, SH_LOCALASSIGN, var_no, expr->rhs->i);
+				return;
+			}
+		}
 		break;
-	case AIN_INT:
-	case AIN_BOOL:
-	case AIN_LONG_INT:
-	case AIN_ENUM:
-		write_instruction1(state, PUSH, 0);
+	case JAF_EXP_UNARY:
+		switch (expr->op) {
+		case JAF_PRE_INC:
+		case JAF_PRE_DEC:
+		case JAF_POST_INC:
+		case JAF_POST_DEC:
+			if (expr->expr->type == JAF_EXP_IDENTIFIER
+					&& !expr->expr->ident.is_const
+					&& expr->expr->ident.var_type == AIN_VAR_LOCAL) {
+				int var_no = expr->expr->ident.var_no;
+				struct ain_variable *v = get_local_variable(state, var_no);
+				if (!ain_is_ref_data_type(v->type.data)) {
+					if (expr->op == JAF_PRE_INC || expr->op == JAF_POST_INC)
+						write_instruction1(state, SH_LOCALINC, var_no);
+					else
+						write_instruction1(state, SH_LOCALDEC, var_no);
+					return;
+				}
+			}
+			if (expr->op == JAF_PRE_INC || expr->op == JAF_PRE_DEC) {
+				compile_lvalue(state, expr->expr);
+				write_instruction0(state, DUP2);
+				write_instruction0(state, incdec_instruction(expr->op,
+							expr->expr->valuetype.data));
+				write_instruction0(state, POP);
+				write_instruction0(state, POP);
+				return;
+			}
+			break;
+		default:
+			break;
+		}
 		break;
-	case AIN_FLOAT:
-		write_instruction1(state, F_PUSH, 0);
-		break;
-	case AIN_STRING:
-		write_instruction1(state, S_PUSH, 0);
-		break;
-	case AIN_STRUCT:
-	case AIN_REF_STRUCT:
-	case AIN_REF_STRING:
-	case AIN_ARRAY:
-	case AIN_REF_ARRAY:
-		write_instruction1(state, PUSH, -1);
-		break;
-	case AIN_REF_INT:
-	case AIN_REF_FLOAT:
-	case AIN_REF_BOOL:
-	case AIN_REF_LONG_INT:
-		write_instruction1(state, PUSH, -1);
-		write_instruction1(state, PUSH, 0);
-		break;
+	case JAF_EXP_SEQ:
+		compile_expr_and_pop(state, expr->seq.head);
+		compile_expr_and_pop(state, expr->seq.tail);
+		return;
 	default:
-		_COMPILER_ERROR(NULL, -1, "Unsupported type: %s", ain_strtype(state->ain, type, -1));
+		break;
 	}
+	compile_expression(state, expr);
+	compile_pop(state, expr->valuetype.data);
 }
 
 static void compile_vardecl(struct compiler_state *state, struct jaf_block_item *item)
@@ -1362,36 +1631,58 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 	if (decl->type->qualifiers & JAF_QUAL_CONST) {
 		return;
 	}
+
+	struct jaf_expression lhs = {
+		.line = item->line,
+		.file = item->file,
+		.type = JAF_EXP_IDENTIFIER,
+		.valuetype = decl->valuetype,
+		.ident = {
+			.name = decl->name,
+			.var_type = AIN_VAR_LOCAL,
+			.var_no = decl->var_no
+		}
+	};
+	struct jaf_expression rhs = {
+		.line = item->line,
+		.file = item->file,
+		// .type = <filled in later>
+		.valuetype = decl->valuetype,
+	};
+	struct jaf_expression assign = {
+		.line = item->line,
+		.file = item->file,
+		.type = JAF_EXP_BINARY,
+		.op = JAF_ASSIGN,
+		.valuetype = decl->valuetype,
+		.lhs = &lhs,
+		.rhs = &rhs,
+	};
 	switch (decl->valuetype.data) {
 	case AIN_VOID:
 		COMPILER_ERROR(item, "void variable declaration");
-	case AIN_INT:
-	case AIN_BOOL:
-	case AIN_LONG_INT:
-	case AIN_FUNC_TYPE:
-		write_instruction0(state, PUSHLOCALPAGE);
-		write_instruction1(state, PUSH, decl->var_no);
-		if (decl->init)
-			compile_expression(state, decl->init);
-		else
-			write_instruction1(state, PUSH, 0);
-		write_instruction0(state, decl->valuetype.data == AIN_LONG_INT ? LI_ASSIGN : ASSIGN);
-		write_instruction0(state, POP);
+	case AIN_REF_TYPE: {
+		struct jaf_block_item ref_assign = {
+			.line = item->line,
+			.file = item->file,
+			.kind = JAF_STMT_RASSIGN,
+			.rassign = {
+				.lhs = &lhs,
+				.rhs = &rhs
+			}
+		};
+		if (decl->init) {
+			ref_assign.rassign.rhs = decl->init;
+		} else {
+			rhs.type = JAF_EXP_NULL;
+		}
+		compile_statement(state, &ref_assign);
 		break;
-	case AIN_FLOAT:
-		write_instruction0(state, PUSHLOCALPAGE);
-		write_instruction1(state, PUSH, decl->var_no);
-		if (decl->init)
-			compile_expression(state, decl->init);
-		else
-			write_instruction1(state, F_PUSH, 0);
-		write_instruction0(state, F_ASSIGN);
-		write_instruction0(state, POP);
-		break;
+	}
 	case AIN_STRING:
+		// XXX: string variable is deleted first on v14+
 		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
-			write_instruction0(state, PUSHLOCALPAGE);
-			write_instruction1(state, PUSH, decl->var_no);
+			compile_local_ref(state, decl->var_no);
 			write_instruction1(state, X_DUP, 2);
 			write_instruction1(state, X_REF, 1);
 			write_instruction0(state, DELETE);
@@ -1402,25 +1693,43 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 			}
 			write_instruction1(state, X_ASSIGN, 1);
 			write_instruction0(state, POP);
-		} else {
-			write_instruction0(state, PUSHLOCALPAGE);
-			write_instruction1(state, PUSH, decl->var_no);
-			write_instruction0(state, REF);
-			if (decl->init) {
-				compile_expression(state, decl->init);
-			} else {
-				write_instruction1(state, S_PUSH, 0);
-			}
-			write_instruction0(state, S_ASSIGN);
-			write_instruction0(state, state->ain->version >= 11 ? DELETE : S_POP);
+			break;
 		}
+		// fallthrough
+	case AIN_INT:
+	case AIN_BOOL:
+	case AIN_LONG_INT:
+	case AIN_FLOAT:
+	case AIN_FUNC_TYPE:
+		if (decl->init) {
+			assign.rhs = decl->init;
+		} else {
+			switch (decl->valuetype.data) {
+			case AIN_INT:
+			case AIN_BOOL:
+			case AIN_LONG_INT:
+				rhs.type = JAF_EXP_INT;
+				rhs.i = 0;
+				break;
+			case AIN_FLOAT:
+				rhs.type = JAF_EXP_FLOAT;
+				rhs.f = 0.f;
+				break;
+			case AIN_FUNC_TYPE:
+			case AIN_STRING:
+				rhs.type = JAF_EXP_NULL;
+				break;
+			default:
+				COMPILER_ERROR(item, "unreachable");
+			}
+		}
+		compile_expr_and_pop(state, &assign);
 		break;
 	case AIN_STRUCT:
 		write_instruction1(state, SH_LOCALDELETE, decl->var_no);
 		write_instruction2(state, SH_LOCALCREATE, decl->var_no, decl->valuetype.struc);
 		if (decl->init) {
-			write_instruction0(state, PUSHLOCALPAGE);
-			write_instruction1(state, PUSH, decl->var_no);
+			compile_local_ref(state, decl->var_no);
 			write_instruction0(state, REF);
 			compile_expression(state, decl->init);
 			write_instruction1(state, PUSH, decl->valuetype.struc);
@@ -1428,71 +1737,10 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 			write_instruction0(state, SR_POP);
 		}
 		break;
-	case AIN_REF_INT:
-	case AIN_REF_BOOL:
-	case AIN_REF_FLOAT:
-	case AIN_REF_LONG_INT:
-	case AIN_REF_FUNC_TYPE:
-		compile_lock_peek(state);
-		write_instruction0(state, PUSHLOCALPAGE);
-		write_instruction1(state, PUSH, decl->var_no);
-		write_instruction0(state, DUP2);
-		write_instruction0(state, REF);
-		write_instruction0(state, DELETE);
-		if (decl->init) {
-			compile_lvalue(state, decl->init);
-		} else {
-			write_instruction1(state, PUSH, -1);
-			write_instruction1(state, PUSH, 0);
-		}
-		write_instruction0(state, R_ASSIGN);
-		write_instruction0(state, POP);
-		write_instruction0(state, SP_INC);
-		compile_unlock_peek(state);
-		break;
-	case AIN_REF_STRING:
-		compile_lock_peek(state);
-		write_instruction0(state, PUSHLOCALPAGE);
-		write_instruction1(state, PUSH, decl->var_no);
-		write_instruction0(state, DUP2);
-		write_instruction0(state, REF);
-		write_instruction0(state, DELETE);
-		if (decl->init) {
-			compile_lvalue(state, decl->init);
-		} else {
-			write_instruction1(state, PUSH, -1);
-		}
-		write_instruction0(state, ASSIGN);
-		write_instruction0(state, SP_INC);
-		compile_unlock_peek(state);
-		break;
-	case AIN_REF_STRUCT:
-		compile_lock_peek(state);
-		write_instruction0(state, PUSHLOCALPAGE);
-		write_instruction1(state, PUSH, decl->var_no);
-		write_instruction0(state, DUP2);
-		write_instruction0(state, REF);
-		write_instruction0(state, DELETE);
-		if (decl->init) {
-			write_instruction0(state, DUP2);
-			compile_lvalue(state, decl->init);
-			write_instruction0(state, ASSIGN);
-			write_instruction0(state, DUP_X2);
-			write_instruction0(state, POP);
-			write_instruction0(state, SP_INC);
-			write_instruction0(state, POP);
-		} else {
-			write_instruction1(state, PUSH, -1);
-			write_instruction0(state, ASSIGN);
-			write_instruction0(state, POP);
-		}
-		compile_unlock_peek(state);
-		break;
 	case AIN_ARRAY:
 	case AIN_ARRAY_TYPE:
 		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
-			write_instruction0(state, PUSHLOCALPAGE);
-			write_instruction1(state, PUSH, decl->var_no);
+			compile_local_ref(state, decl->var_no);
 			write_instruction1(state, X_DUP, 2);
 			write_instruction1(state, X_REF, 1);
 			write_instruction0(state, DELETE);
@@ -1512,16 +1760,14 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 					if (decl->type->rank != 1) {
 						JAF_ERROR(item, "Only rank-1 arrays supported on ain v14+");
 					}
-					write_instruction0(state, PUSHLOCALPAGE);
-					write_instruction1(state, PUSH, decl->var_no);
+					compile_local_ref(state, decl->var_no);
 					write_instruction0(state, REF);
 					write_instruction1(state, PUSH, decl->array_dims[0]->i);
 					write_CALLHLL(state, "Array", "Alloc", 1); // ???
 				}
 			}
 		} else if (AIN_VERSION_GTE(state->ain, 11, 0)) {
-			write_instruction0(state, PUSHLOCALPAGE);
-			write_instruction1(state, PUSH, decl->var_no);
+			compile_local_ref(state, decl->var_no);
 			write_instruction0(state, REF);
 			if (decl->init) {
 				if (decl->array_dims) {
@@ -1545,8 +1791,7 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 				write_CALLHLL(state, "Array", "Free", decl->valuetype.array_type->data);
 			}
 		} else {
-			write_instruction0(state, PUSHLOCALPAGE);
-			write_instruction1(state, PUSH, decl->var_no);
+			compile_local_ref(state, decl->var_no);
 			if (decl->array_dims) {
 				for (size_t i = 0; i < decl->type->rank; i++) {
 					write_instruction1(state, PUSH, decl->array_dims[i]->i);
@@ -1556,6 +1801,22 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 			} else {
 				write_instruction0(state, A_FREE);
 			}
+		}
+		break;
+	case AIN_DELEGATE:
+		compile_local_ref(state, decl->var_no);
+		write_instruction0(state, REF);
+		if (decl->init) {
+			compile_expression(state, decl->init);
+			if (decl->init->valuetype.data == AIN_STRING) {
+				write_instruction1(state, PUSH, -1);
+				write_instruction0(state, SWAP);
+				write_instruction1(state, PUSH, decl->valuetype.struc);
+				write_instruction0(state, DG_STR_TO_METHOD);
+			}
+			write_instruction0(state, DG_SET);
+		} else {
+			write_instruction0(state, DG_CLEAR);
 		}
 		break;
 	default:
@@ -1703,45 +1964,44 @@ static void compile_rassign(struct compiler_state *state, struct jaf_block_item 
 {
 	// delete previous reference
 	compile_lock_peek(state);
-	compile_variable(state, item->rassign.lhs);
+	compile_variable_ref(state, item->rassign.lhs);
 	write_instruction0(state, DUP2);
 	write_instruction0(state, REF);
 	write_instruction0(state, DELETE);
 
+	if (item->rassign.rhs->type != JAF_EXP_NULL)
+		write_instruction0(state, DUP2);
+
+	compile_lvalue(state, item->rassign.rhs);
+
 	switch (item->rassign.lhs->valuetype.data) {
-	case AIN_REF_INT:
-	case AIN_REF_BOOL:
-	case AIN_REF_FLOAT:
-	case AIN_REF_LONG_INT:
-	case AIN_REF_FUNC_TYPE:
-		compile_lvalue(state, item->rassign.rhs);
+	case AIN_REF_SCALAR_TYPE:
+		// NOTE: SDK compiler emits [DUP_U2; SP_INC; R_ASSIGN; POP; POP] here
 		write_instruction0(state, R_ASSIGN);
 		write_instruction0(state, POP);
-		write_instruction0(state, SP_INC);
-		break;
-	case AIN_REF_STRUCT:
-		// XXX: Reference assignment to a 'ref struct' variable is a bit weird.
-		//      Unlike other types, the RHS can be an rvalue.
-		switch (item->rassign.rhs->type) {
-		case JAF_EXP_IDENTIFIER:
-		case JAF_EXP_MEMBER:
-		case JAF_EXP_SUBSCRIPT:
-			compile_lvalue(state, item->rassign.rhs);
-			break;
-		default:
-			compile_lvalue(state, item->rassign.rhs);
-			//compile_expression(state, item->rassign.rhs);
-			break;
+		if (item->rassign.rhs->type == JAF_EXP_NULL) {
+			write_instruction0(state, POP);
+		} else {
+			write_instruction0(state, POP);
+			write_instruction0(state, REF);
+			write_instruction0(state, SP_INC);
 		}
-		write_instruction0(state, ASSIGN);
-		write_instruction0(state, SP_INC);
 		break;
 	case AIN_REF_STRING:
+	case AIN_REF_STRUCT:
 	case AIN_REF_ARRAY_TYPE:
 	case AIN_REF_ARRAY:
-		compile_lvalue(state, item->rassign.rhs);
+		// NOTE: SDK compiler emits [DUP; SP_INC; ASSIGN; POP] here
 		write_instruction0(state, ASSIGN);
-		write_instruction0(state, SP_INC);
+		if (item->rassign.rhs->type == JAF_EXP_NULL) {
+			write_instruction0(state, POP);
+		} else {
+			write_instruction0(state, DUP_X2);
+			write_instruction0(state, POP);
+			write_instruction0(state, REF);
+			write_instruction0(state, SP_INC);
+			write_instruction0(state, POP);
+		}
 		break;
 	default:
 		COMPILER_ERROR(item, "Invalid LHS in reference assignment");
@@ -1809,8 +2069,7 @@ static void compile_statement(struct compiler_state *state, struct jaf_block_ite
 		compile_block(state, item->block);
 		break;
 	case JAF_STMT_EXPRESSION:
-		compile_expression(state, item->expr);
-		compile_pop(state, item->expr->valuetype.data);
+		compile_expr_and_pop(state, item->expr);
 		break;
 	case JAF_STMT_IF:
 		compile_if(state, item->cond.test, item->cond.consequent, item->cond.alternative);
@@ -1877,6 +2136,45 @@ static void compile_block(struct compiler_state *state, struct jaf_block *block)
 	}
 }
 
+static void compile_default_return(struct compiler_state *state, enum ain_data_type type)
+{
+	switch (type) {
+	case AIN_VOID:
+		break;
+	case AIN_INT:
+	case AIN_BOOL:
+	case AIN_LONG_INT:
+	case AIN_ENUM:
+		write_instruction1(state, PUSH, 0);
+		break;
+	case AIN_FLOAT:
+		write_instruction1(state, F_PUSH, 0);
+		break;
+	case AIN_STRING:
+		write_instruction1(state, S_PUSH, 0);
+		break;
+	case AIN_STRUCT:
+	case AIN_REF_STRUCT:
+	case AIN_REF_STRING:
+	case AIN_ARRAY:
+	case AIN_REF_ARRAY:
+	case AIN_ARRAY_TYPE:
+	case AIN_REF_ARRAY_TYPE:
+	case AIN_DELEGATE:
+		write_instruction1(state, PUSH, -1);
+		break;
+	case AIN_REF_INT:
+	case AIN_REF_BOOL:
+	case AIN_REF_FLOAT:
+	case AIN_REF_LONG_INT:
+		write_instruction1(state, PUSH, -1);
+		write_instruction1(state, PUSH, 0);
+		break;
+	default:
+		_COMPILER_ERROR(NULL, -1, "Unsupported type: %s", ain_strtype(state->ain, type, -1));
+	}
+}
+
 static void compile_function(struct compiler_state *state, struct jaf_fundecl *decl)
 {
 	assert(decl->func_no >= 0 && decl->func_no < state->ain->nr_functions);
@@ -1888,7 +2186,7 @@ static void compile_function(struct compiler_state *state, struct jaf_fundecl *d
 	write_instruction1(state, FUNC, decl->func_no);
 	state->ain->functions[decl->func_no].address = state->out.index;
 	compile_block(state, decl->body);
-	compile_nullexpr(state, state->ain->functions[state->func_no].return_type.data);
+	compile_default_return(state, state->ain->functions[state->func_no].return_type.data);
 	write_instruction0(state, RETURN);
 	write_instruction1(state, ENDFUNC, decl->func_no);
 

@@ -431,7 +431,6 @@ atomic_type_specifier
 	| HLL_FUNC_71      { $$ = JAF_HLL_FUNC_71; }
 	| HLL_FUNC         { $$ = JAF_HLL_FUNC; }
 	| HLL_STRUCT       { $$ = JAF_STRUCT; }
-//	| DELEGATE         { $$ = JAF_DELEGATE; }
 	| IMAIN_SYSTEM     { $$ = JAF_IMAIN_SYSTEM; }
 	;
 
