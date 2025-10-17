@@ -34,7 +34,7 @@ O   [0-7]
 D   [0-9]
 NZ  [1-9]
 L   ([a-zA-Z_]|{UCH})
-A   ([a-zA-Z_0-9:#]|{UCH})
+A   ([a-zA-Z_0-9#]|{UCH})
 AT  ([a-zA-Z_0-9]|{UCH})
 H   [a-fA-F0-9]
 HP  (0[xX])
@@ -88,6 +88,7 @@ unsigned long jaf_line = 1;
 "return"				{ return(SYM_RETURN); }
 "string"				{ return(STRING); }
 "struct"				{ return(STRUCT); }
+"class"					{ return(STRUCT); }
 "switch"				{ return(SYM_SWITCH); }
 "union"					{ return(UNION); }
 "void"					{ return(VOID); }
@@ -161,6 +162,7 @@ unsigned long jaf_line = 1;
 ("}"|"%>")				{ return '}'; }
 ","					{ return ','; }
 ":"					{ return ':'; }
+"::"					{ return DOUBLE_COLON; }
 "="					{ return '='; }
 "("					{ return '('; }
 ")"					{ return ')'; }

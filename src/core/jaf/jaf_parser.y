@@ -182,6 +182,11 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
     struct jaf_block *block;
     struct jaf_block_item *statement;
     struct jaf_function_declarator *fundecl;
+    struct jaf_name name;
+}
+
+%code requires {
+    #include "alice/jaf.h"
 }
 
 %token	<string>	I_CONSTANT F_CONSTANT C_CONSTANT STRING_LITERAL
@@ -189,7 +194,7 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 
 %token	<token>		INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP REQ_OP RNE_OP
 %token	<token>		AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
-%token	<token>		SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
+%token	<token>		SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN DOUBLE_COLON
 %token	<token>		XOR_ASSIGN OR_ASSIGN
 %token	<token>		SYM_REF REF_ASSIGN ARRAY WRAP FUNCTYPE DELEGATE
 %token	<token>		FILE_MACRO LINE_MACRO FUNC_MACRO DATE_MACRO TIME_MACRO
@@ -201,7 +206,8 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %token	CASE DEFAULT IF ELSE SYM_SWITCH WHILE DO FOR GOTO CONTINUE BREAK SYM_RETURN
 
 %type	<token>		unary_operator assignment_operator type_qualifier atomic_type_specifier
-%type	<string>	string param_identifer function_name
+%type	<string>	string param_identifer
+%type	<name>		function_name
 %type	<expression>	initializer
 %type	<expression>	postfix_expression unary_expression cast_expression
 %type	<expression>	multiplicative_expression additive_expression shift_expression
@@ -467,7 +473,6 @@ struct_declaration_list
 	;
 
 struct_declaration
-//	: type_specifier ';'	/* for anonymous struct/union */
 	: declaration_specifiers struct_declarator_list ';'             { $$ = jaf_vardecl($1, $2); }
 	| declaration_specifiers functype_declarator ';'                { $$ = jaf_function($1, $2, NULL); }
 	| declaration_specifiers functype_declarator compound_statement { $$ = jaf_function($1, $2, $3); }
@@ -635,8 +640,8 @@ external_declaration
 	;
 
 functype_declarator
-	: IDENTIFIER '(' functype_parameter_list ')' { $$ = jaf_function_declarator($1, $3); }
-	| IDENTIFIER '(' ')'                         { $$ = jaf_function_declarator($1, NULL); }
+	: IDENTIFIER '(' functype_parameter_list ')' { $$ = jaf_function_declarator_simple($1, $3); }
+	| IDENTIFIER '(' ')'                         { $$ = jaf_function_declarator_simple($1, NULL); }
 	;
 
 functype_parameter_list
@@ -658,14 +663,16 @@ function_declaration
 	;
 
 function_declarator
-	: function_name '(' parameter_list ')' { $$ = jaf_function_declarator($1, $3); }
-	| function_name '(' ')'                { $$ = jaf_function_declarator($1, NULL); }
-	| function_name '(' VOID ')'           { $$ = jaf_function_declarator($1, NULL); }
+	: function_name '(' parameter_list ')' { $$ = jaf_function_declarator(&$1, $3); }
+	| function_name '(' ')'                { $$ = jaf_function_declarator(&$1, NULL); }
+	| function_name '(' VOID ')'           { $$ = jaf_function_declarator(&$1, NULL); }
 	;
 
 function_name
-	: IDENTIFIER { $$ = $1; }
-	| TYPEDEF_NAME '@' IDENTIFIER { $$ = jaf_method_name($1, $3); }
+	: IDENTIFIER                              { jaf_name_init(&$$, $1); }
+	| TYPEDEF_NAME                            { jaf_name_init(&$$, $1); }
+	| function_name DOUBLE_COLON IDENTIFIER   { jaf_name_append(&$$, $3); }
+	| function_name DOUBLE_COLON TYPEDEF_NAME { jaf_name_append(&$$, $3); }
 	;
 
 parameter_list

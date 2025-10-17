@@ -220,6 +220,15 @@ struct string;
 struct jaf_expression;
 struct jaf_block_item;
 
+struct jaf_name {
+	size_t nr_parts;
+	struct string **parts;
+	struct string *collapsed;
+	int16_t struct_no;
+	bool is_constructor;
+	bool is_destructor;
+};
+
 struct jaf_argument_list {
 	size_t nr_items;
 	struct jaf_expression **items;
@@ -324,7 +333,7 @@ struct jaf_declarator_list {
 };
 
 struct jaf_function_declarator {
-	struct string *name;
+	struct jaf_name name;
 	struct jaf_block *params;
 };
 
@@ -366,7 +375,7 @@ struct jaf_vardecl {
 };
 
 struct jaf_fundecl {
-	struct string *name;
+	struct jaf_name name;
 	struct jaf_type_specifier *type;
 	struct ain_type valuetype;
 	struct jaf_block *params;
@@ -480,6 +489,9 @@ struct jaf_expression *jaf_parse_float(struct string *text);
 struct string *jaf_process_string(struct string *text);
 struct jaf_expression *jaf_string(struct string *text);
 struct jaf_expression *jaf_char(struct string *text);
+void jaf_name_init(struct jaf_name *name, struct string *str);
+void jaf_name_append(struct jaf_name *name, struct string *str);
+void jaf_name_prepend(struct jaf_name *name, struct string *str);
 struct jaf_expression *jaf_identifier(struct string *name);
 struct jaf_expression *jaf_this(void);
 struct string *jaf_method_name(struct string *ns, struct string *name);
@@ -502,7 +514,9 @@ struct jaf_declarator *jaf_declarator(struct string *name);
 struct jaf_declarator *jaf_array_allocation(struct string *name, struct jaf_expression *dim);
 struct jaf_declarator *jaf_array_dimension(struct jaf_declarator *d, struct jaf_expression *dim);
 struct jaf_declarator_list *jaf_declarators(struct jaf_declarator_list *head, struct jaf_declarator *tail);
-struct jaf_function_declarator *jaf_function_declarator(struct string *name, struct jaf_block *params);
+struct jaf_function_declarator *jaf_function_declarator(struct jaf_name *name, struct jaf_block *params);
+struct jaf_function_declarator *jaf_function_declarator_simple(struct string *str,
+		struct jaf_block *params);
 struct jaf_block *jaf_parameter(struct jaf_type_specifier *type, struct jaf_declarator *declarator);
 struct jaf_block *jaf_function(struct jaf_type_specifier *type, struct jaf_function_declarator *decl, struct jaf_block *body);
 struct jaf_block *jaf_constructor(struct string *name, struct jaf_block *body);
@@ -556,6 +570,7 @@ void jaf_resolve_types(struct ain *ain, struct jaf_block *block);
 // jaf_declaration.c
 void jaf_process_declarations(struct ain *ain, struct jaf_block *block);
 void jaf_process_hll_declarations(struct ain *ain, struct jaf_block *block, const char *hll_name);
+struct string *jaf_name_collapse(struct ain *ain, struct jaf_name *name);
 
 // jaf_visitor.c
 struct jaf_visitor {

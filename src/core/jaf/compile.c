@@ -2195,9 +2195,14 @@ static void compile_function(struct compiler_state *state, struct jaf_fundecl *d
 
 static void compile_declaration(struct compiler_state *state, struct jaf_block_item *decl)
 {
-	if (decl->kind == JAF_DECL_FUN) {
+	if (decl->kind == JAF_DECL_FUN && decl->fun.body) {
 		compile_function(state, &decl->fun);
 		return;
+	}
+	if (decl->kind == JAF_DECL_STRUCT) {
+		for (size_t i = 0; i < decl->struc.methods->nr_items; i++) {
+			compile_declaration(state, decl->struc.methods->items[i]);
+		}
 	}
 	if (decl->kind == JAF_EOF) {
 		compile_statement(state, decl);

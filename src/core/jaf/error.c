@@ -264,7 +264,7 @@ static void print_vardecl(struct port *out, struct jaf_vardecl *decl)
 static void print_fundecl(struct port *out, struct jaf_fundecl *decl)
 {
 	print_type_specifier(out, decl->type);
-	port_printf(out, "%s(", decl->name->text);
+	port_printf(out, "%s(", jaf_name_collapse(NULL, &decl->name)->text);
 	if (decl->params) {
 		struct jaf_block *params = decl->params;
 		for (size_t i = 0; i < params->nr_items; i++) {

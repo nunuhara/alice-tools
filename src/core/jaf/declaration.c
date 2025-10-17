@@ -25,6 +25,63 @@
 // jaf_static_analysis.c
 void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_specifier *in);
 
+struct string *jaf_name_collapse(struct ain *ain, struct jaf_name *name)
+{
+	if (name->collapsed)
+		return name->collapsed;
+
+	assert(name->nr_parts >= 1);
+	name->collapsed = string_dup(name->parts[0]);
+	if (name->nr_parts == 1)
+		return name->collapsed;
+
+	for (size_t i = 1; i < name->nr_parts - 1; i++) {
+		string_push_back(&name->collapsed, ':');
+		string_push_back(&name->collapsed, ':');
+		string_append(&name->collapsed, name->parts[i]);
+	}
+
+	// check if name is method
+	if (ain) {
+		char *str = conv_output(name->collapsed->text);
+		name->struct_no = ain_get_struct(ain, str);
+		if (name->struct_no >= 0) {
+			// method
+			string_push_back(&name->collapsed, '@');
+		} else {
+			string_push_back(&name->collapsed, ':');
+			string_push_back(&name->collapsed, ':');
+		}
+		free(str);
+	} else {
+		name->struct_no = -1;
+		string_push_back(&name->collapsed, ':');
+		string_push_back(&name->collapsed, ':');
+	}
+
+	if (name->struct_no >= 0) {
+		// check if method is constructor/destructor
+		struct string *class_name = name->parts[name->nr_parts - 2];
+		struct string *method_name = name->parts[name->nr_parts - 1];
+		if (method_name->text[0] == '~' && !strcmp(class_name->text, method_name->text + 1)) {
+			// destructor
+			string_push_back(&name->collapsed, '1');
+			name->is_destructor = true;
+		} else if (!strcmp(class_name->text, method_name->text)) {
+			// constructor
+			string_push_back(&name->collapsed, '0');
+			name->is_constructor = true;
+		} else {
+			// regular method
+			string_append(&name->collapsed, name->parts[name->nr_parts - 1]);
+		}
+	} else {
+		string_append(&name->collapsed, name->parts[name->nr_parts - 1]);
+	}
+	//printf("collapsed name = %s\n", name->collapsed->text);
+	return name->collapsed;
+}
+
 struct var_list {
 	struct ain *ain;
 	struct ain_variable *vars;
@@ -150,18 +207,6 @@ static void function_init_vars(struct ain *ain, struct jaf_fundecl *decl, int32_
 		*vars = block_get_vars(ain, decl->body, *vars, nr_vars);
 }
 
-static int _add_function(struct ain *ain, struct jaf_fundecl *decl)
-{
-	char *tmp = conv_output(decl->name->text);
-	int fno = ain_add_function(ain, tmp);
-	free(tmp);
-
-	struct ain_function *f = &ain->functions[fno];
-	jaf_to_ain_type(ain, &f->return_type, decl->type);
-	function_init_vars(ain, decl, &f->nr_args, &f->nr_vars, &f->vars);
-	return fno;
-}
-
 static bool types_equal(struct ain_type *a, struct ain_type *b)
 {
 	if (a->data != b->data)
@@ -171,10 +216,8 @@ static bool types_equal(struct ain_type *a, struct ain_type *b)
 	return true;
 }
 
-static bool function_signatures_equal(struct ain *ain, int _a, int _b)
+static bool function_signatures_equal(struct ain *ain, struct ain_function *a, struct ain_function *b)
 {
-	struct ain_function *a = &ain->functions[_a];
-	struct ain_function *b = &ain->functions[_b];
 	if (!types_equal(&a->return_type, &b->return_type))
 		return false;
 	if (a->nr_args != b->nr_args)
@@ -191,8 +234,12 @@ static void override_function(struct ain *ain, struct jaf_block_item *item, int 
 	struct jaf_fundecl *decl = &item->fun;
 	decl->func_no = no;
 	decl->super_no = ain_dup_function(ain, no);
-	if (!function_signatures_equal(ain, decl->func_no, decl->super_no))
-		JAF_ERROR(item, "Invalid function signature in override of function '%s'", decl->name->text);
+	if (!function_signatures_equal(ain, &ain->functions[decl->func_no],
+				&ain->functions[decl->super_no]))
+		JAF_ERROR(item, "Invalid function signature in override of function '%s'",
+				jaf_name_collapse(ain, &decl->name)->text);
+	if (!decl->body)
+		JAF_ERROR(item, "Function override without body");
 	ain->functions[decl->super_no].address = ain->functions[no].address;
 
 	// reinitialize variables of overriden function
@@ -206,37 +253,71 @@ static void override_function(struct ain *ain, struct jaf_block_item *item, int 
 static void jaf_process_function(struct ain *ain, struct jaf_block_item *item)
 {
 	struct jaf_fundecl *decl = &item->fun;
-	char *name = conv_output(decl->name->text);
+
+	struct string *name_str = jaf_name_collapse(ain, &decl->name);
+	char *name = conv_output(name_str->text);
 	int no = ain_get_function(ain, name);
-	free(name);
+	struct ain_function *existing = no >= 0 ? &ain->functions[no] : NULL;
 
 	if (decl->type->qualifiers & JAF_QUAL_OVERRIDE) {
-		if (no <= 0) {
-			JAF_ERROR(item, "Function '%s' can't be overridden because it doesn't exist", decl->name->text);
+		if (!existing) {
+			JAF_ERROR(item, "Function '%s' can't be overridden because it doesn't exist",
+					name_str->text);
 		}
 		override_function(ain, item, no);
-	} else if (no > 0) {
-		JAF_ERROR(item, "Function '%s' already exists", decl->name->text);
+	} else if (existing) {
+		if (existing->crc && decl->body)
+			JAF_ERROR(item, "Multiple definitions of function '%s'", name_str->text);
+		decl->func_no = no;
+		struct ain_function f = {0};
+		jaf_to_ain_type(ain, &f.return_type, decl->type);
+		function_init_vars(ain, decl, &f.nr_args, &f.nr_vars, &f.vars);
+		if (!function_signatures_equal(ain, existing, &f))
+			JAF_ERROR(item, "Incompatible declarations of function '%s'", name_str->text);
+		if (decl->body) {
+			existing->crc = 1;
+			// update local variables now that we have function body
+			ain_free_variables(existing->vars, existing->nr_vars);
+			existing->vars = f.vars;
+			existing->nr_vars = f.nr_vars;
+		} else {
+			ain_free_variables(f.vars, f.nr_vars);
+		}
+		ain_free_type(&f.return_type);
 	} else {
-		decl->func_no = _add_function(ain, decl);
+		decl->func_no = ain_add_function(ain, name);
+		struct ain_function *f = &ain->functions[decl->func_no];
+		jaf_to_ain_type(ain, &f->return_type, decl->type);
+		function_init_vars(ain, decl, &f->nr_args, &f->nr_vars, &f->vars);
+		f->struct_type = decl->name.struct_no;
 		decl->super_no = 0;
+		if (decl->name.is_constructor || decl->name.is_destructor) {
+			assert(decl->name.struct_no >= 0 && decl->name.struct_no < ain->nr_structures);
+			struct ain_struct *s = &ain->structures[decl->name.struct_no];
+			if (decl->name.is_constructor)
+				s->constructor = decl->func_no;
+			else
+				s->destructor = decl->func_no;
+		}
+		if (decl->body)
+			f->crc = 1; // XXX: hack to allow checking for multiple definitions
 	}
 
-	if (!strcmp(decl->name->text, "main")) {
+	if (!strcmp(name_str->text, "main")) {
 		if (decl->params || decl->type->type != JAF_INT)
 			JAF_ERROR(item, "Invalid signature for main function");
 		if (ain->main > 0)
 			WARNING("Overriding main function");
 		ain->main = decl->func_no;
-	} else if (!strcmp(decl->name->text, "message")) {
+	} else if (!strcmp(name_str->text, "message")) {
 		if (!decl->params ||
 		    decl->params->nr_items != 3 ||
-		    decl->params->items[0]->fun.type->type != JAF_INT ||
-		    decl->params->items[0]->fun.type->qualifiers ||
-		    decl->params->items[1]->fun.type->type != JAF_INT ||
-		    decl->params->items[1]->fun.type->qualifiers ||
-		    decl->params->items[2]->fun.type->type != JAF_STRING ||
-		    decl->params->items[2]->fun.type->qualifiers ||
+		    decl->params->items[0]->var.type->type != JAF_INT ||
+		    decl->params->items[0]->var.type->qualifiers ||
+		    decl->params->items[1]->var.type->type != JAF_INT ||
+		    decl->params->items[1]->var.type->qualifiers ||
+		    decl->params->items[2]->var.type->type != JAF_STRING ||
+		    decl->params->items[2]->var.type->qualifiers ||
 		    decl->type->type != JAF_VOID) {
 			JAF_ERROR(item, "Invalid signature for message function");
 		}
@@ -244,6 +325,7 @@ static void jaf_process_function(struct ain *ain, struct jaf_block_item *item)
 			WARNING("Overriding message function");
 		ain->msgf = decl->func_no;
 	}
+	free(name);
 }
 
 static void jaf_process_functype(struct ain *ain, struct jaf_fundecl *decl)
@@ -275,6 +357,7 @@ static void jaf_process_structdef(struct ain *ain, struct jaf_block_item *item)
 {
 	assert(item->struc.struct_no >= 0);
 	assert(item->struc.struct_no < ain->nr_structures);
+	struct ain_struct *s = &ain->structures[item->struc.struct_no];
 
 	struct jaf_block *jaf_members = item->struc.members;
 	struct ain_variable *members = xcalloc(jaf_members->nr_items, sizeof(struct ain_variable));
@@ -289,7 +372,12 @@ static void jaf_process_structdef(struct ain *ain, struct jaf_block_item *item)
 
 		jaf_to_ain_type(ain, &members[i].type, jaf_members->items[i]->var.type);
 	}
-	struct ain_struct *s = &ain->structures[item->struc.struct_no];
+	for (size_t i = 0; i < item->struc.methods->nr_items; i++) {
+		struct jaf_block_item *method = item->struc.methods->items[i];
+		assert(method->kind == JAF_DECL_FUN);
+		jaf_name_prepend(&method->fun.name, string_dup(item->struc.name));
+		jaf_process_function(ain, method);
+	}
 	s->nr_members = jaf_members->nr_items;
 	s->members = members;
 }
@@ -336,7 +424,8 @@ void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
 
 static void _jaf_process_hll_declaration(struct ain *ain, struct jaf_fundecl *decl, struct ain_hll_function *f)
 {
-	f->name = xstrdup(decl->name->text);
+	struct string *name = jaf_name_collapse(ain, &decl->name);
+	f->name = xstrdup(name->text);
 	jaf_to_ain_type(ain, &f->return_type, decl->type);
 
 	f->nr_arguments = decl->params ? decl->params->nr_items : 0;

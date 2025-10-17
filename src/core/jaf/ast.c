@@ -133,6 +133,30 @@ struct jaf_expression *jaf_char(struct string *text)
 	return e;
 }
 
+void jaf_name_init(struct jaf_name *name, struct string *str)
+{
+	name->nr_parts = 1;
+	name->parts = xmalloc(sizeof(struct string*));
+	name->parts[0] = str;
+}
+
+void jaf_name_append(struct jaf_name *name, struct string *str)
+{
+	name->nr_parts++;
+	name->parts = xrealloc(name->parts, name->nr_parts * sizeof(struct string*));
+	name->parts[name->nr_parts - 1] = str;
+}
+
+void jaf_name_prepend(struct jaf_name *name, struct string *str)
+{
+	name->nr_parts++;
+	name->parts = xrealloc(name->parts, name->nr_parts * sizeof(struct string*));
+	for (int i = name->nr_parts - 1; i >= 1; i--) {
+		name->parts[i] = name->parts[i - 1];
+	}
+	name->parts[0] = str;
+}
+
 struct jaf_expression *jaf_identifier(struct string *name)
 {
 	struct jaf_expression *e = jaf_expr(JAF_EXP_IDENTIFIER, 0);
@@ -350,10 +374,10 @@ struct jaf_block *jaf_parameter(struct jaf_type_specifier *type, struct jaf_decl
 	return p;
 }
 
-struct jaf_function_declarator *jaf_function_declarator(struct string *name, struct jaf_block *params)
+struct jaf_function_declarator *jaf_function_declarator(struct jaf_name *name, struct jaf_block *params)
 {
 	struct jaf_function_declarator *decl = xmalloc(sizeof(struct jaf_function_declarator));
-	decl->name = name;
+	decl->name = *name;
 	decl->params = params;
 
 	// XXX: special case for f(void) functype declarator.
@@ -363,6 +387,14 @@ struct jaf_function_declarator *jaf_function_declarator(struct string *name, str
 	}
 
 	return decl;
+}
+
+struct jaf_function_declarator *jaf_function_declarator_simple(struct string *str,
+		struct jaf_block *params)
+{
+	struct jaf_name name;
+	jaf_name_init(&name, str);
+	return jaf_function_declarator(&name, params);
 }
 
 struct jaf_block *jaf_function(struct jaf_type_specifier *type, struct jaf_function_declarator *decl, struct jaf_block *body)
@@ -383,7 +415,9 @@ struct jaf_block *jaf_constructor(struct string *name, struct jaf_block *body)
 {
 	struct jaf_type_specifier *type = jaf_type(JAF_VOID);
 	type->qualifiers  = JAF_QUAL_CONSTRUCTOR;
-	struct jaf_function_declarator *decl = jaf_function_declarator(name, NULL);
+	struct jaf_name jname;
+	jaf_name_init(&jname, name);
+	struct jaf_function_declarator *decl = jaf_function_declarator(&jname, NULL);
 	return jaf_function(type, decl, body);
 }
 
@@ -391,7 +425,13 @@ struct jaf_block *jaf_destructor(struct string *name, struct jaf_block *body)
 {
 	struct jaf_type_specifier *type = jaf_type(JAF_VOID);
 	type->qualifiers  = JAF_QUAL_DESTRUCTOR;
-	struct jaf_function_declarator *decl = jaf_function_declarator(name, NULL);
+	struct string *dname = make_string("~", 1);
+	string_append(&dname, name);
+	free_string(name);
+
+	struct jaf_name jname;
+	jaf_name_init(&jname, dname);
+	struct jaf_function_declarator *decl = jaf_function_declarator(&jname, NULL);
 	return jaf_function(type, decl, body);
 }
 
@@ -631,6 +671,20 @@ struct jaf_block_item *jaf_assert(struct jaf_expression *expr, int line, const c
 	return item;
 }
 
+static void jaf_free_name(struct jaf_name name)
+{
+	for (size_t i = 0; i < name.nr_parts; i++) {
+		free_string(name.parts[i]);
+	}
+	free(name.parts);
+	if (name.collapsed) {
+		free_string(name.collapsed);
+		name.collapsed = NULL;
+	}
+	name.nr_parts = 0;
+	name.parts = NULL;
+}
+
 static void jaf_free_argument_list(struct jaf_argument_list *list)
 {
 	for (size_t i = 0; i < list->nr_items; i++) {
@@ -739,7 +793,7 @@ void jaf_free_block_item(struct jaf_block_item *item)
 	case JAF_DECL_FUNCTYPE:
 	case JAF_DECL_DELEGATE:
 	case JAF_DECL_FUN:
-		free_string(item->fun.name);
+		jaf_free_name(item->fun.name);
 		jaf_free_type_specifier(item->fun.type);
 		jaf_free_block(item->fun.params);
 		jaf_free_block(item->fun.body);

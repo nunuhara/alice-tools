@@ -41,7 +41,7 @@ void jaf_define_struct(struct ain *ain, struct jaf_block_item *def)
 void jaf_define_functype(struct ain *ain, struct jaf_block_item *item)
 {
 	struct jaf_fundecl *decl = &item->fun;
-	char *name = conv_output(decl->name->text);
+	char *name = conv_output(jaf_name_collapse(ain, &decl->name)->text);
 	if (ain_get_functype(ain, name) >= 0)
 		JAF_ERROR(item, "Multiple definitions of function type '%s'", name);
 	decl->func_no = ain_add_functype(ain, name);
@@ -51,7 +51,7 @@ void jaf_define_functype(struct ain *ain, struct jaf_block_item *item)
 void jaf_define_delegate(struct ain *ain, struct jaf_block_item *item)
 {
 	struct jaf_fundecl *decl = &item->fun;
-	char *name = conv_output(decl->name->text);
+	char *name = conv_output(jaf_name_collapse(ain, &decl->name)->text);
 	if (ain_get_delegate(ain, name) >= 0)
 		JAF_ERROR(item, "Multiple definitions of delegate '%s'", name);
 	decl->func_no = ain_add_delegate(ain, name);
