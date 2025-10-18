@@ -27,7 +27,7 @@
 extern unsigned long jaf_line;
 extern const char *jaf_file;
 
-static struct jaf_expression *jaf_expr(enum jaf_expression_type type, enum jaf_operator op)
+struct jaf_expression *jaf_expr(enum jaf_expression_type type, enum jaf_operator op)
 {
 	struct jaf_expression *e = xcalloc(1, sizeof(struct jaf_expression));
 	e->line = jaf_line;
@@ -722,9 +722,9 @@ void jaf_free_expr(struct jaf_expression *expr)
 		break;
 	case JAF_EXP_IDENTIFIER:
 		free_string(expr->ident.name);
-		if (expr->ident.is_const) {
-			if (expr->ident.val.data_type == AIN_STRING) {
-				free(expr->ident.val.string_value);
+		if (expr->ident.kind == JAF_IDENT_CONST) {
+			if (expr->ident.constval.data_type == AIN_STRING) {
+				free(expr->ident.constval.string_value);
 			}
 		}
 		break;
@@ -767,6 +767,9 @@ void jaf_free_expr(struct jaf_expression *expr)
 	case JAF_EXP_SUBSCRIPT:
 		jaf_free_expr(expr->subscript.expr);
 		jaf_free_expr(expr->subscript.index);
+		break;
+	case JAF_EXP_DUMMYREF:
+		jaf_free_expr(expr->dummy.expr);
 		break;
 	}
 	free(expr);

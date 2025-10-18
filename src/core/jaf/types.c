@@ -39,29 +39,6 @@ static enum jaf_type ain_to_jaf_numeric_type(enum ain_data_type t)
 	}
 }
 
-static struct jaf_env_local *jaf_scope_lookup(struct jaf_env *env, const char *name)
-{
-	for (size_t i = 0; i < env->nr_locals; i++) {
-		if (!strcmp(env->locals[i].name, name)) {
-			return &env->locals[i];
-		}
-	}
-	return NULL;
-}
-
-struct jaf_env_local *jaf_env_lookup(struct jaf_env *env, const char *name)
-{
-	struct jaf_env *scope = env;
-        while (scope) {
-		struct jaf_env_local *v = jaf_scope_lookup(scope, name);
-		if (v) {
-			return v;
-		}
-		scope = scope->parent;
-	}
-	return NULL;
-}
-
 static struct ain_variable *jaf_global_lookup(struct jaf_env *env, const char *name, int *var_no)
 {
 	int no = ain_get_global(env->ain, name);
@@ -571,22 +548,24 @@ static void check_ref_assign(struct jaf_env *env, struct jaf_expression *lhs, st
 	// check that lhs is a reference variable of the appropriate type
 	switch (lhs->type) {
 	case JAF_EXP_IDENTIFIER: {
-		int var_no;
-		struct ain_variable *var = NULL;
-		struct jaf_env_local *local = jaf_env_lookup(env, lhs->ident.name->text);
-		if (local) {
-			if (local->is_const)
-				JAF_ERROR(lhs, "Tried to create reference to const variable");
-			var_no = local->no;
-			var = local->var;
-		} else {
-			var = jaf_global_lookup(env, lhs->ident.name->text, &var_no);
+		struct ain_type t;
+		switch (lhs->ident.kind) {
+		case JAF_IDENT_LOCAL:
+			t = lhs->ident.local->valuetype;
+			break;
+		case JAF_IDENT_GLOBAL:
+			assert(lhs->ident.global >= 0 && lhs->ident.global < env->ain->nr_globals);
+			t = env->ain->globals[lhs->ident.global].type;
+			break;
+		case JAF_IDENT_CONST:
+			// FIXME: should this be allowed?
+			JAF_ERROR(lhs, "Reference assignment to const variable");
+		case JAF_IDENT_UNRESOLVED:
+			COMPILER_ERROR(lhs, "Unresolved identifier");
 		}
-		if (!var)
-			JAF_ERROR(lhs, "Undefined variable");
-		if (!ain_is_ref_data_type(var->type.data))
+		if (!ain_is_ref_data_type(t.data))
 			JAF_ERROR(lhs, "Reference assignment to non-reference type");
-		struct ain_type t = strip_ref(&var->type);
+		t = strip_ref(&t);
 		ref_type_check(&t, rhs);
 		break;
 	}
@@ -621,17 +600,17 @@ static void type_check_identifier(struct jaf_env *env, struct jaf_expression *ex
 			expr->valuetype.data = local->val.data_type;
 			expr->valuetype.struc = 0;
 			expr->valuetype.rank = 0;
-			expr->ident.is_const = true;
-			expr->ident.val = local->val;
+			expr->ident.kind = JAF_IDENT_CONST;
+			expr->ident.constval = local->val;
 		} else {
-			expr->valuetype = local->var->type;
-			expr->ident.var_type = local->var->var_type;
-			expr->ident.var_no = local->no;
+			ain_copy_type(&expr->valuetype, &local->decl->valuetype);
+			expr->ident.kind = JAF_IDENT_LOCAL;
+			expr->ident.local = local->decl;
 		}
 	} else if ((v = jaf_global_lookup(env, u, &no))) {
 		expr->valuetype = v->type;
-		expr->ident.var_type = v->var_type;
-		expr->ident.var_no = no;
+		expr->ident.kind = JAF_IDENT_GLOBAL;
+		expr->ident.global = no;
 	} else if ((no = ain_get_function(env->ain, u)) >= 0) {
 		expr->valuetype.data = AIN_FUNCTION;
 		expr->valuetype.struc = no;
@@ -1747,13 +1726,16 @@ void jaf_type_check_expression(struct jaf_env *env, struct jaf_expression *expr)
 		type_check_member(env, expr);
 		break;
 	case JAF_EXP_SEQ:
-		expr->valuetype = expr->seq.tail->valuetype;
+		ain_copy_type(&expr->valuetype, &expr->seq.tail->valuetype);
 		break;
 	case JAF_EXP_SUBSCRIPT:
 		type_check_subscript(env, expr);
 		break;
 	case JAF_EXP_NULL:
 		expr->valuetype.data = AIN_NULLTYPE;
+		break;
+	case JAF_EXP_DUMMYREF:
+		ain_copy_type(&expr->valuetype, &expr->dummy.expr->valuetype);
 		break;
 	case JAF_EXP_SYSCALL:
 	case JAF_EXP_HLLCALL:
@@ -1815,39 +1797,11 @@ static void analyze_global_declaration(struct jaf_env *env, struct jaf_block_ite
 	type_check_initval(env, &decl->valuetype, &decl->init);
 
 	// add initval to ain object
-	int no = ain_add_initval(env->ain, decl->var_no);
+	int g_no = ain_get_global(env->ain, decl->name->text);
+	assert(g_no >= 0);
+	int no = ain_add_initval(env->ain, g_no);
 	jaf_to_initval(&env->ain->global_initvals[no], decl->init);
 	analyze_array_allocation(env, item);
-}
-
-static void jaf_env_add_local(struct jaf_env *env, char *name, int var_no)
-{
-	assert(env->func_no >= 0 && env->func_no < env->ain->nr_functions);
-	struct ain_function *f = &env->ain->functions[env->func_no];
-	assert(var_no >= 0 && var_no < f->nr_vars);
-	struct ain_variable *v = &f->vars[var_no];
-
-	env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+2,
-				     sizeof(struct jaf_env_local));
-	env->locals[env->nr_locals].name = name;
-
-	switch (v->type.data) {
-	case AIN_REF_INT:
-	case AIN_REF_FLOAT:
-	case AIN_REF_BOOL:
-	case AIN_REF_LONG_INT:
-		assert(var_no+1 < f->nr_vars);
-		env->locals[env->nr_locals].no = var_no;
-		env->locals[env->nr_locals++].var = v;
-		env->locals[env->nr_locals].name = "";
-		env->locals[env->nr_locals].no = var_no + 1;
-		env->locals[env->nr_locals].var = v + 1;
-		break;
-	default:
-		env->locals[env->nr_locals].no = var_no;
-		env->locals[env->nr_locals++].var = v;
-		break;
-	}
 }
 
 static void analyze_local_declaration(struct jaf_env *env, struct jaf_block_item *item)
@@ -1858,7 +1812,7 @@ static void analyze_local_declaration(struct jaf_env *env, struct jaf_block_item
 		type_check_initval(env, &decl->valuetype, &decl->init);
 	}
 	analyze_array_allocation(env, item);
-	jaf_env_add_local(env, decl->name->text, decl->var_no);
+	jaf_env_add_local(env, decl);
 }
 
 static void analyze_message(struct jaf_env *env, struct jaf_block_item *item)
@@ -1874,19 +1828,22 @@ static void analyze_message(struct jaf_env *env, struct jaf_block_item *item)
 	free(u);
 }
 
+void jaf_type_check_vardecl(struct jaf_env *env, struct jaf_block_item *decl)
+{
+	assert(decl->kind == JAF_DECL_VAR);
+	assert(decl->var.type);
+	if (decl->var.type->qualifiers & JAF_QUAL_CONST) {
+		analyze_const_declaration(env, decl);
+	} else if (env->parent) {
+		analyze_local_declaration(env, decl);
+	} else {
+		analyze_global_declaration(env, decl);
+	}
+}
+
 void jaf_type_check_statement(struct jaf_env *env, struct jaf_block_item *stmt)
 {
 	switch (stmt->kind) {
-	case JAF_DECL_VAR:
-		assert(stmt->var.type);
-		if (stmt->var.type->qualifiers & JAF_QUAL_CONST) {
-			analyze_const_declaration(env, stmt);
-		} else if (env->parent) {
-			analyze_local_declaration(env, stmt);
-		} else {
-			analyze_global_declaration(env, stmt);
-		}
-		break;
 	case JAF_STMT_MESSAGE:
 		analyze_message(env, stmt);
 		break;

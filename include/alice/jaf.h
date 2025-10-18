@@ -168,6 +168,7 @@ enum jaf_expression_type {
 	JAF_EXP_SUBSCRIPT,
 	JAF_EXP_CHAR,
 	JAF_EXP_NULL,
+	JAF_EXP_DUMMYREF,
 };
 
 enum jaf_operator {
@@ -247,6 +248,13 @@ struct jaf_type_specifier {
 	unsigned rank;
 };
 
+enum jaf_ident_type {
+	JAF_IDENT_UNRESOLVED,
+	JAF_IDENT_LOCAL,
+	JAF_IDENT_GLOBAL,
+	JAF_IDENT_CONST,
+};
+
 struct jaf_expression {
 	unsigned line;
 	const char *file;
@@ -258,14 +266,12 @@ struct jaf_expression {
 		float f;
 		struct string *s;
 		struct {
-			bool is_const;
+			enum jaf_ident_type kind;
 			struct string *name;
 			union {
-				struct {
-					enum ain_variable_type var_type;
-					int var_no;
-				};
-				struct ain_initval val;
+				struct jaf_vardecl *local;
+				int global;
+				struct ain_initval constval;
 			};
 		} ident;
 		// unary operators
@@ -298,7 +304,6 @@ struct jaf_expression {
 			struct jaf_type_specifier *type;
 			struct jaf_argument_list *args;
 			int func_no;
-			int var_no;
 		} new;
 		// struct member
 		struct {
@@ -317,6 +322,11 @@ struct jaf_expression {
 			struct jaf_expression *expr;
 			struct jaf_expression *index;
 		} subscript;
+		// dummy ref ('new' or call with ref return type)
+		struct {
+			struct jaf_expression *expr;
+			int var_no;
+		} dummy;
 	};
 };
 
@@ -371,7 +381,8 @@ struct jaf_vardecl {
 	struct ain_type valuetype;
 	struct jaf_expression **array_dims;
 	struct jaf_expression *init;
-	int var_no;
+	enum ain_variable_type var_type;
+	int var;
 };
 
 struct jaf_fundecl {
@@ -458,10 +469,7 @@ struct jaf_env_local {
 	char *name;
 	union {
 		// not const: variable
-		struct {
-			int no;
-			struct ain_variable *var;
-		};
+		struct jaf_vardecl *decl;
 		// const: (constant) expression
 		struct ain_initval val;
 	};
@@ -481,6 +489,7 @@ _Noreturn void jaf_expression_error(struct jaf_expression *expr, const char *msg
 _Noreturn void jaf_block_item_error(struct jaf_block_item *item, const char *msgf, ...);
 
 // jaf_ast.c
+struct jaf_expression *jaf_expr(enum jaf_expression_type type, enum jaf_operator op);
 struct jaf_expression *jaf_null(void);
 struct jaf_expression *jaf_integer(int i);
 struct jaf_expression *jaf_parse_integer(struct string *text);
@@ -560,9 +569,15 @@ struct jaf_expression *jaf_simplify(struct jaf_expression *in);
 // jaf_types.c
 void jaf_type_check_expression(struct jaf_env *env, struct jaf_expression *expr);
 void jaf_type_check_statement(struct jaf_env *env, struct jaf_block_item *stmt);
+void jaf_type_check_vardecl(struct jaf_env *env, struct jaf_block_item *decl);
 
 // jaf_static_analysis.c
 struct jaf_block *jaf_static_analyze(struct ain *ain, struct jaf_block *block);
+struct jaf_env *jaf_env_push(struct jaf_env *parent);
+struct jaf_env *jaf_env_pop(struct jaf_env *env);
+struct jaf_env *jaf_env_push_function(struct jaf_env *parent, struct jaf_fundecl *decl);
+void jaf_env_add_local(struct jaf_env *env, struct jaf_vardecl *decl);
+struct jaf_env_local *jaf_env_lookup(struct jaf_env *env, const char *name);
 
 // jaf_resolve.c
 void jaf_resolve_types(struct ain *ain, struct jaf_block *block);
@@ -570,6 +585,7 @@ void jaf_resolve_types(struct ain *ain, struct jaf_block *block);
 // jaf_declaration.c
 void jaf_process_declarations(struct ain *ain, struct jaf_block *block);
 void jaf_process_hll_declarations(struct ain *ain, struct jaf_block *block, const char *hll_name);
+void jaf_allocate_variables(struct ain *ain, struct jaf_block *block);
 struct string *jaf_name_collapse(struct ain *ain, struct jaf_name *name);
 
 // jaf_visitor.c

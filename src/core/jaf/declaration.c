@@ -88,13 +88,14 @@ struct var_list {
 	int nr_vars;
 };
 
-static warn_unused int init_variable(struct var_list *list, const char *name, struct jaf_type_specifier *type)
+static warn_unused int _init_variable(struct var_list *list, const char *name,
+		struct ain_type *type)
 {
 	int var = list->nr_vars;
 	list->vars[var].name = conv_output(name);
 	if (list->ain->version >= 12)
 		list->vars[var].name2 = strdup("");
-	jaf_to_ain_type(list->ain, &list->vars[var].type, type);
+	list->vars[var].type = *type;
 
 	// immediate reference types need extra slot (page+index)
 	switch (list->vars[var].type.data) {
@@ -116,6 +117,13 @@ static warn_unused int init_variable(struct var_list *list, const char *name, st
 	return var;
 }
 
+static warn_unused int init_variable(struct var_list *list, const char *name, struct jaf_type_specifier *type)
+{
+	struct ain_type atype;
+	jaf_to_ain_type(list->ain, &atype, type);
+	return _init_variable(list, name, &atype);
+}
+
 static void stmt_get_vars(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
 {
 	struct var_list *vars = visitor->data;
@@ -124,7 +132,7 @@ static void stmt_get_vars(struct jaf_block_item *stmt, struct jaf_visitor *visit
 	case JAF_DECL_VAR:
 		if (!(stmt->var.type->qualifiers & JAF_QUAL_CONST)) {
 			vars->vars = xrealloc_array(vars->vars, vars->nr_vars, vars->nr_vars+2, sizeof(struct ain_variable));
-			stmt->var.var_no = init_variable(vars, stmt->var.name->text, stmt->var.type);
+			stmt->var.var = init_variable(vars, stmt->var.name->text, stmt->var.type);
 		}
 		break;
 	case JAF_DECL_FUN:
@@ -132,6 +140,24 @@ static void stmt_get_vars(struct jaf_block_item *stmt, struct jaf_visitor *visit
 	default:
 		break;
 	}
+}
+
+static int _add_dummy_variable(struct var_list *vars, struct ain_type *type, const char *fmt, ...)
+{
+	char name[1024];
+	char dfmt[1024];
+
+	snprintf(dfmt, 1023, "<dummy : %s>", fmt);
+
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(name, 1023, dfmt, ap);
+	va_end(ap);
+
+	vars->vars = xrealloc_array(vars->vars, vars->nr_vars, vars->nr_vars+2, sizeof(struct ain_variable));
+	struct ain_type copy;
+	ain_copy_type(&copy, type);
+	return _init_variable(vars, name, &copy);
 }
 
 static int add_dummy_variable(struct var_list *vars, struct jaf_type_specifier *type, const char *fmt, ...)
@@ -154,10 +180,28 @@ static struct jaf_expression *expr_get_vars(struct jaf_expression *expr, struct 
 {
 	struct var_list *vars = visitor->data;
 
+	struct jaf_expression *tmp;
 	switch (expr->type) {
 	case JAF_EXP_NEW:
 		assert(expr->new.type->name);
-		expr->new.var_no = add_dummy_variable(vars, expr->new.type, "new %s", expr->new.type->name->text);
+		tmp = jaf_expr(JAF_EXP_DUMMYREF, 0);
+		tmp->dummy.expr = expr;
+		tmp->dummy.var_no = add_dummy_variable(vars, expr->new.type, "new %s",
+				expr->new.type->name->text);
+		ain_copy_type(&tmp->valuetype, &expr->valuetype);
+		expr = tmp;
+		break;
+	case JAF_EXP_FUNCALL:
+	case JAF_EXP_METHOD_CALL:
+	case JAF_EXP_SUPER_CALL:
+	case JAF_EXP_HLLCALL:
+		if (!ain_is_ref_data_type(expr->valuetype.data))
+			break;
+		tmp = jaf_expr(JAF_EXP_DUMMYREF, 0);
+		tmp->dummy.expr = expr;
+		tmp->dummy.var_no = _add_dummy_variable(vars, &expr->valuetype, "return");
+		ain_copy_type(&tmp->valuetype, &expr->valuetype);
+		expr = tmp;
 		break;
 	default:
 		break;
@@ -185,6 +229,20 @@ static struct ain_variable *block_get_vars(struct ain *ain, struct jaf_block *bl
 	return var_list.vars;
 }
 
+void jaf_allocate_variables(struct ain *ain, struct jaf_block *block)
+{
+	for (size_t i = 0; i < block->nr_items; i++) {
+		struct jaf_block_item *item = block->items[i];
+		if (item->kind == JAF_DECL_FUN && item->fun.body) {
+			assert(item->fun.func_no > 0 && item->fun.func_no <= ain->nr_functions);
+			struct ain_function *f = &ain->functions[item->fun.func_no];
+			f->vars = block_get_vars(ain, item->fun.body, f->vars, &f->nr_vars);
+		} else if (item->kind == JAF_DECL_STRUCT) {
+			jaf_allocate_variables(ain, item->struc.methods);
+		}
+	}
+}
+
 static void function_init_vars(struct ain *ain, struct jaf_fundecl *decl, int32_t *nr_args, int32_t *nr_vars, struct ain_variable **vars)
 {
 	int nr_params = decl->params ? decl->params->nr_items : 0;
@@ -199,12 +257,10 @@ static void function_init_vars(struct ain *ain, struct jaf_fundecl *decl, int32_
 			.vars = *vars,
 			.nr_vars = *nr_args
 		};
-		param->var_no = init_variable(&var_list, param->name->text, param->type);
+		param->var = init_variable(&var_list, param->name->text, param->type);
 		*nr_args = var_list.nr_vars;
 	}
 	*nr_vars = *nr_args;
-	if (decl->body)
-		*vars = block_get_vars(ain, decl->body, *vars, nr_vars);
 }
 
 static bool types_equal(struct ain_type *a, struct ain_type *b)
@@ -274,15 +330,9 @@ static void jaf_process_function(struct ain *ain, struct jaf_block_item *item)
 		function_init_vars(ain, decl, &f.nr_args, &f.nr_vars, &f.vars);
 		if (!function_signatures_equal(ain, existing, &f))
 			JAF_ERROR(item, "Incompatible declarations of function '%s'", name_str->text);
-		if (decl->body) {
+		if (decl->body)
 			existing->crc = 1;
-			// update local variables now that we have function body
-			ain_free_variables(existing->vars, existing->nr_vars);
-			existing->vars = f.vars;
-			existing->nr_vars = f.nr_vars;
-		} else {
-			ain_free_variables(f.vars, f.nr_vars);
-		}
+		ain_free_variables(f.vars, f.nr_vars);
 		ain_free_type(&f.return_type);
 	} else {
 		decl->func_no = ain_add_function(ain, name);
@@ -347,10 +397,10 @@ static void jaf_process_delegate(struct ain *ain, struct jaf_fundecl *decl)
 static void jaf_process_global(struct ain *ain, struct jaf_vardecl *decl)
 {
 	char *tmp = conv_output(decl->name->text);
-	int no = ain_add_global(ain, tmp);
+	decl->var = ain_add_global(ain, tmp);
 	free(tmp);
 
-	jaf_to_ain_type(ain, &ain->globals[no].type, decl->type);
+	jaf_to_ain_type(ain, &ain->globals[decl->var].type, decl->type);
 }
 
 static void jaf_process_structdef(struct ain *ain, struct jaf_block_item *item)

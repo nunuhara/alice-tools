@@ -91,6 +91,7 @@ static struct jaf_expression *jaf_resolve_expression_types(struct jaf_expression
 	case JAF_EXP_SUBSCRIPT:
 	case JAF_EXP_CHAR:
 	case JAF_EXP_NULL:
+	case JAF_EXP_DUMMYREF:
 		break;
 	}
 

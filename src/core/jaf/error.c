@@ -239,6 +239,9 @@ void jaf_print_expression(struct port *out, struct jaf_expression *expr)
 	case JAF_EXP_NULL:
 		port_printf(out, "NULL");
 		break;
+	case JAF_EXP_DUMMYREF:
+		jaf_print_expression(out, expr->dummy.expr);
+		break;
 	default:
 		ERROR("Unhandled expression type: %d", expr->type);
 	}

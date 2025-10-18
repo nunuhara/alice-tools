@@ -76,6 +76,9 @@ struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr, struct jaf_v
 		expr->subscript.expr = jaf_accept_expr(expr->subscript.expr, visitor);
 		expr->subscript.index = jaf_accept_expr(expr->subscript.index, visitor);
 		break;
+	case JAF_EXP_DUMMYREF:
+		expr->dummy.expr = jaf_accept_expr(expr->subscript.expr, visitor);
+		break;
 	case JAF_EXP_CHAR:
 	case JAF_EXP_VOID:
 	case JAF_EXP_INT:

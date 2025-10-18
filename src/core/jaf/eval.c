@@ -375,6 +375,7 @@ struct jaf_expression *jaf_simplify(struct jaf_expression *in)
 	case JAF_EXP_SEQ:
 	case JAF_EXP_SUBSCRIPT:
 	case JAF_EXP_NULL:
+	case JAF_EXP_DUMMYREF:
 		return in;
 	case JAF_EXP_UNARY:
 		return jaf_simplify_unary(in);
