@@ -169,7 +169,10 @@ static bool type_equal(struct ain_type *expected, struct ain_type *actual)
 		case AIN_ARRAY:
 		case AIN_REF_ARRAY:
 		case AIN_WRAP:
-			assert(expected->rank == 1 && expected->array_type);
+			// XXX: array without array type means any array type allowed
+			//      (used by Array HLL)
+			if (!expected->rank)
+				return true;
 			assert(actual->rank == 1 && actual->array_type);
 			return type_equal(expected->array_type, actual->array_type);
 		default:
@@ -212,7 +215,7 @@ static void type_check(struct ain_type *expected, struct jaf_expression *actual)
 		case AIN_FUNC_TYPE:
 		case AIN_DELEGATE:
 		case AIN_IMAIN_SYSTEM:
-			actual->valuetype = *expected;
+			ain_copy_type(&actual->valuetype, expected);
 			break;
 		default:
 			TYPE_ERROR(actual, expected->data);
@@ -229,7 +232,7 @@ static void ref_type_check(struct ain_type *expected, struct jaf_expression *act
 {
 	switch ((int)actual->valuetype.data) {
 	case AIN_NULLTYPE:
-		actual->valuetype = *expected;
+		ain_copy_type(&actual->valuetype, expected);
 		actual->valuetype.data = add_ref(expected);
 		break;
 	case AIN_REF_TYPE: {
@@ -483,7 +486,7 @@ static void check_assign(struct jaf_env *env, struct ain_type *t, struct jaf_exp
 		case AIN_STRING:
 			break;
 		case AIN_NULLTYPE:
-			rhs->valuetype = *t;
+			ain_copy_type(&rhs->valuetype, t);
 			break;
 		default:
 			TYPE_ERROR(rhs, t->data);
@@ -608,7 +611,7 @@ static void type_check_identifier(struct jaf_env *env, struct jaf_expression *ex
 			expr->ident.local = local->decl;
 		}
 	} else if ((v = jaf_global_lookup(env, u, &no))) {
-		expr->valuetype = v->type;
+		ain_copy_type(&expr->valuetype, &v->type);
 		expr->ident.kind = JAF_IDENT_GLOBAL;
 		expr->ident.global = no;
 	} else if ((no = ain_get_function(env->ain, u)) >= 0) {
@@ -725,7 +728,7 @@ static void type_check_assign(struct jaf_env *env, struct jaf_expression *expr)
 				|| expr->rhs->valuetype.data == AIN_STRING)) {
 		expr->valuetype.data = AIN_VOID;
 	} else {
-		expr->valuetype = expr->rhs->valuetype;
+		ain_copy_type(&expr->valuetype, &expr->rhs->valuetype);
 	}
 }
 
@@ -739,7 +742,7 @@ static void type_check_binary(struct jaf_env *env, struct jaf_expression *expr)
 	case JAF_PLUS:
 		if (expr->lhs->valuetype.data == AIN_STRING) {
 			type_check(&string_type, expr->rhs);
-			expr->valuetype = expr->lhs->valuetype;
+			ain_copy_type(&expr->valuetype, &expr->lhs->valuetype);
 		} else {
 			expr->valuetype.data = type_coerce_numerics(expr, expr->op,
 					&expr->lhs, &expr->rhs);
@@ -793,7 +796,7 @@ static void type_check_binary(struct jaf_env *env, struct jaf_expression *expr)
 		} else if (expr->lhs->valuetype.data == AIN_FUNC_TYPE) {
 			switch ((int)expr->rhs->valuetype.data) {
 			case AIN_NULLTYPE:
-				expr->rhs->valuetype = expr->lhs->valuetype;
+				ain_copy_type(&expr->rhs->valuetype, &expr->lhs->valuetype);
 				break;
 			case AIN_FUNCTION: {
 				struct ain_function_type *ft = get_functype(env, expr->lhs->valuetype.struc);
@@ -803,15 +806,11 @@ static void type_check_binary(struct jaf_env *env, struct jaf_expression *expr)
 				break;
 			}
 			case AIN_FUNC_TYPE:
+				if (expr->lhs->valuetype.struc != expr->rhs->valuetype.struc)
+					TYPE_ERROR(expr->rhs, AIN_FUNC_TYPE);
 				break;
 			default:
 				TYPE_ERROR(expr->rhs, AIN_FUNC_TYPE);
-			}
-			if (expr->rhs->valuetype.data == AIN_NULLTYPE) {
-				expr->rhs->valuetype = expr->lhs->valuetype;
-			} else if (expr->rhs->valuetype.data == AIN_FUNCTION) {
-
-			} else {
 			}
 		} else {
 			type_coerce_numerics(expr, expr->op, &expr->lhs, &expr->rhs);
@@ -869,7 +868,7 @@ static void type_check_ternary(struct jaf_env *env, struct jaf_expression *expr)
 	maybe_deref(expr->alternative);
 	type_check(&int_type, expr->condition);
 	type_check(&expr->consequent->valuetype, expr->alternative);
-	expr->valuetype = expr->consequent->valuetype;
+	ain_copy_type(&expr->valuetype, &expr->consequent->valuetype);
 }
 
 static bool ain_wide_type(enum ain_data_type type) {
@@ -946,7 +945,7 @@ static void type_check_function_call(struct jaf_env *env, struct jaf_expression 
 	assert(func_no >= 0 && func_no < env->ain->nr_functions);
 
 	check_function_arguments(env, expr, expr->call.args, &env->ain->functions[func_no]);
-	expr->valuetype = env->ain->functions[func_no].return_type;
+	ain_copy_type(&expr->valuetype, &env->ain->functions[func_no].return_type);
 	expr->call.func_no = func_no;
 }
 
@@ -956,7 +955,7 @@ static void type_check_functype_call(struct jaf_env *env, struct jaf_expression 
 	assert(ft_no >= 0 && ft_no < env->ain->nr_function_types);
 
 	check_functype_arguments(env, expr, expr->call.args, &env->ain->function_types[ft_no]);
-	expr->valuetype = env->ain->function_types[ft_no].return_type;
+	ain_copy_type(&expr->valuetype, &env->ain->function_types[ft_no].return_type);
 	expr->call.func_no = ft_no;
 }
 
@@ -966,7 +965,7 @@ static void type_check_delegate_call(struct jaf_env *env, struct jaf_expression 
 	assert(dg_no >= 0 && dg_no < env->ain->nr_delegates);
 
 	check_functype_arguments(env, expr, expr->call.args, &env->ain->delegates[dg_no]);
-	expr->valuetype = env->ain->delegates[dg_no].return_type;
+	ain_copy_type(&expr->valuetype, &env->ain->delegates[dg_no].return_type);
 	expr->call.func_no = dg_no;
 }
 
@@ -983,7 +982,7 @@ static void type_check_system_call(struct jaf_env *env, struct jaf_expression *e
 		};
 		check_function_argument(env, &type, &expr->call.args->items[i]);
 	}
-	expr->valuetype = syscalls[expr->call.func_no].return_type;
+	ain_copy_type(&expr->valuetype, &syscalls[expr->call.func_no].return_type);
 }
 
 /*
@@ -1072,12 +1071,28 @@ static void type_check_hll_call(struct jaf_env *env, struct jaf_expression *expr
 	}
 
 	if (def->return_type.data == AIN_HLL_PARAM) {
-		expr->valuetype = *type->array_type;
+		ain_copy_type(&expr->valuetype, type->array_type);
 	} else if (def->return_type.data == AIN_REF_HLL_PARAM) {
-		expr->valuetype = *type->array_type;
+		ain_copy_type(&expr->valuetype, type->array_type);
 		expr->valuetype.data = add_ref(&expr->valuetype);
+	} else if (def->return_type.data == AIN_ARRAY) {
+		if (!strcmp(obj_name, "String") && !strcmp(mbr_name, "Split")) {
+			expr->valuetype.data = AIN_ARRAY;
+			expr->valuetype.rank = 1;
+			expr->valuetype.array_type = xcalloc(1, sizeof(struct ain_type));
+			expr->valuetype.array_type->data = AIN_STRING;
+		}
+		if (!strcmp(obj_name, "FileOperation") &&
+				(!strcmp(mbr_name, "GetFileList") ||
+				 !strcmp(mbr_name, "GetFileListWithSubFolder") ||
+				 !strcmp(mbr_name, "GetFolderList"))) {
+			expr->valuetype.data = AIN_ARRAY;
+			expr->valuetype.rank = 1;
+			expr->valuetype.array_type = xcalloc(1, sizeof(struct ain_type));
+			expr->valuetype.array_type->data = AIN_STRING;
+		}
 	} else {
-		expr->valuetype = def->return_type;
+		ain_copy_type(&expr->valuetype, &def->return_type);
 	}
 }
 
@@ -1091,7 +1106,7 @@ static void type_check_method_call(struct jaf_env *env, struct jaf_expression *e
 	expr->type = JAF_EXP_METHOD_CALL;
 	expr->call.func_no = method_no;
 	check_function_arguments(env, expr, expr->call.args, &env->ain->functions[method_no]);
-	expr->valuetype = env->ain->functions[method_no].return_type;
+	ain_copy_type(&expr->valuetype, &env->ain->functions[method_no].return_type);
 }
 
 static void type_check_super_call(struct jaf_env *env, struct jaf_expression *expr)
@@ -1100,7 +1115,7 @@ static void type_check_super_call(struct jaf_env *env, struct jaf_expression *ex
 	expr->type = JAF_EXP_SUPER_CALL;
 	expr->call.func_no = method_no;
 	check_function_arguments(env, expr, expr->call.args, &env->ain->functions[method_no]);
-	expr->valuetype = env->ain->functions[method_no].return_type;
+	ain_copy_type(&expr->valuetype, &env->ain->functions[method_no].return_type);
 }
 
 static const char *_builtin_type_name(enum ain_data_type type)
@@ -1518,7 +1533,7 @@ static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 		int no;
 		if ((no = get_member_no(env->ain, struct_type, name)) >= 0) {
 			struct ain_struct *s = &env->ain->structures[struct_type];
-			expr->valuetype = s->members[no].type;
+			ain_copy_type(&expr->valuetype, &s->members[no].type);
 			expr->member.member_no = no;
 		} else if ((no = get_method_no(env->ain, struct_type, name)) >= 0) {
 			expr->valuetype.data = AIN_METHOD;
@@ -1652,6 +1667,7 @@ static enum ain_data_type array_data_type(struct ain_type *type)
 static void array_deref_type(struct jaf_env *env, struct ain_type *dst, struct ain_type *src)
 {
 	if (src->rank > 1) {
+		assert(AIN_VERSION_LT(env->ain, 11, 0));
 		dst->data = src->data;
 		dst->struc = src->struc;
 		dst->rank = src->rank - 1;
@@ -1675,6 +1691,9 @@ static void type_check_subscript(struct jaf_env *env, struct jaf_expression *exp
 	} else {
 		switch (expr->subscript.expr->valuetype.data) {
 		case AIN_ARRAY_TYPE:
+		case AIN_REF_ARRAY_TYPE:
+		case AIN_ARRAY:
+		case AIN_REF_ARRAY:
 			array_deref_type(env, &expr->valuetype, &expr->subscript.expr->valuetype);
 			break;
 		default:

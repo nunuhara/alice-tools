@@ -772,6 +772,7 @@ void jaf_free_expr(struct jaf_expression *expr)
 		jaf_free_expr(expr->dummy.expr);
 		break;
 	}
+	ain_free_type(&expr->valuetype);
 	free(expr);
 }
 

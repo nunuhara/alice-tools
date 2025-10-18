@@ -194,6 +194,9 @@ void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_spec
 		out->rank = 1;
 		out->array_type = xcalloc(1, sizeof(struct ain_type));
 		jaf_to_ain_type(ain, out->array_type, in->array_type);
+	} else {
+		out->rank = 0;
+		out->array_type = NULL;
 	}
 }
 
