@@ -152,10 +152,11 @@ static void write_instruction2(struct compiler_state *state, uint16_t opcode, ui
 		write_instruction1(state, PUSH, arg1);
 		write_instruction0(state, ASSIGN);
 		write_instruction0(state, POP);
+	} else {
+		write_opcode(state, opcode);
+		write_argument(state, arg0);
+		write_argument(state, arg1);
 	}
-	write_opcode(state, opcode);
-	write_argument(state, arg0);
-	write_argument(state, arg1);
 }
 
 static void write_instruction3(struct compiler_state *state, uint16_t opcode, uint32_t arg0, uint32_t arg1, uint32_t arg2)
