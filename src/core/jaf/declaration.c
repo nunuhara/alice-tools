@@ -41,6 +41,22 @@ struct string *jaf_name_collapse(struct ain *ain, struct jaf_name *name)
 		string_append(&name->collapsed, name->parts[i]);
 	}
 
+	// XXX: static methods don't have '@' in them, so we check for this case first
+	//      (e.g. 'SkillEffectProcessFactory::CreateOne' in Rance 10).
+	struct string *tmp = string_dup(name->collapsed);
+	string_push_back(&tmp, ':');
+	string_push_back(&tmp, ':');
+	string_append(&tmp, name->parts[name->nr_parts - 1]);
+	char *tmp_conv = conv_output(tmp->text);
+	if (ain_get_function(ain, tmp_conv) > 0) {
+		free_string(name->collapsed);
+		free(tmp_conv);
+		name->collapsed = tmp;
+		return name->collapsed;
+	}
+	free_string(tmp);
+	free(tmp_conv);
+
 	// check if name is method
 	if (ain) {
 		char *str = conv_output(name->collapsed->text);
@@ -103,6 +119,7 @@ static warn_unused int _init_variable(struct var_list *list, const char *name,
 	case AIN_REF_FLOAT:
 	case AIN_REF_BOOL:
 	case AIN_REF_LONG_INT:
+	case AIN_IFACE:
 		list->nr_vars++;
 		list->vars[var+1].name = strdup("<void>");
 		if (list->ain->version >= 12)
@@ -193,6 +210,7 @@ static struct jaf_expression *expr_get_vars(struct jaf_expression *expr, struct 
 		break;
 	case JAF_EXP_FUNCALL:
 	case JAF_EXP_METHOD_CALL:
+	case JAF_EXP_INTERFACE_CALL:
 	case JAF_EXP_SUPER_CALL:
 	case JAF_EXP_HLLCALL:
 		if (!ain_is_ref_data_type(expr->valuetype.data))
@@ -432,6 +450,31 @@ static void jaf_process_structdef(struct ain *ain, struct jaf_block_item *item)
 	s->members = members;
 }
 
+static void jaf_process_interface_method(struct ain *ain, struct ain_function_type *ft,
+		struct jaf_fundecl *decl)
+{
+	jaf_to_ain_type(ain, &ft->return_type, decl->type);
+	function_init_vars(ain, decl, &ft->nr_arguments, &ft->nr_variables, &ft->variables);
+}
+
+static void jaf_process_interface(struct ain *ain, struct jaf_block_item *item)
+{
+	int struct_no = item->struc.struct_no;
+	struct jaf_block *methods = item->struc.methods;
+
+	assert(struct_no >= 0 && struct_no < ain->nr_structures);
+	struct ain_struct *s = &ain->structures[struct_no];
+	s->nr_iface_methods = methods->nr_items;
+	s->iface_methods = xcalloc(methods->nr_items, sizeof(struct ain_function_type));
+
+	for (size_t i = 0; i < methods->nr_items; i++) {
+		struct jaf_block_item *method = methods->items[i];
+		assert(method->kind == JAF_DECL_FUN);
+		s->iface_methods[i].name = conv_output(jaf_name_collapse(ain, &method->fun.name)->text);
+		jaf_process_interface_method(ain, &s->iface_methods[i], &method->fun);
+	}
+}
+
 void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
 {
 	for (size_t i = 0; i < block->nr_items; i++) {
@@ -462,6 +505,9 @@ void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
 			break;
 		case JAF_DECL_STRUCT:
 			jaf_process_structdef(ain, block->items[i]);
+			break;
+		case JAF_DECL_INTERFACE:
+			jaf_process_interface(ain, block->items[i]);
 			break;
 		case JAF_EOF:
 			break;

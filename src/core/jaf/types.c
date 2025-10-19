@@ -127,6 +127,7 @@ static bool type_identical(struct ain_type *a, struct ain_type *b)
 		// fallthrough
 	case AIN_STRUCT:
 	case AIN_REF_STRUCT:
+	case AIN_IFACE:
 	case AIN_FUNC_TYPE:
 	case AIN_REF_FUNC_TYPE:
 	case AIN_DELEGATE:
@@ -146,7 +147,18 @@ static bool type_identical(struct ain_type *a, struct ain_type *b)
 	return true;
 }
 
-static bool type_equal(struct ain_type *expected, struct ain_type *actual)
+static bool iface_compatible(struct jaf_env *env, int iface_no, int struct_no)
+{
+	assert(struct_no >= 0 && struct_no < env->ain->nr_structures);
+	struct ain_struct *s = &env->ain->structures[struct_no];
+	for (int i = 0; i < s->nr_interfaces; i++) {
+		if (s->interfaces[i].struct_type == iface_no)
+			return true;
+	}
+	return false;
+}
+
+static bool type_equal(struct jaf_env *env, struct ain_type *expected, struct ain_type *actual)
 {
 	if (expected->data == actual->data) {
 		switch (expected->data) {
@@ -161,6 +173,7 @@ static bool type_equal(struct ain_type *expected, struct ain_type *actual)
 			// fallthrough
 		case AIN_STRUCT:
 		case AIN_REF_STRUCT:
+		case AIN_IFACE:
 		case AIN_FUNC_TYPE:
 		case AIN_REF_FUNC_TYPE:
 		case AIN_DELEGATE:
@@ -174,7 +187,7 @@ static bool type_equal(struct ain_type *expected, struct ain_type *actual)
 			if (!expected->rank)
 				return true;
 			assert(actual->rank == 1 && actual->array_type);
-			return type_equal(expected->array_type, actual->array_type);
+			return type_equal(env, expected->array_type, actual->array_type);
 		default:
 			return true;
 		}
@@ -196,13 +209,15 @@ static bool type_equal(struct ain_type *expected, struct ain_type *actual)
 	case T(AIN_NULLTYPE, AIN_DELEGATE):
 	case T(AIN_NULLTYPE, AIN_IMAIN_SYSTEM):
 		return true;
+	case T(AIN_IFACE, AIN_STRUCT):
+		return iface_compatible(env, expected->struc, actual->struc);
 	default:
 		return false;
 	}
 #undef T
 }
 
-static void type_check(struct ain_type *expected, struct jaf_expression *actual)
+static void type_check(struct jaf_env *env, struct ain_type *expected, struct jaf_expression *actual)
 {
 	if (ain_is_ref_data_type(expected->data)) {
 		maybe_deref(actual);
@@ -222,28 +237,31 @@ static void type_check(struct ain_type *expected, struct jaf_expression *actual)
 		}
 		break;
 	default:
-		if (!type_equal(expected, &actual->valuetype))
+		if (!type_equal(env, expected, &actual->valuetype))
 			TYPE_ERROR(actual, expected->data);
 		break;
 	}
 }
 
-static void ref_type_check(struct ain_type *expected, struct jaf_expression *actual)
+static void ref_type_check(struct jaf_env *env, struct ain_type *expected, struct jaf_expression *actual)
 {
-	switch ((int)actual->valuetype.data) {
-	case AIN_NULLTYPE:
+	if ((int)actual->valuetype.data == AIN_NULLTYPE) {
 		ain_copy_type(&actual->valuetype, expected);
 		actual->valuetype.data = add_ref(expected);
-		break;
-	case AIN_REF_TYPE: {
-		struct ain_type ref_actual_t = strip_ref(&actual->valuetype);
-		if (!type_equal(expected, &ref_actual_t))
-			TYPE_ERROR(actual, ref_actual_t.data);
-		break;
+		return;
 	}
-	default:
-		if (!type_equal(expected, &actual->valuetype))
-			TYPE_ERROR(actual, expected->data);
+	struct ain_type actual_t = strip_ref(&actual->valuetype);
+	if (!type_equal(env, expected, &actual_t))
+		TYPE_ERROR(actual, actual_t.data);
+
+	if (expected->data == AIN_IFACE && actual_t.data == AIN_STRUCT) {
+		// cast to interface
+		struct jaf_expression *copy = xmalloc(sizeof(struct jaf_expression));
+		*copy = *actual;
+		actual->type = JAF_EXP_CAST;
+		actual->cast.type = JAF_IFACE;
+		actual->cast.expr = copy;
+		ain_copy_type(&actual->valuetype, expected);
 	}
 }
 
@@ -261,43 +279,34 @@ static enum ain_data_type type_check_numeric(struct jaf_expression *e)
 	}
 }
 
-/*
-static void type_check_member_lhs(struct jaf_expression *e)
+static void coerce_cast(enum ain_data_type t, struct jaf_expression *e)
 {
-	switch (e->valuetype.data) {
-	case AIN_REF_STRUCT:
-}
-*/
-
-static struct jaf_expression *coerce_cast(enum ain_data_type t, struct jaf_expression *e)
-{
-	enum jaf_type jaf_t = ain_to_jaf_numeric_type(t);
-	struct jaf_expression *cast = jaf_cast_expression(jaf_t, e);
-	cast->line = e->line;
-	cast->file = e->file;
-	cast->valuetype.data = t;
-	return cast;
+	struct jaf_expression *copy = xmalloc(sizeof(struct jaf_expression));
+	*copy = *e;
+	e->type = JAF_EXP_CAST;
+	e->cast.type = ain_to_jaf_numeric_type(t);
+	e->cast.expr = copy;
+	e->valuetype.data = t;
 }
 
-static struct jaf_expression *cast_to_method(struct jaf_expression *e)
+static void cast_to_method(struct jaf_expression *e)
 {
-	struct jaf_expression *cast = jaf_cast_expression(JAF_FUNCTYPE, e);
-	cast->line = e->line;
-	cast->file = e->file;
-	cast->valuetype.data = AIN_METHOD;
-	cast->valuetype.struc = e->valuetype.struc;
-	return cast;
+	struct jaf_expression *copy = xmalloc(sizeof(struct jaf_expression));
+	*copy = *e;
+	e->type = JAF_EXP_CAST;
+	e->cast.type = JAF_FUNCTYPE;
+	e->cast.expr = copy;
+	e->valuetype.data = AIN_METHOD;
+	e->valuetype.struc = copy->valuetype.struc;
 }
 
 static enum ain_data_type type_coerce_numerics(struct jaf_expression *parent,
-		enum jaf_operator op, struct jaf_expression **_a, struct jaf_expression **_b)
+		enum jaf_operator op, struct jaf_expression *a, struct jaf_expression *b)
 {
 #define CAST(v, t) ( \
-	*_##v = v = coerce_cast(AIN_##t, v), \
+	coerce_cast(AIN_##t, v), \
 	v->valuetype.data \
 )
-	struct jaf_expression *a = *_a;
-	struct jaf_expression *b = *_b;
 	type_check_numeric(a);
 	type_check_numeric(b);
 
@@ -373,6 +382,7 @@ static void check_referenceable(struct jaf_expression *e)
 	switch ((int)e->valuetype.data) {
 	case AIN_NULLTYPE:
 	case AIN_REF_TYPE:
+	case AIN_IFACE:
 		break;
 	default:
 		if (e->type != JAF_EXP_THIS)
@@ -431,9 +441,8 @@ static struct ain_function_type get_method(struct jaf_env *env, int no, int *str
 
 }
 
-static void check_delegate_compatible(struct jaf_env *env, struct ain_type *t, struct jaf_expression **_rhs)
+static void check_delegate_compatible(struct jaf_env *env, struct ain_type *t, struct jaf_expression *rhs)
 {
-	struct jaf_expression *rhs = *_rhs;
 	assert(t->struc >= 0 && t->struc < env->ain->nr_delegates);
 	struct ain_function_type *dg = get_delegate(env, t->struc);
 	switch ((int)rhs->valuetype.data) {
@@ -448,7 +457,7 @@ static void check_delegate_compatible(struct jaf_env *env, struct ain_type *t, s
 		struct ain_function_type f = get_function(env, rhs->valuetype.struc);
 		if (!functype_compatible(dg, &f))
 			TYPE_ERROR(rhs, t->data);
-		*_rhs = rhs = cast_to_method(rhs);
+		cast_to_method(rhs);
 		break;
 	case AIN_DELEGATE: {
 		if (rhs->valuetype.struc != t->struc)
@@ -460,9 +469,14 @@ static void check_delegate_compatible(struct jaf_env *env, struct ain_type *t, s
 	}
 }
 
-static void check_assign(struct jaf_env *env, struct ain_type *t, struct jaf_expression **_rhs)
+/*
+ * Used to check:
+ *   - variable assignment (incl. initvals)
+ *   - return values
+ *   - function call arguments
+ */
+static void check_assign(struct jaf_env *env, struct ain_type *t, struct jaf_expression *rhs)
 {
-	struct jaf_expression *rhs = *_rhs;
 	switch ((int)t->data) {
 	// Assigning to a functype or delegate variable is special. The RHS
 	// should be an expression like &foo, which has type 'ref function'.
@@ -494,7 +508,7 @@ static void check_assign(struct jaf_env *env, struct ain_type *t, struct jaf_exp
 		break;
 	}
 	case AIN_DELEGATE:
-		check_delegate_compatible(env, t, _rhs);
+		check_delegate_compatible(env, t, rhs);
 		break;
 	case AIN_FUNCTION:
 		if (rhs->valuetype.data == AIN_FUNCTION) {
@@ -518,27 +532,28 @@ static void check_assign(struct jaf_env *env, struct ain_type *t, struct jaf_exp
 			struct ain_function_type f2 = get_function(env, rhs->valuetype.struc);
 			if (!functype_compatible(&f, &f2))
 				TYPE_ERROR(rhs, t->data);
-			*_rhs = rhs = cast_to_method(rhs);
+			cast_to_method(rhs);
 		} else {
 			TYPE_ERROR(rhs, t->data);
 		}
 		break;
+	// TODO: interface methods?
 	case AIN_INT:
 	case AIN_LONG_INT:
 	case AIN_BOOL:
 	case AIN_FLOAT:
 		if (type_check_numeric(rhs) != t->data) {
-			*_rhs = coerce_cast(t->data, rhs);
+			coerce_cast(t->data, rhs);
 		}
 		break;
 	case AIN_STRUCT:
 		if (rhs->valuetype.data == AIN_REF_STRUCT && rhs->valuetype.struc == t->struc)
 			/* nothing */;
 		else
-			type_check(t, rhs);
+			type_check(env, t, rhs);
 		break;
 	default:
-		type_check(t, rhs);
+		type_check(env, t, rhs);
 		break;
 	}
 }
@@ -551,14 +566,14 @@ static void check_ref_assign(struct jaf_env *env, struct jaf_expression *lhs, st
 	// check that lhs is a reference variable of the appropriate type
 	switch (lhs->type) {
 	case JAF_EXP_IDENTIFIER: {
-		struct ain_type t;
+		struct ain_type lhs_t;
 		switch (lhs->ident.kind) {
 		case JAF_IDENT_LOCAL:
-			t = lhs->ident.local->valuetype;
+			lhs_t = lhs->ident.local->valuetype;
 			break;
 		case JAF_IDENT_GLOBAL:
 			assert(lhs->ident.global >= 0 && lhs->ident.global < env->ain->nr_globals);
-			t = env->ain->globals[lhs->ident.global].type;
+			lhs_t = env->ain->globals[lhs->ident.global].type;
 			break;
 		case JAF_IDENT_CONST:
 			// FIXME: should this be allowed?
@@ -566,17 +581,17 @@ static void check_ref_assign(struct jaf_env *env, struct jaf_expression *lhs, st
 		case JAF_IDENT_UNRESOLVED:
 			COMPILER_ERROR(lhs, "Unresolved identifier");
 		}
-		if (!ain_is_ref_data_type(t.data))
+		if (!ain_is_ref_data_type(lhs_t.data))
 			JAF_ERROR(lhs, "Reference assignment to non-reference type");
-		t = strip_ref(&t);
-		ref_type_check(&t, rhs);
+		lhs_t = strip_ref(&lhs_t);
+		ref_type_check(env, &lhs_t, rhs);
 		break;
 	}
 	case JAF_EXP_MEMBER:
 		if (!ain_is_ref_data_type(lhs->valuetype.data))
 			JAF_ERROR(lhs, "Reference assignment to non-reference type");
 		struct ain_type t = strip_ref(&lhs->valuetype);
-		ref_type_check(&t, rhs);
+		ref_type_check(env, &t, rhs);
 		break;
 	default:
 		JAF_ERROR(lhs, "Invalid lvalue for reference assignment");
@@ -659,7 +674,7 @@ static void type_check_unary(struct jaf_env *env, struct jaf_expression *expr)
 		break;
 	case JAF_BIT_NOT:
 	case JAF_LOG_NOT:
-		type_check(&int_type, expr->expr);
+		type_check(env, &int_type, expr->expr);
 		expr->valuetype.data = AIN_INT;
 		break;
 	case JAF_AMPERSAND:
@@ -675,12 +690,27 @@ static void type_check_unary(struct jaf_env *env, struct jaf_expression *expr)
 	}
 }
 
+static void check_function_argument(struct jaf_env *env, struct ain_type *t,
+		struct jaf_expression *arg);
+
+static void type_check_property_assign(struct jaf_env *env, struct jaf_expression *expr)
+{
+	int setter_no = expr->lhs->member.setter_no;
+	assert(setter_no >= 0 && setter_no < env->ain->nr_functions);
+	struct ain_function *f = &env->ain->functions[setter_no];
+	check_function_argument(env, &f->vars[0].type, expr->rhs);
+}
+
 static void type_check_assign(struct jaf_env *env, struct jaf_expression *expr)
 {
 	check_lvalue(expr->lhs);
 	switch (expr->op) {
 	case JAF_ASSIGN:
-		check_assign(env, &expr->lhs->valuetype, &expr->rhs);
+		if (expr->lhs->type == JAF_EXP_MEMBER && expr->lhs->member.type == JAF_DOT_PROPERTY) {
+			type_check_property_assign(env, expr);
+			break;
+		}
+		check_assign(env, &expr->lhs->valuetype, expr->rhs);
 		// if lhs is a string subscript access, change the operator to JAF_CHAR_ASSIGN
 		if (expr->lhs->type == JAF_EXP_SUBSCRIPT) {
 			enum ain_data_type a_t = expr->lhs->subscript.expr->valuetype.data;
@@ -694,10 +724,10 @@ static void type_check_assign(struct jaf_env *env, struct jaf_expression *expr)
 	case JAF_MUL_ASSIGN:
 	case JAF_DIV_ASSIGN:
 		if (expr->lhs->valuetype.data == AIN_STRING && expr->op == JAF_ADD_ASSIGN) {
-			type_check(&string_type, expr->rhs);
+			type_check(env, &string_type, expr->rhs);
 		} else if (expr->lhs->valuetype.data == AIN_DELEGATE
 				&& (expr->op == JAF_ADD_ASSIGN || expr->op == JAF_SUB_ASSIGN)) {
-			check_delegate_compatible(env, &expr->lhs->valuetype, &expr->rhs);
+			check_delegate_compatible(env, &expr->lhs->valuetype, expr->rhs);
 		} else {
 			type_check_numeric(expr->lhs);
 			type_check_numeric(expr->rhs);
@@ -707,7 +737,7 @@ static void type_check_assign(struct jaf_env *env, struct jaf_expression *expr)
 				expr->rhs = jaf_cast_expression(jaf_t, expr->rhs);
 				expr->rhs->valuetype.data = expr->lhs->valuetype.data;
 			}
-			type_check(&expr->lhs->valuetype, expr->rhs);
+			type_check(env, &expr->lhs->valuetype, expr->rhs);
 		}
 		break;
 	case JAF_MOD_ASSIGN:
@@ -716,8 +746,8 @@ static void type_check_assign(struct jaf_env *env, struct jaf_expression *expr)
 	case JAF_AND_ASSIGN:
 	case JAF_XOR_ASSIGN:
 	case JAF_OR_ASSIGN:
-		type_check(&int_type, expr->lhs);
-		type_check(&int_type, expr->rhs);
+		type_check(env, &int_type, expr->lhs);
+		type_check(env, &int_type, expr->rhs);
 		break;
 	default:
 		COMPILER_ERROR(expr, "Unhandled assignment operator");
@@ -741,17 +771,17 @@ static void type_check_binary(struct jaf_env *env, struct jaf_expression *expr)
 	switch (expr->op) {
 	case JAF_PLUS:
 		if (expr->lhs->valuetype.data == AIN_STRING) {
-			type_check(&string_type, expr->rhs);
+			type_check(env, &string_type, expr->rhs);
 			ain_copy_type(&expr->valuetype, &expr->lhs->valuetype);
 		} else {
 			expr->valuetype.data = type_coerce_numerics(expr, expr->op,
-					&expr->lhs, &expr->rhs);
+					expr->lhs, expr->rhs);
 		}
 		break;
 	case JAF_MINUS:
 	case JAF_MULTIPLY:
 	case JAF_DIVIDE:
-		expr->valuetype.data = type_coerce_numerics(expr, expr->op, &expr->lhs, &expr->rhs);
+		expr->valuetype.data = type_coerce_numerics(expr, expr->op, expr->lhs, expr->rhs);
 		break;
 	case JAF_REMAINDER:
 		switch (expr->lhs->valuetype.data) {
@@ -770,7 +800,7 @@ static void type_check_binary(struct jaf_env *env, struct jaf_expression *expr)
 			break;
 		case AIN_INT:
 		case AIN_LONG_INT:
-			type_check(&int_type, expr->rhs);
+			type_check(env, &int_type, expr->rhs);
 			break;
 		default:
 			TYPE_ERROR(expr->lhs, AIN_INT);
@@ -784,15 +814,15 @@ static void type_check_binary(struct jaf_env *env, struct jaf_expression *expr)
 	case JAF_BIT_XOR:
 	case JAF_LOG_AND:
 	case JAF_LOG_OR:
-		type_check(&int_type, expr->lhs);
-		type_check(&int_type, expr->rhs);
+		type_check(env, &int_type, expr->lhs);
+		type_check(env, &int_type, expr->rhs);
 		expr->valuetype.data = AIN_INT;
 		break;
 	case JAF_EQ:
 	case JAF_NEQ:
 		// NOTE: NULL is not allowed on lhs
 		if (expr->lhs->valuetype.data == AIN_STRING) {
-			type_check(&string_type, expr->rhs);
+			type_check(env, &string_type, expr->rhs);
 		} else if (expr->lhs->valuetype.data == AIN_FUNC_TYPE) {
 			switch ((int)expr->rhs->valuetype.data) {
 			case AIN_NULLTYPE:
@@ -813,7 +843,7 @@ static void type_check_binary(struct jaf_env *env, struct jaf_expression *expr)
 				TYPE_ERROR(expr->rhs, AIN_FUNC_TYPE);
 			}
 		} else {
-			type_coerce_numerics(expr, expr->op, &expr->lhs, &expr->rhs);
+			type_coerce_numerics(expr, expr->op, expr->lhs, expr->rhs);
 		}
 		expr->valuetype.data = AIN_INT;
 		break;
@@ -822,9 +852,9 @@ static void type_check_binary(struct jaf_env *env, struct jaf_expression *expr)
 	case JAF_LTE:
 	case JAF_GTE:
 		if (expr->lhs->valuetype.data == AIN_STRING) {
-			type_check(&string_type, expr->rhs);
+			type_check(env, &string_type, expr->rhs);
 		} else {
-			type_coerce_numerics(expr, expr->op, &expr->lhs, &expr->rhs);
+			type_coerce_numerics(expr, expr->op, expr->lhs, expr->rhs);
 		}
 		expr->valuetype.data = AIN_INT;
 		break;
@@ -837,7 +867,7 @@ static void type_check_binary(struct jaf_env *env, struct jaf_expression *expr)
 		} else {
 			check_referenceable(expr->rhs);
 			if (ain_is_ref_data_type(expr->lhs->valuetype.data)) {
-				ref_type_check(&expr->lhs->valuetype, expr->rhs);
+				ref_type_check(env, &expr->lhs->valuetype, expr->rhs);
 			} else {
 				JAF_ERROR(expr->lhs, "Not an lvalue");
 			}
@@ -866,8 +896,8 @@ static void type_check_ternary(struct jaf_env *env, struct jaf_expression *expr)
 {
 	maybe_deref(expr->consequent);
 	maybe_deref(expr->alternative);
-	type_check(&int_type, expr->condition);
-	type_check(&expr->consequent->valuetype, expr->alternative);
+	type_check(env, &int_type, expr->condition);
+	type_check(env, &expr->consequent->valuetype, expr->alternative);
 	ain_copy_type(&expr->valuetype, &expr->consequent->valuetype);
 }
 
@@ -884,13 +914,13 @@ static bool ain_wide_type(enum ain_data_type type) {
 }
 
 static void check_function_argument(struct jaf_env *env, struct ain_type *t,
-		struct jaf_expression **arg)
+		struct jaf_expression *arg)
 {
 	switch (t->data) {
 	case AIN_REF_TYPE: {
 		struct ain_type strip_t = strip_ref(t);
-		check_referenceable(*arg);
-		ref_type_check(&strip_t, *arg);
+		check_referenceable(arg);
+		ref_type_check(env, &strip_t, arg);
 		break;
 	}
 	default:
@@ -909,7 +939,7 @@ static void check_function_arguments(struct jaf_env *env, struct jaf_expression 
 		if (arg >= f->nr_args)
 			JAF_ERROR(expr, "Too many arguments to function %s", conv_utf8(f->name));
 
-		check_function_argument(env, &f->vars[arg].type, &args->items[i]);
+		check_function_argument(env, &f->vars[arg].type, args->items[i]);
 
 		args->var_nos[i] = arg;
 		if (ain_wide_type(f->vars[arg].type.data))
@@ -929,7 +959,7 @@ static void check_functype_arguments(struct jaf_env *env, struct jaf_expression 
 		if (arg >= f->nr_arguments)
 			JAF_ERROR(expr, "Too many arguments to function type %s", conv_utf8(f->name));
 
-		check_function_argument(env, &f->variables[arg].type, &args->items[i]);
+		check_function_argument(env, &f->variables[arg].type, args->items[i]);
 
 		args->var_nos[i] = arg;
 		if (ain_wide_type(f->variables[arg].type.data))
@@ -980,7 +1010,7 @@ static void type_check_system_call(struct jaf_env *env, struct jaf_expression *e
 			.struc = -1,
 			.rank = 0
 		};
-		check_function_argument(env, &type, &expr->call.args->items[i]);
+		check_function_argument(env, &type, expr->call.args->items[i]);
 	}
 	ain_copy_type(&expr->valuetype, &syscalls[expr->call.func_no].return_type);
 }
@@ -1026,17 +1056,17 @@ static int array_type_param(struct jaf_env *env, struct ain_type *type)
 	return type->data;
 }
 
-static void check_hll_argument(struct jaf_env *env, struct jaf_expression **arg, struct ain_type *type, struct ain_type *type_param)
+static void check_hll_argument(struct jaf_env *env, struct jaf_expression *arg, struct ain_type *type, struct ain_type *type_param)
 {
 	if (type && (type->data == AIN_HLL_PARAM || type->data == AIN_REF_HLL_PARAM)) {
 		if (type_param->data != AIN_ARRAY && type_param->data != AIN_REF_ARRAY)
-			COMPILER_ERROR(*arg, "Expected array as type param");
-		type_check(type_param->array_type, *arg);
+			COMPILER_ERROR(arg, "Expected array as type param");
+		type_check(env, type_param->array_type, arg);
 	} else if (!AIN_VERSION_GTE(env->ain, 14, 0)
 			&& (type->data == AIN_STRUCT || type->data == AIN_REF_STRUCT)) {
 		// XXX: special case since hll types are data-only (until v14+)
-		if ((*arg)->valuetype.data != AIN_STRUCT) {
-			TYPE_ERROR(*arg, type->data);
+		if (arg->valuetype.data != AIN_STRUCT) {
+			TYPE_ERROR(arg, type->data);
 		}
 	} else {
 		check_function_argument(env, type, arg);
@@ -1067,7 +1097,7 @@ static void type_check_hll_call(struct jaf_env *env, struct jaf_expression *expr
 		JAF_ERROR(expr, "Too many arguments to HLL function: %s.%s", obj_name, mbr_name);
 	// FIXME: multi-valued arguments?
 	for (unsigned i = 0; i < nr_args; i++) {
-		check_hll_argument(env, &expr->call.args->items[i], &def->arguments[i].type, type);
+		check_hll_argument(env, expr->call.args->items[i], &def->arguments[i].type, type);
 	}
 
 	if (def->return_type.data == AIN_HLL_PARAM) {
@@ -1107,6 +1137,22 @@ static void type_check_method_call(struct jaf_env *env, struct jaf_expression *e
 	expr->call.func_no = method_no;
 	check_function_arguments(env, expr, expr->call.args, &env->ain->functions[method_no]);
 	ain_copy_type(&expr->valuetype, &env->ain->functions[method_no].return_type);
+}
+
+static void type_check_interface_call(struct jaf_env *env, struct jaf_expression *expr)
+{
+	struct jaf_expression *obj = expr->call.fun->member.struc;
+	assert(obj->valuetype.data == AIN_IFACE);
+	assert(obj->valuetype.struc >= 0 && obj->valuetype.struc < env->ain->nr_structures);
+
+	int method_no = expr->call.fun->member.member_no;
+	expr->type = JAF_EXP_INTERFACE_CALL;
+	expr->call.func_no = method_no;
+
+	struct ain_struct *s = &env->ain->structures[obj->valuetype.struc];
+	assert(method_no >= 0 && method_no < s->nr_iface_methods);
+	check_functype_arguments(env, expr, expr->call.args, &s->iface_methods[method_no]);
+	ain_copy_type(&expr->valuetype, &s->iface_methods[method_no].return_type);
 }
 
 static void type_check_super_call(struct jaf_env *env, struct jaf_expression *expr)
@@ -1222,54 +1268,54 @@ static void type_check_builtin_call(struct jaf_env *env, struct jaf_expression *
 	struct jaf_argument_list *args = expr->call.args;
 	switch ((enum jaf_builtin_method)expr->call.fun->member.member_no) {
 	case JAF_STRING_FIND:
-		type_check(&string_type, args->items[0]);
+		type_check(env, &string_type, args->items[0]);
 		break;
 	case JAF_STRING_GETPART:
-		type_check(&int_type, args->items[0]);
-		type_check(&int_type, args->items[1]);
+		type_check(env, &int_type, args->items[0]);
+		type_check(env, &int_type, args->items[1]);
 		break;
 	case JAF_STRING_PUSHBACK:
-		type_check(&int_type, args->items[0]);
+		type_check(env, &int_type, args->items[0]);
 		break;
 	case JAF_STRING_ERASE:
-		type_check(&int_type, args->items[0]);
+		type_check(env, &int_type, args->items[0]);
 		break;
 	case JAF_ARRAY_ALLOC:
 		for (int i = 0; i < args->nr_items; i++) {
-			type_check(&int_type, args->items[i]);
+			type_check(env, &int_type, args->items[i]);
 		}
 		// check nr args matches array rank
 		break;
 	case JAF_ARRAY_REALLOC:
 		for (int i = 0; i < args->nr_items; i++) {
-			type_check(&int_type, args->items[i]);
+			type_check(env, &int_type, args->items[i]);
 		}
 		// check nr args matches array rank
 		break;
 	case JAF_ARRAY_NUMOF:
 		if (args->nr_items > 0)
-			type_check(&int_type, args->items[0]);
+			type_check(env, &int_type, args->items[0]);
 		break;
 	case JAF_ARRAY_COPY:
-		type_check(&int_type, args->items[0]);
-		type_check(&expr->call.fun->member.struc->valuetype, args->items[1]);
-		type_check(&int_type, args->items[2]);
-		type_check(&int_type, args->items[3]);
+		type_check(env, &int_type, args->items[0]);
+		type_check(env, &expr->call.fun->member.struc->valuetype, args->items[1]);
+		type_check(env, &int_type, args->items[2]);
+		type_check(env, &int_type, args->items[3]);
 		break;
 	case JAF_ARRAY_FILL:
-		type_check(&int_type, args->items[0]);
-		type_check(&int_type, args->items[1]);
-		type_check(&val_type, args->items[2]);
+		type_check(env, &int_type, args->items[0]);
+		type_check(env, &int_type, args->items[1]);
+		type_check(env, &val_type, args->items[2]);
 		break;
 	case JAF_ARRAY_PUSHBACK:
-		type_check(&val_type, args->items[0]);
+		type_check(env, &val_type, args->items[0]);
 		break;
 	case JAF_ARRAY_ERASE:
-		type_check(&int_type, args->items[0]);
+		type_check(env, &int_type, args->items[0]);
 		break;
 	case JAF_ARRAY_INSERT:
-		type_check(&int_type, args->items[0]);
-		type_check(&val_type, args->items[1]);
+		type_check(env, &int_type, args->items[0]);
+		type_check(env, &val_type, args->items[1]);
 		break;
 	case JAF_ARRAY_SORT:
 		if (args->nr_items > 0) {
@@ -1277,15 +1323,15 @@ static void type_check_builtin_call(struct jaf_env *env, struct jaf_expression *
 		}
 		break;
 	case JAF_ARRAY_FIND:
-		type_check(&int_type, args->items[0]);
-		type_check(&int_type, args->items[1]);
-		type_check(&val_type, args->items[2]);
+		type_check(env, &int_type, args->items[0]);
+		type_check(env, &int_type, args->items[1]);
+		type_check(env, &val_type, args->items[2]);
 		if (args->nr_items > 3) {
 			jaf_check_comparator_type(env, args->items[3], &val_type);
 		}
 		break;
 	case JAF_DELEGATE_EXIST:
-		check_delegate_compatible(env, &expr->call.fun->member.struc->valuetype, &args->items[0]);
+		check_delegate_compatible(env, &expr->call.fun->member.struc->valuetype, args->items[0]);
 		break;
 	case JAF_INT_STRING:
 	case JAF_FLOAT_STRING:
@@ -1347,6 +1393,9 @@ static void type_check_call(struct jaf_env *env, struct jaf_expression *expr)
 		break;
 	case AIN_METHOD:
 		type_check_method_call(env, expr);
+		break;
+	case AIN_IMETHOD:
+		type_check_interface_call(env, expr);
 		break;
 	case AIN_SUPER:
 		type_check_super_call(env, expr);
@@ -1455,6 +1504,21 @@ static int get_method_no(struct ain *ain, int struct_type, const char *name)
 	return method_no;
 }
 
+static int get_interface_method_no(struct ain *ain, int iface_no, const char *_name)
+{
+	int member_no = -1;
+	char *name = conv_output(_name);
+	struct ain_struct *s = &ain->structures[iface_no];
+	for (int i = 0; i < s->nr_iface_methods; i++) {
+		if (!strcmp(s->iface_methods[i].name, name)) {
+			member_no = i;
+			break;
+		}
+	}
+	free(name);
+	return member_no;
+}
+
 static int get_library_function_no(struct ain *ain, int lib_no, const char *_name)
 {
 	char *name = conv_output(_name);
@@ -1519,6 +1583,58 @@ static void jaf_check_types_hll_builtin(struct jaf_env *env, struct jaf_expressi
 	}
 }
 
+static int get_property(struct ain *ain, int struct_no, const char *_name,
+		int *getter_out, int *setter_out)
+{
+	char *name = conv_output(_name);
+	size_t name_len = strlen(name);
+	struct ain_struct *s = &ain->structures[struct_no];
+
+	// "<Property>"
+	struct string *property_name = make_string("<", 1);
+	string_append_cstr(&property_name, name, name_len);
+	string_push_back(&property_name, '>');
+
+	// check that property exists
+	int property_no = -1;
+	for (int i = 0; i < s->nr_members; i++) {
+		if (!strcmp(s->members[i].name, property_name->text)) {
+			property_no = i;
+			break;
+		}
+	}
+	free_string(property_name);
+	if (property_no < 0) {
+		free(name);
+		return -1;
+	}
+
+	// "S@Property::get" / "S@Property::set"
+	struct string *getter_name = make_string(s->name, strlen(s->name));
+	string_push_back(&getter_name, '@');
+	string_append_cstr(&getter_name, name, name_len);
+	string_push_back(&getter_name, ':');
+	string_push_back(&getter_name, ':');
+	struct string *setter_name = string_dup(getter_name);
+	string_append_cstr(&getter_name, "get", 3);
+	string_append_cstr(&setter_name, "set", 3);
+
+	int getter_no = ain_get_function(ain, getter_name->text);
+	int setter_no = ain_get_function(ain, setter_name->text);
+	free_string(getter_name);
+	free_string(setter_name);
+	free(name);
+	if (getter_no < 0 || setter_no < 0) {
+		return -1;
+	}
+
+	// TODO: check function types
+
+	*getter_out = getter_no;
+	*setter_out = setter_no;
+	return property_no;
+}
+
 static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 {
 	struct jaf_expression *obj = expr->member.struc;
@@ -1531,22 +1647,43 @@ static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 		assert(struct_type >= 0);
 		assert(struct_type < env->ain->nr_structures);
 		int no;
+		int getter, setter;
 		if ((no = get_member_no(env->ain, struct_type, name)) >= 0) {
 			struct ain_struct *s = &env->ain->structures[struct_type];
 			ain_copy_type(&expr->valuetype, &s->members[no].type);
 			expr->member.member_no = no;
+			expr->member.type = JAF_DOT_MEMBER;
 		} else if ((no = get_method_no(env->ain, struct_type, name)) >= 0) {
 			expr->valuetype.data = AIN_METHOD;
 			expr->valuetype.struc = no;
 			expr->member.member_no = no;
+			expr->member.type = JAF_DOT_METHOD;
+		} else if ((no = get_property(env->ain, struct_type, name, &getter, &setter)) >= 0) {
+			struct ain_variable *property = &env->ain->structures[struct_type].members[no];
+			ain_copy_type(&expr->valuetype, &property->type);
+			expr->member.getter_no = getter;
+			expr->member.setter_no = setter;
+			expr->member.type = JAF_DOT_PROPERTY;
 		} else {
 			// FIXME: show struct name
 			JAF_ERROR(expr, "Invalid struct member name: %s", name);
 		}
 		break;
 	}
+	case AIN_IFACE: {
+		int iface_no = obj->valuetype.struc;
+		expr->member.object_no = iface_no;
+		assert(iface_no >= 0 && iface_no < env->ain->nr_structures);
+		expr->member.member_no = get_interface_method_no(env->ain, iface_no, name);
+		if (expr->member.member_no < 0) {
+			JAF_ERROR(expr, "Invalid interface method name: %s", name);
+		}
+		expr->valuetype.data = AIN_IMETHOD;
+		expr->valuetype.struc = expr->member.member_no;
+		break;
+	}
 	case AIN_INT:
-	case AIN_REF_INT: {
+	case AIN_REF_INT:
 		if (AIN_VERSION_GTE(env->ain, 8, 0)) {
 			jaf_check_types_hll_builtin(env, expr);
 			break;
@@ -1557,9 +1694,8 @@ static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 		expr->valuetype.data = AIN_BUILTIN;
 		expr->member.object_no = JAF_BUILTIN_INT;
 		break;
-	}
 	case AIN_FLOAT:
-	case AIN_REF_FLOAT: {
+	case AIN_REF_FLOAT:
 		if (AIN_VERSION_GTE(env->ain, 8, 0)) {
 			jaf_check_types_hll_builtin(env, expr);
 			break;
@@ -1570,18 +1706,16 @@ static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 		expr->valuetype.data = AIN_BUILTIN;
 		expr->member.object_no = JAF_BUILTIN_FLOAT;
 		break;
-	}
 	case AIN_ARRAY_TYPE:
-	case AIN_REF_ARRAY_TYPE: {
+	case AIN_REF_ARRAY_TYPE:
 		if ((expr->member.member_no = get_builtin_no(AIN_ARRAY, name)) < 0) {
 			JAF_ERROR(expr, "Invalid array builtin: %s", name);
 		}
 		expr->valuetype.data = AIN_BUILTIN;
 		expr->member.object_no = JAF_BUILTIN_ARRAY;
 		break;
-	}
 	case AIN_STRING:
-	case AIN_REF_STRING: {
+	case AIN_REF_STRING:
 		if (AIN_VERSION_GTE(env->ain, 8, 0)) {
 			jaf_check_types_hll_builtin(env, expr);
 			break;
@@ -1592,9 +1726,8 @@ static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 		expr->valuetype.data = AIN_BUILTIN;
 		expr->member.object_no = JAF_BUILTIN_STRING;
 		break;
-	}
 	case AIN_DELEGATE:
-	case AIN_REF_DELEGATE: {
+	case AIN_REF_DELEGATE:
 		if (AIN_VERSION_GTE(env->ain, 8, 0)) {
 			jaf_check_types_hll_builtin(env, expr);
 			break;
@@ -1605,7 +1738,6 @@ static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 		expr->valuetype.data = AIN_BUILTIN;
 		expr->member.object_no = JAF_BUILTIN_DELEGATE;
 		break;
-	}
 	case AIN_LIBRARY: {
 		int lib_no = obj->valuetype.struc;
 		assert(lib_no >= 0);
@@ -1631,10 +1763,9 @@ static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 		break;
 	}
 	case AIN_ARRAY:
-	case AIN_REF_ARRAY: {
+	case AIN_REF_ARRAY:
 		jaf_check_types_hll_builtin(env, expr);
 		break;
-	}
 	default:
 		JAF_ERROR(expr, "Invalid expression as left side of dotted expression");
 		break;
@@ -1685,7 +1816,7 @@ static void array_deref_type(struct jaf_env *env, struct ain_type *dst, struct a
 static void type_check_subscript(struct jaf_env *env, struct jaf_expression *expr)
 {
 	maybe_deref(expr->subscript.expr);
-	type_check(&int_type, expr->subscript.index);
+	type_check(env, &int_type, expr->subscript.index);
 	if (expr->subscript.expr->valuetype.data == AIN_STRING) {
 		expr->valuetype.data = AIN_INT;
 	} else {
@@ -1759,6 +1890,7 @@ void jaf_type_check_expression(struct jaf_env *env, struct jaf_expression *expr)
 	case JAF_EXP_SYSCALL:
 	case JAF_EXP_HLLCALL:
 	case JAF_EXP_METHOD_CALL:
+	case JAF_EXP_INTERFACE_CALL:
 	case JAF_EXP_BUILTIN_CALL:
 	case JAF_EXP_SUPER_CALL:
 		// these should be JAF_EXP_FUNCALLs initially
@@ -1777,13 +1909,13 @@ static void analyze_array_allocation(possibly_unused struct jaf_env *env, struct
 	}
 }
 
-static void type_check_initval(struct jaf_env *env, struct ain_type *t, struct jaf_expression **expr)
+static void type_check_initval(struct jaf_env *env, struct ain_type *t, struct jaf_expression *expr)
 {
 	if (ain_is_ref_data_type(t->data)) {
 		struct ain_type strip_t = strip_ref(t);
-		check_referenceable(*expr);
-		maybe_deref(*expr);
-		ref_type_check(&strip_t, *expr);
+		check_referenceable(expr);
+		maybe_deref(expr);
+		ref_type_check(env, &strip_t, expr);
 	} else {
 		check_assign(env, t, expr);
 	}
@@ -1796,7 +1928,7 @@ static void analyze_const_declaration(struct jaf_env *env, struct jaf_block_item
 		JAF_ERROR(item, "const declaration without an initializer");
 	}
 	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
-	type_check_initval(env, &decl->valuetype, &decl->init);
+	type_check_initval(env, &decl->valuetype, decl->init);
 
 	env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+2,
 				     sizeof(struct jaf_env_local));
@@ -1813,7 +1945,7 @@ static void analyze_global_declaration(struct jaf_env *env, struct jaf_block_ite
 		return;
 
 	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
-	type_check_initval(env, &decl->valuetype, &decl->init);
+	type_check_initval(env, &decl->valuetype, decl->init);
 
 	// add initval to ain object
 	int g_no = ain_get_global(env->ain, decl->name->text);
@@ -1828,7 +1960,7 @@ static void analyze_local_declaration(struct jaf_env *env, struct jaf_block_item
 	struct jaf_vardecl *decl = &item->var;
 	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
 	if (decl->init) {
-		type_check_initval(env, &decl->valuetype, &decl->init);
+		type_check_initval(env, &decl->valuetype, decl->init);
 	}
 	analyze_array_allocation(env, item);
 	jaf_env_add_local(env, decl);
@@ -1878,9 +2010,9 @@ void jaf_type_check_statement(struct jaf_env *env, struct jaf_block_item *stmt)
 		if (ain_is_ref_data_type(rtype->data)) {
 			check_referenceable(stmt->expr);
 			struct ain_type t = strip_ref(rtype);
-			ref_type_check(&t, stmt->expr);
+			ref_type_check(env, &t, stmt->expr);
 		} else {
-			check_assign(env, rtype, &stmt->expr);
+			check_assign(env, rtype, stmt->expr);
 		}
 		break;
 	}

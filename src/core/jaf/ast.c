@@ -646,6 +646,21 @@ struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields)
 	return p;
 }
 
+struct jaf_block_item *jaf_interface(struct string *name, struct jaf_block *methods)
+{
+	struct jaf_block_item *p = block_item(JAF_DECL_INTERFACE);
+	p->struc.name = name;
+	p->struc.methods = xcalloc(1, sizeof(struct jaf_block));
+	p->struc.methods->items = xcalloc(methods->nr_items, sizeof(struct jaf_block_item*));
+
+	for (unsigned i = 0; i < methods->nr_items; i++) {
+		p->struc.methods->items[p->struc.methods->nr_items++] = methods->items[i];
+	}
+	free(methods->items);
+	free(methods);
+	return p;
+}
+
 struct jaf_block_item *jaf_rassign(struct jaf_expression *lhs, struct jaf_expression *rhs)
 {
 	struct jaf_block_item *item = block_item(JAF_STMT_RASSIGN);
@@ -744,6 +759,7 @@ void jaf_free_expr(struct jaf_expression *expr)
 	case JAF_EXP_SYSCALL:
 	case JAF_EXP_HLLCALL:
 	case JAF_EXP_METHOD_CALL:
+	case JAF_EXP_INTERFACE_CALL:
 	case JAF_EXP_BUILTIN_CALL:
 	case JAF_EXP_SUPER_CALL:
 		jaf_free_expr(expr->call.fun);
@@ -804,6 +820,7 @@ void jaf_free_block_item(struct jaf_block_item *item)
 		ain_free_type(&item->fun.valuetype);
 		break;
 	case JAF_DECL_STRUCT:
+	case JAF_DECL_INTERFACE:
 		free_string(item->struc.name);
 		jaf_free_block(item->struc.members);
 		jaf_free_block(item->struc.methods);

@@ -54,6 +54,7 @@ struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr, struct jaf_v
 	case JAF_EXP_SYSCALL:
 	case JAF_EXP_HLLCALL:
 	case JAF_EXP_METHOD_CALL:
+	case JAF_EXP_INTERFACE_CALL:
 	case JAF_EXP_BUILTIN_CALL:
 	case JAF_EXP_SUPER_CALL:
 		expr->call.fun = jaf_accept_expr(expr->call.fun, visitor);
@@ -126,6 +127,9 @@ void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
 		break;
 	case JAF_DECL_STRUCT:
 		jaf_accept_block(stmt->struc.members, visitor);
+		jaf_accept_block(stmt->struc.methods, visitor);
+		break;
+	case JAF_DECL_INTERFACE:
 		jaf_accept_block(stmt->struc.methods, visitor);
 		break;
 	case JAF_STMT_LABELED:

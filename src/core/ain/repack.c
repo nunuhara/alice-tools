@@ -170,7 +170,7 @@ static void write_structure(struct ain_buffer *out, struct ain *ain, struct ain_
 		write_int32(out, s->nr_interfaces);
 		for (int i = 0; i < s->nr_interfaces; i++) {
 			write_int32(out, s->interfaces[i].struct_type);
-			write_int32(out, s->interfaces[i].uk);
+			write_int32(out, s->interfaces[i].vtable_offset);
 		}
 	}
 	write_int32(out, s->constructor);

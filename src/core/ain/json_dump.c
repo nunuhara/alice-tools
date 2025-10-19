@@ -107,7 +107,7 @@ static cJSON *ain_structure_to_json(struct ain *ain, struct ain_struct *s)
 		for (int i = 0; i < s->nr_interfaces; i++) {
 			cJSON *iface = cJSON_CreateArray();
 			cJSON_AddItemToArray(iface, cJSON_CreateNumber(s->interfaces[i].struct_type)); // TODO: use struct name
-			cJSON_AddItemToArray(iface, cJSON_CreateNumber(s->interfaces[i].uk));
+			cJSON_AddItemToArray(iface, cJSON_CreateNumber(s->interfaces[i].vtable_offset));
 			cJSON_AddItemToArray(a, iface);
 		}
 		cJSON_AddItemToObject(o, "interfaces", a);

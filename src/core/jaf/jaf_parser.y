@@ -202,12 +202,13 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %token	<token>		CONST OVERRIDE THIS SYM_NEW ASSERT SYM_NULL
 %token	<token>		BOOL CHAR INT LINT FLOAT VOID STRING INTP FLOATP HLL_PARAM HLL_FUNC HLL_FUNC_71
 %token	<token>		STRUCT UNION ENUM ELLIPSIS SYM_TRUE SYM_FALSE IMAIN_SYSTEM HLL_STRUCT
+%token	<token>		INTERFACE
 
 %token	CASE DEFAULT IF ELSE SYM_SWITCH WHILE DO FOR GOTO CONTINUE BREAK SYM_RETURN
 
 %type	<token>		unary_operator assignment_operator type_qualifier atomic_type_specifier
-%type	<string>	string param_identifer
-%type	<name>		function_name
+%type	<string>	string param_identifier
+%type	<name>		structured_name
 %type	<expression>	initializer
 %type	<expression>	postfix_expression unary_expression cast_expression
 %type	<expression>	multiplicative_expression additive_expression shift_expression
@@ -223,11 +224,12 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %type	<block>		translation_unit external_declaration declaration function_definition
 %type	<block>		function_declaration parameter_list parameter_declaration
 %type	<block>		struct_declaration struct_declaration_list
+%type	<block>		interface_declaration interface_declaration_list
 %type	<block>		functype_parameter_list functype_parameter_declaration
 %type	<block>		compound_statement block_item_list block_item
 %type	<statement>	statement labeled_statement expression_statement selection_statement
 %type	<statement>	iteration_statement jump_statement message_statement struct_specifier
-%type	<statement>	rassign_statement assert_statement
+%type	<statement>	interface_specifier rassign_statement assert_statement
 %type	<fundecl>	function_declarator functype_declarator
 
 /*
@@ -454,10 +456,13 @@ type_specifier
 	;
 
 struct_specifier
-	: STRUCT param_identifer '{' struct_declaration_list '}' { $$ = jaf_struct($2, $4); jaf_define_struct(jaf_ain_out, $$); }
+	: STRUCT param_identifier '{' struct_declaration_list '}' {
+		$$ = jaf_struct($2, $4);
+		jaf_define_struct(jaf_ain_out, $$);
+	}
 	;
 
-param_identifer
+param_identifier
 	: IDENTIFIER                             { $$ = $1; }
 	| IDENTIFIER '<' type_parameter_list '>' { ERROR("Type parameters not supported"); }
 	;
@@ -485,6 +490,22 @@ struct_declaration
 struct_declarator_list
 	: declarator                            { $$ = jaf_declarators(NULL, $1); }
 	| struct_declarator_list ',' declarator { $$ = jaf_declarators($1, $3); }
+	;
+
+interface_specifier
+	: INTERFACE TYPEDEF_NAME '{' interface_declaration_list '}' {
+		$$ = jaf_interface($2, $4);
+		jaf_define_interface(jaf_ain_out, $$);
+	}
+	;
+
+interface_declaration_list
+	: interface_declaration                            { $$ = $1; }
+	| interface_declaration_list interface_declaration { $$ = jaf_merge_blocks($1, $2); }
+	;
+
+interface_declaration
+	: declaration_specifiers functype_declarator ';' { $$ = jaf_function($1, $2, NULL); }
 	;
 
 enum_specifier
@@ -634,6 +655,7 @@ external_declaration
 	| function_declaration                                    { $$ = $1; }
 	| declaration                                             { $$ = $1; }
 	| struct_specifier ';'                                    { $$ = jaf_block($1); }
+	| interface_specifier ';'                                 { $$ = jaf_block($1); }
 	| enum_specifier ';'                                      { ERROR("Enums not supported"); }
 	| FUNCTYPE declaration_specifiers functype_declarator ';' { $$ = jaf_functype($2, $3); }
 	| DELEGATE declaration_specifiers functype_declarator ';' { $$ = jaf_delegate($2, $3); }
@@ -663,16 +685,16 @@ function_declaration
 	;
 
 function_declarator
-	: function_name '(' parameter_list ')' { $$ = jaf_function_declarator(&$1, $3); }
-	| function_name '(' ')'                { $$ = jaf_function_declarator(&$1, NULL); }
-	| function_name '(' VOID ')'           { $$ = jaf_function_declarator(&$1, NULL); }
+	: structured_name '(' parameter_list ')' { $$ = jaf_function_declarator(&$1, $3); }
+	| structured_name '(' ')'                { $$ = jaf_function_declarator(&$1, NULL); }
+	| structured_name '(' VOID ')'           { $$ = jaf_function_declarator(&$1, NULL); }
 	;
 
-function_name
+structured_name
 	: IDENTIFIER                              { jaf_name_init(&$$, $1); }
 	| TYPEDEF_NAME                            { jaf_name_init(&$$, $1); }
-	| function_name DOUBLE_COLON IDENTIFIER   { jaf_name_append(&$$, $3); }
-	| function_name DOUBLE_COLON TYPEDEF_NAME { jaf_name_append(&$$, $3); }
+	| structured_name DOUBLE_COLON IDENTIFIER   { jaf_name_append(&$$, $3); }
+	| structured_name DOUBLE_COLON TYPEDEF_NAME { jaf_name_append(&$$, $3); }
 	;
 
 parameter_list

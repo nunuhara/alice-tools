@@ -89,6 +89,7 @@ unsigned long jaf_line = 1;
 "string"				{ return(STRING); }
 "struct"				{ return(STRUCT); }
 "class"					{ return(STRUCT); }
+"interface"				{ return(INTERFACE); }
 "switch"				{ return(SYM_SWITCH); }
 "union"					{ return(UNION); }
 "void"					{ return(VOID); }

@@ -214,7 +214,8 @@ static void end_scope(struct compiler_state *state)
 		struct ain_variable *v = &f->vars[scope->vars[i]];
 		if (v->type.data == AIN_ARRAY || v->type.data == AIN_REF_ARRAY) {
 			// TODO
-		} else if (v->type.data == AIN_STRUCT || v->type.data == AIN_REF_STRUCT) {
+		} else if (v->type.data == AIN_STRUCT || v->type.data == AIN_REF_STRUCT
+				|| v->type.data == AIN_IFACE) {
 			// .LOCALDELETE var
 			// TODO: use SH_LOCALDELETE when available
 			write_instruction0(state, PUSHLOCALPAGE);
@@ -628,6 +629,7 @@ static void compile_lvalue_after(struct compiler_state *state, enum ain_data_typ
 	case AIN_REF_FLOAT:
 	case AIN_REF_BOOL:
 	case AIN_REF_LONG_INT:
+	case AIN_IFACE:
 		write_instruction0(state, REFREF);
 		break;
 	case AIN_STRING:
@@ -671,6 +673,7 @@ static void compile_variable_ref(struct compiler_state *state, struct jaf_expres
 
 static void compile_function_arguments(struct compiler_state *state,
 		struct jaf_argument_list *args, int func_no);
+static void compile_cast(struct compiler_state *state, struct jaf_expression *expr);
 
 static void compile_lvalue(struct compiler_state *state, struct jaf_expression *expr)
 {
@@ -705,8 +708,11 @@ static void compile_lvalue(struct compiler_state *state, struct jaf_expression *
 		case AIN_REF_STRING:
 		case AIN_REF_ARRAY_TYPE:
 		case AIN_REF_STRUCT:
-			write_instruction0(state, SH_STRUCTREF);
-			break;
+			if (expr->member.struc->type == JAF_EXP_THIS) {
+				write_instruction1(state, SH_STRUCTREF, expr->member.member_no);
+				break;
+			}
+			// fallthrough
 		default:
 			compile_lvalue(state, expr->member.struc);
 			write_instruction1(state, PUSH, expr->member.member_no);
@@ -730,6 +736,7 @@ static void compile_lvalue(struct compiler_state *state, struct jaf_expression *
 		case AIN_REF_BOOL:
 		case AIN_REF_LONG_INT:
 		case AIN_REF_ENUM:
+		case AIN_IFACE:
 			write_instruction1(state, PUSH, 0);
 			break;
 		case AIN_VOID:
@@ -739,12 +746,22 @@ static void compile_lvalue(struct compiler_state *state, struct jaf_expression *
 		}
 		break;
 	case JAF_EXP_DUMMYREF:
+		// TODO? v11+ compiles call first (except for new)
 		scope_add_variable(state, expr->dummy.var_no);
 		// delete dummy variable
-		write_instruction0(state, PUSHLOCALPAGE);
-		write_instruction1(state, PUSH, expr->dummy.var_no);
-		write_instruction0(state, REF);
-		write_instruction0(state, DELETE);
+		if (AIN_VERSION_GTE(state->ain, 6, 1)) {
+			write_instruction0(state, PUSHLOCALPAGE);
+			write_instruction1(state, PUSH, expr->dummy.var_no);
+			write_instruction0(state, REF);
+			if (AIN_VERSION_GTE(state->ain, 12, 0)) {
+				write_instruction0(state, DELETE);
+			} else {
+				// FIXME: this instruction appears starting in Evenicle.
+				//        Rance 9 and Blade Briders don't use it, but are
+				//        also 6.1
+				write_instruction0(state, CHECKUDO);
+			}
+		}
 		// prepare for assign to dummy variable
 		compile_local_ref(state, expr->dummy.var_no);
 		if (expr->dummy.expr->type == JAF_EXP_NEW) {
@@ -754,6 +771,7 @@ static void compile_lvalue(struct compiler_state *state, struct jaf_expression *
 						expr->dummy.expr->new.func_no);
 				write_instruction2(state, NEW, expr->valuetype.struc,
 						expr->dummy.expr->new.func_no);
+				write_instruction0(state, ASSIGN);
 			} else {
 				write_instruction1(state, PUSH, expr->valuetype.struc);
 				compile_lock_peek(state);
@@ -763,13 +781,22 @@ static void compile_lvalue(struct compiler_state *state, struct jaf_expression *
 			}
 		} else {
 			compile_expression(state, expr->dummy.expr);
-			if (is_ref_scalar(expr->valuetype.data)) {
+			if (is_ref_scalar(expr->valuetype.data) || expr->valuetype.data == AIN_IFACE) {
 				write_instruction0(state, R_ASSIGN);
 			} else {
 				write_instruction0(state, ASSIGN);
 			}
 		}
 		break;
+	case JAF_EXP_CAST: {
+		// cast of struct to interface
+		// e.g. IFace foo() { return new Struct(); } // implicit cast
+		//      ((IFace)new Struct()).iface_method();
+		if (expr->valuetype.data != AIN_IFACE)
+			COMPILER_ERROR(expr, "Invalid cast as lvalue");
+		compile_cast(state, expr);
+		break;
+	}
 	default:
 		COMPILER_ERROR(expr, "Invalid lvalue (expression type %d)", expr->type);
 	}
@@ -895,9 +922,10 @@ static void compile_pop(struct compiler_state *state, enum ain_data_type type)
 }
 
 static bool _compile_cast(struct compiler_state *state, struct jaf_expression *expr,
-		enum ain_data_type dst_type)
+		struct ain_type *dst_t)
 {
 	enum ain_data_type src_type = expr->valuetype.data;
+	enum ain_data_type dst_type = dst_t->data;
 
 	if (src_type == dst_type)
 		return true;
@@ -947,6 +975,20 @@ static bool _compile_cast(struct compiler_state *state, struct jaf_expression *e
 		assert(dst_type == AIN_METHOD);
 		write_instruction1(state, PUSH, -1);
 		write_instruction0(state, SWAP);
+	} else if (src_type == AIN_STRUCT || src_type == AIN_REF_STRUCT) {
+		assert(dst_type == AIN_IFACE);
+		int struct_no = expr->valuetype.struc;
+		int iface_no = dst_t->struc;
+		assert(struct_no >= 0 && struct_no < state->ain->nr_structures);
+		assert(iface_no >= 0 && iface_no < state->ain->nr_structures);
+		struct ain_struct *s = &state->ain->structures[struct_no];
+		for (int i = 0; i < s->nr_interfaces; i++) {
+			if (s->interfaces[i].struct_type == iface_no) {
+				write_instruction1(state, PUSH, s->interfaces[i].vtable_offset);
+				return true;
+			}
+		}
+		return false;
 	} else {
 		return false;
 	}
@@ -1021,6 +1063,20 @@ static void compile_unary(struct compiler_state *state, struct jaf_expression *e
 	}
 }
 
+static void compile_argument(struct compiler_state *state, struct jaf_expression *arg,
+		enum ain_data_type type);
+
+static void compile_property_assign(struct compiler_state *state, struct jaf_expression *expr)
+{
+	int setter_no = expr->lhs->member.setter_no;
+	struct ain_function *m = &state->ain->functions[setter_no];
+	compile_lvalue(state, expr->lhs->member.struc);
+	write_instruction1(state, PUSH, setter_no);
+	compile_argument(state, expr->rhs, m->vars[0].type.data);
+	write_instruction0(state, DUP_X2);
+	write_instruction1(state, CALLMETHOD, 1);
+}
+
 static void compile_binary(struct compiler_state *state, struct jaf_expression *expr)
 {
 	size_t addr[3];
@@ -1084,6 +1140,11 @@ static void compile_binary(struct compiler_state *state, struct jaf_expression *
 		buffer_write_int32_at(&state->out, addr[2], state->out.index);
 		break;
 	case JAF_ASSIGN:
+		if (expr->lhs->type == JAF_EXP_MEMBER && expr->lhs->member.type == JAF_DOT_PROPERTY) {
+			compile_property_assign(state, expr);
+			break;
+		}
+		// fallthrough
 	case JAF_MUL_ASSIGN:
 	case JAF_DIV_ASSIGN:
 	case JAF_MOD_ASSIGN:
@@ -1124,17 +1185,6 @@ static void compile_ternary(struct compiler_state *state, struct jaf_expression 
 	buffer_write_int32_at(&state->out, addr[1], state->out.index);
 }
 
-static bool ain_ref_type(enum ain_data_type type)
-{
-	switch (type) {
-	case AIN_REF_TYPE:
-	case AIN_WRAP:
-		return true;
-	default:
-		return false;
-	}
-}
-
 /*
  * Emit the code for passing an argument to a function by reference.
  * FIXME: need to emit different code if argument is a reference-typed variable
@@ -1154,9 +1204,10 @@ static void compile_reference_argument(struct compiler_state *state, struct jaf_
 	}
 }
 
-static void compile_argument(struct compiler_state *state, struct jaf_expression *arg, enum ain_data_type type)
+static void compile_argument(struct compiler_state *state, struct jaf_expression *arg,
+		enum ain_data_type type)
 {
-	if (ain_ref_type(type)) {
+	if (ain_is_ref_data_type(type)) {
 		compile_reference_argument(state, arg);
 	} else if (type == AIN_DELEGATE) {
 		compile_expression(state, arg);
@@ -1172,6 +1223,18 @@ static void compile_function_arguments(struct compiler_state *state,
 	struct ain_function *f = &state->ain->functions[func_no];
 	for (size_t i = 0; i < args->nr_items; i++) {
 		compile_argument(state, args->items[i], f->vars[args->var_nos[i]].type.data);
+	}
+}
+
+static void compile_interface_call_arguments(struct compiler_state *state,
+		struct jaf_argument_list *args, int iface_no, int method_no)
+{
+	assert(iface_no >= 0 && iface_no < state->ain->nr_structures);
+	struct ain_struct *s = &state->ain->structures[iface_no];
+	assert(method_no >= 0 && method_no < s->nr_iface_methods);
+	struct ain_function_type *f = &s->iface_methods[method_no];
+	for (size_t i = 0; i < args->nr_items; i++) {
+		compile_argument(state, args->items[i], f->variables[args->var_nos[i]].type.data);
 	}
 }
 
@@ -1245,6 +1308,24 @@ static void compile_method_call(struct compiler_state *state, struct jaf_express
 	assert(expr->call.fun->type == JAF_EXP_MEMBER);
 	compile_lvalue(state, expr->call.fun->member.struc);
 	_compile_method_call(state, expr);
+}
+
+static void compile_interface_call(struct compiler_state *state, struct jaf_expression *expr)
+{
+	assert(expr->call.fun->type == JAF_EXP_MEMBER);
+	assert(expr->call.fun->valuetype.data == AIN_IMETHOD);
+	struct jaf_expression *obj = expr->call.fun->member.struc;
+	int method_no = expr->call.func_no;
+	compile_lvalue(state, obj);
+	write_instruction0(state, DUP_U2);
+	write_instruction1(state, PUSH, 0);
+	write_instruction0(state, REF);
+	write_instruction0(state, SWAP);
+	write_instruction1(state, PUSH, method_no);
+	write_instruction0(state, ADD);
+	write_instruction0(state, REF);
+	compile_interface_call_arguments(state, expr->call.args, obj->valuetype.struc, method_no);
+	write_instruction1(state, CALLMETHOD, expr->call.args->nr_items);
 }
 
 static void compile_syscall(struct compiler_state *state, struct jaf_expression *expr)
@@ -1458,7 +1539,7 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 static void compile_cast(struct compiler_state *state, struct jaf_expression *expr)
 {
 	compile_expression(state, expr->cast.expr);
-	if (!_compile_cast(state, expr->cast.expr, expr->valuetype.data)) {
+	if (!_compile_cast(state, expr->cast.expr, &expr->valuetype)) {
 		JAF_ERROR(expr, "Unsupported cast: %s to %s",
 			ain_strtype(state->ain, expr->cast.expr->valuetype.data, -1),
 			jaf_type_to_string(expr->cast.type));
@@ -1468,11 +1549,18 @@ static void compile_cast(struct compiler_state *state, struct jaf_expression *ex
 static void compile_member(struct compiler_state *state, struct jaf_expression *expr)
 {
 	compile_lvalue(state, expr->member.struc);
-	if (expr->valuetype.data == AIN_METHOD) {
-		write_instruction1(state, PUSH, expr->valuetype.struc);
-	} else {
+	switch (expr->member.type) {
+	case JAF_DOT_MEMBER:
 		write_instruction1(state, PUSH, expr->member.member_no);
 		compile_dereference(state, &expr->valuetype);
+		break;
+	case JAF_DOT_METHOD:
+		write_instruction1(state, PUSH, expr->valuetype.struc);
+		break;
+	case JAF_DOT_PROPERTY:
+		write_instruction1(state, PUSH, expr->member.getter_no);
+		write_instruction1(state, CALLMETHOD, 0);
+		break;
 	}
 }
 
@@ -1534,6 +1622,9 @@ static void compile_expression(struct compiler_state *state, struct jaf_expressi
 		break;
 	case JAF_EXP_METHOD_CALL:
 		compile_method_call(state, expr);
+		break;
+	case JAF_EXP_INTERFACE_CALL:
+		compile_interface_call(state, expr);
 		break;
 	case JAF_EXP_SUPER_CALL:
 		compile_super_call(state, expr);
@@ -1677,7 +1768,8 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 	switch (decl->valuetype.data) {
 	case AIN_VOID:
 		COMPILER_ERROR(item, "void variable declaration");
-	case AIN_REF_TYPE: {
+	case AIN_REF_TYPE:
+	case AIN_IFACE: {
 		struct jaf_block_item ref_assign = {
 			.line = item->line,
 			.file = item->file,
@@ -1992,6 +2084,7 @@ static void compile_rassign(struct compiler_state *state, struct jaf_block_item 
 
 	switch (item->rassign.lhs->valuetype.data) {
 	case AIN_REF_SCALAR_TYPE:
+	case AIN_IFACE:
 		// NOTE: SDK compiler emits [DUP_U2; SP_INC; R_ASSIGN; POP; POP] here
 		write_instruction0(state, R_ASSIGN);
 		write_instruction0(state, POP);
@@ -2038,6 +2131,7 @@ static void compile_return(struct compiler_state *state, struct jaf_block_item *
 	case AIN_REF_LONG_INT:
 	case AIN_REF_BOOL:
 	case AIN_REF_FUNC_TYPE:
+	case AIN_IFACE:
 		compile_lvalue(state, item->expr);
 		write_instruction0(state, DUP_U2);
 		write_instruction0(state, SP_INC);
@@ -2076,6 +2170,8 @@ static void compile_statement(struct compiler_state *state, struct jaf_block_ite
 		JAF_ERROR(item, "Functions must be defined at top-level");
 	case JAF_DECL_STRUCT:
 		JAF_ERROR(item, "Structs must be defined at top-level");
+	case JAF_DECL_INTERFACE:
+		JAF_ERROR(item, "Interfaces must be defined at top-level");
 	case JAF_STMT_NULL:
 		break;
 	case JAF_STMT_LABELED:
@@ -2183,6 +2279,7 @@ static void compile_default_return(struct compiler_state *state, enum ain_data_t
 	case AIN_REF_BOOL:
 	case AIN_REF_FLOAT:
 	case AIN_REF_LONG_INT:
+	case AIN_IFACE:
 		write_instruction1(state, PUSH, -1);
 		write_instruction1(state, PUSH, 0);
 		break;

@@ -50,6 +50,7 @@ enum jaf_type {
 	JAF_LONG_INT,
 	JAF_STRING,
 	JAF_STRUCT,
+	JAF_IFACE,
 	JAF_ENUM,
 	JAF_ARRAY,
 	JAF_WRAP,
@@ -82,6 +83,7 @@ enum _ain_type {
 	_AIN_BUILTIN  = 255 - 6, // member: builtin method reference (e.g. "string".Split)
 	_AIN_SUPER    = 255 - 7, // super call - can be either function or method call
 	_AIN_NULLTYPE = 255 - 8, // untyped NULL expression
+	_AIN_IMETHOD  = 255 - 9, // member: interface method reference (e.g. iface.method)
 };
 #define AIN_FUNCTION ((enum ain_data_type)_AIN_FUNCTION)
 #define AIN_LIBRARY  ((enum ain_data_type)_AIN_LIBRARY)
@@ -92,6 +94,7 @@ enum _ain_type {
 #define AIN_BUILTIN  ((enum ain_data_type)_AIN_BUILTIN)
 #define AIN_SUPER    ((enum ain_data_type)_AIN_SUPER)
 #define AIN_NULLTYPE ((enum ain_data_type)_AIN_NULLTYPE)
+#define AIN_IMETHOD  ((enum ain_data_type)_AIN_IMETHOD)
 
 /*
  * Built-in libraries; these are negative to disambiguate between true built-ins
@@ -159,6 +162,7 @@ enum jaf_expression_type {
 	JAF_EXP_SYSCALL,
 	JAF_EXP_HLLCALL,
 	JAF_EXP_METHOD_CALL,
+	JAF_EXP_INTERFACE_CALL,
 	JAF_EXP_BUILTIN_CALL,
 	JAF_EXP_SUPER_CALL,
 	JAF_EXP_NEW,
@@ -255,6 +259,12 @@ enum jaf_ident_type {
 	JAF_IDENT_CONST,
 };
 
+enum jaf_dotted_type {
+	JAF_DOT_MEMBER,
+	JAF_DOT_METHOD,
+	JAF_DOT_PROPERTY,
+};
+
 struct jaf_expression {
 	unsigned line;
 	const char *file;
@@ -309,8 +319,12 @@ struct jaf_expression {
 		struct {
 			struct jaf_expression *struc;
 			struct string *name;
+			enum jaf_dotted_type type;
 			int object_no;
 			int member_no;
+			// properties
+			int getter_no;
+			int setter_no;
 		} member;
 		// sequence
 		struct {
@@ -353,6 +367,7 @@ enum block_item_kind {
 	JAF_DECL_FUNCTYPE,
 	JAF_DECL_DELEGATE,
 	JAF_DECL_STRUCT,
+	JAF_DECL_INTERFACE,
 	//JAF_DECL_ENUM,
 	JAF_STMT_NULL,
 	JAF_STMT_LABELED,
@@ -550,6 +565,7 @@ struct jaf_block_item *jaf_break(void);
 struct jaf_block_item *jaf_return(struct jaf_expression *expr);
 struct jaf_block_item *jaf_message_statement(struct string *msg, struct string *func);
 struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields);
+struct jaf_block_item *jaf_interface(struct string *name, struct jaf_block *methods);
 struct jaf_block_item *jaf_rassign(struct jaf_expression *lhs, struct jaf_expression *rhs);
 struct jaf_block_item *jaf_assert(struct jaf_expression *expr, int line, const char *file);
 void jaf_free_expr(struct jaf_expression *expr);
@@ -604,6 +620,7 @@ void jaf_accept_block(struct jaf_block *block, struct jaf_visitor *visitor);
 
 // jaf_ain.c
 void jaf_define_struct(struct ain *ain, struct jaf_block_item *type);
+void jaf_define_interface(struct ain *ain, struct jaf_block_item *def);
 void jaf_define_functype(struct ain *ain, struct jaf_block_item *item);
 void jaf_define_delegate(struct ain *ain, struct jaf_block_item *item);
 void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_specifier *in);

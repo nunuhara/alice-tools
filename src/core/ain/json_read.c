@@ -229,7 +229,7 @@ static struct ain_interface *read_interface_list(cJSON *decl, int32_t *n)
 		if (cJSON_GetArraySize(v) != 2)
 			ERROR("Wrong size array in interface list");
 		iface[i].struct_type = cJSON_GetArrayItem(v, 0)->valueint;
-		iface[i].uk = cJSON_GetArrayItem(v, 1)->valueint;
+		iface[i].vtable_offset = cJSON_GetArrayItem(v, 1)->valueint;
 	}
 
 	*n = i;
