@@ -103,6 +103,62 @@ struct jaf_env_local *jaf_env_lookup(struct jaf_env *env, const char *name)
 	return NULL;
 }
 
+static int check_iface_method(struct ain *ain, struct ain_function_type *m, struct ain_struct *s)
+{
+	struct string *name = make_string(s->name, strlen(s->name));
+	string_push_back(&name, '@');
+	string_append_cstr(&name, m->name, strlen(m->name));
+	int no = ain_get_function(ain, name->text);
+	free_string(name);
+	return no;
+}
+
+static void jaf_analyze_struct(struct jaf_env *env, struct jaf_block_item *item)
+{
+	assert(item->struc.struct_no >= 0 && item->struc.struct_no < env->ain->nr_structures);
+	struct ain_struct *s = &env->ain->structures[item->struc.struct_no];
+
+	s->nr_interfaces = kv_size(item->struc.interfaces);
+	s->interfaces = xcalloc(s->nr_interfaces, sizeof(struct ain_interface));
+
+	int iface_index = 0;
+	int vtable_offset = 0;
+	struct string *p;
+	kv_foreach(p, item->struc.interfaces) {
+		char *name = conv_output(p->text);
+		int iface_no = ain_get_struct(env->ain, name);
+		free(name);
+		if (iface_no < 0)
+			JAF_ERROR(item, "Undefined interface: %s", p->text);
+		struct ain_struct *iface = &env->ain->structures[iface_no];
+		if (!iface->is_interface)
+			JAF_ERROR(item, "Not an interface: %s", p->text);
+
+		// write interface data to struct
+		s->interfaces[iface_index].struct_type = iface_no;
+		s->interfaces[iface_index].vtable_offset = vtable_offset;
+
+		for (int i = 0; i < iface->nr_iface_methods; i++) {
+			// check that method with correct signature exists for struct
+			int mno = check_iface_method(env->ain, &iface->iface_methods[i], s);
+			if (mno < 0)
+				JAF_ERROR(item, "Interface method not implemented: %s::%s",
+						item->struc.name->text, p->text);
+		}
+
+		iface_index++;
+		vtable_offset += iface->nr_iface_methods;
+	}
+
+	// generate constructor if needed and none were defined
+	if (s->nr_interfaces > 0 && s->constructor <= 0) {
+		struct string *name = string_dup(item->struc.name);
+		struct jaf_block *ctor = jaf_constructor(name, jaf_block(NULL));
+		jaf_process_declarations(env->ain, ctor);
+		item->struc.methods = jaf_merge_blocks(item->struc.methods, ctor);
+	}
+}
+
 /*
  * This function sets up a new scope before the child nodes are analyzed (as required).
  */
@@ -138,6 +194,11 @@ static void jaf_analyze_stmt_post(struct jaf_block_item *stmt, struct jaf_visito
 	case JAF_DECL_VAR:
 		jaf_type_check_vardecl(env, stmt);
 		break;
+	case JAF_DECL_STRUCT:
+		jaf_analyze_struct(env, stmt);
+		break;
+	// TODO: For interfaces that were already defined in input .ain file, check
+	//       that iface declaration is compatible with existing implementations.
 	case JAF_DECL_FUN:
 		if (!stmt->fun.body)
 			break;

@@ -362,10 +362,17 @@ static void jaf_process_function(struct ain *ain, struct jaf_block_item *item)
 		if (decl->name.is_constructor || decl->name.is_destructor) {
 			assert(decl->name.struct_no >= 0 && decl->name.struct_no < ain->nr_structures);
 			struct ain_struct *s = &ain->structures[decl->name.struct_no];
-			if (decl->name.is_constructor)
+			if (decl->name.is_constructor) {
 				s->constructor = decl->func_no;
-			else
+				decl->fun_type = JAF_FUN_CONSTRUCTOR;
+			} else {
 				s->destructor = decl->func_no;
+				decl->fun_type = JAF_FUN_DESTRUCTOR;
+			}
+		} else if (decl->name.struct_no >= 0) {
+			decl->fun_type = JAF_FUN_METHOD;
+		} else {
+			decl->fun_type = JAF_FUN_PROCEDURE;
 		}
 		if (decl->body)
 			f->crc = 1; // XXX: hack to allow checking for multiple definitions
@@ -428,25 +435,40 @@ static void jaf_process_structdef(struct ain *ain, struct jaf_block_item *item)
 	struct ain_struct *s = &ain->structures[item->struc.struct_no];
 
 	struct jaf_block *jaf_members = item->struc.members;
-	struct ain_variable *members = xcalloc(jaf_members->nr_items, sizeof(struct ain_variable));
+	bool need_vtable = kv_size(item->struc.interfaces) > 0;
+	int nr_members = jaf_members->nr_items + (need_vtable ? 1 : 0);
+	struct ain_variable *members = xcalloc(nr_members, sizeof(struct ain_variable));
 
-	for (size_t i = 0; i < jaf_members->nr_items; i++) {
-		if (jaf_members->items[i]->kind != JAF_DECL_VAR)
-			continue;
-
-		members[i].name = conv_output(jaf_members->items[i]->var.name->text);
-		if (ain->version >= 12)
-			members[i].name2 = strdup("");
-
-		jaf_to_ain_type(ain, &members[i].type, jaf_members->items[i]->var.type);
+	// add <vtable> member if necessary
+	unsigned m = 0;
+	if (need_vtable) {
+		members[0].name = xstrdup("<vtable>");
+		if (AIN_VERSION_GTE(ain, 12, 0))
+			members[0].name2 = xstrdup("<vtable>");
+		members[0].type.data = AIN_ARRAY;
+		members[0].type.rank = 1;
+		members[0].type.array_type = xcalloc(1, sizeof(struct ain_type));
+		members[0].type.array_type->data = AIN_INT;
+		m++;
 	}
-	for (size_t i = 0; i < item->struc.methods->nr_items; i++) {
+
+	// process members
+	for (unsigned i = 0; i < jaf_members->nr_items; i++, m++) {
+		assert(jaf_members->items[i]->kind == JAF_DECL_VAR);
+		members[m].name = conv_output(jaf_members->items[i]->var.name->text);
+		if (ain->version >= 12)
+			members[m].name2 = strdup("");
+		jaf_to_ain_type(ain, &members[m].type, jaf_members->items[i]->var.type);
+	}
+
+	// process methods
+	for (unsigned i = 0; i < item->struc.methods->nr_items; i++) {
 		struct jaf_block_item *method = item->struc.methods->items[i];
 		assert(method->kind == JAF_DECL_FUN);
 		jaf_name_prepend(&method->fun.name, string_dup(item->struc.name));
 		jaf_process_function(ain, method);
 	}
-	s->nr_members = jaf_members->nr_items;
+	s->nr_members = nr_members;
 	s->members = members;
 }
 

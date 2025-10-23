@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include "system4.h"
 #include "system4/ain.h"
+#include "kvec.h"
 
 struct port;
 
@@ -400,15 +401,25 @@ struct jaf_vardecl {
 	int var;
 };
 
+enum jaf_fundecl_type {
+	JAF_FUN_PROCEDURE,
+	JAF_FUN_METHOD,
+	JAF_FUN_CONSTRUCTOR,
+	JAF_FUN_DESTRUCTOR,
+};
+
 struct jaf_fundecl {
 	struct jaf_name name;
 	struct jaf_type_specifier *type;
 	struct ain_type valuetype;
 	struct jaf_block *params;
 	struct jaf_block *body;
+	enum jaf_fundecl_type fun_type;
 	int func_no;
 	int super_no;
 };
+
+typedef kvec_t(struct string*) jaf_string_list;
 
 // declaration or statement
 struct jaf_block_item {
@@ -423,6 +434,7 @@ struct jaf_block_item {
 			struct string *name;
 			struct jaf_block *members;
 			struct jaf_block *methods;
+			jaf_string_list interfaces;
 			int struct_no;
 		} struc;
 		struct {
@@ -564,7 +576,8 @@ struct jaf_block_item *jaf_continue(void);
 struct jaf_block_item *jaf_break(void);
 struct jaf_block_item *jaf_return(struct jaf_expression *expr);
 struct jaf_block_item *jaf_message_statement(struct string *msg, struct string *func);
-struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields);
+struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields,
+		jaf_string_list *interfaces);
 struct jaf_block_item *jaf_interface(struct string *name, struct jaf_block *methods);
 struct jaf_block_item *jaf_rassign(struct jaf_expression *lhs, struct jaf_expression *rhs);
 struct jaf_block_item *jaf_assert(struct jaf_expression *expr, int line, const char *file);

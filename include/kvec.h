@@ -91,4 +91,7 @@ int main() {
 			   : 0),					\
 			  (v).a[(i)])
 
+#define kv_foreach(var, vec) \
+	for (__typeof__(var) *__i = (vec).a; (__i - (vec).a < (vec).n) && (var = *__i, true); __i++)
+
 #endif

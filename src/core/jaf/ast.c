@@ -417,6 +417,7 @@ struct jaf_block *jaf_constructor(struct string *name, struct jaf_block *body)
 	type->qualifiers  = JAF_QUAL_CONSTRUCTOR;
 	struct jaf_name jname;
 	jaf_name_init(&jname, name);
+	jaf_name_append(&jname, string_dup(name));
 	struct jaf_function_declarator *decl = jaf_function_declarator(&jname, NULL);
 	return jaf_function(type, decl, body);
 }
@@ -427,10 +428,12 @@ struct jaf_block *jaf_destructor(struct string *name, struct jaf_block *body)
 	type->qualifiers  = JAF_QUAL_DESTRUCTOR;
 	struct string *dname = make_string("~", 1);
 	string_append(&dname, name);
-	free_string(name);
 
 	struct jaf_name jname;
 	jaf_name_init(&jname, dname);
+	jaf_name_append(&jname, string_dup(name));
+	free_string(name);
+
 	struct jaf_function_declarator *decl = jaf_function_declarator(&jname, NULL);
 	return jaf_function(type, decl, body);
 }
@@ -622,7 +625,8 @@ struct jaf_block_item *jaf_return(struct jaf_expression *expr)
 	return item;
 }
 
-struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields)
+struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields,
+		jaf_string_list *interfaces)
 {
 	struct jaf_block_item *p = block_item(JAF_DECL_STRUCT);
 	p->struc.name = name;
@@ -630,6 +634,8 @@ struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields)
 	p->struc.methods = xcalloc(1, sizeof(struct jaf_block));
 	p->struc.members->items = xcalloc(fields->nr_items, sizeof(struct jaf_block_item*));
 	p->struc.methods->items = xcalloc(fields->nr_items, sizeof(struct jaf_block_item*));
+	if (interfaces)
+		p->struc.interfaces = *interfaces;
 	p->struc.struct_no = -1;
 
 	for (unsigned i = 0; i < fields->nr_items; i++) {
@@ -820,11 +826,17 @@ void jaf_free_block_item(struct jaf_block_item *item)
 		ain_free_type(&item->fun.valuetype);
 		break;
 	case JAF_DECL_STRUCT:
-	case JAF_DECL_INTERFACE:
+	case JAF_DECL_INTERFACE: {
 		free_string(item->struc.name);
 		jaf_free_block(item->struc.members);
 		jaf_free_block(item->struc.methods);
+		struct string *p;
+		kv_foreach(p, item->struc.interfaces) {
+			free_string(p);
+		}
+		kv_destroy(item->struc.interfaces);
 		break;
+	}
 	case JAF_STMT_LABELED:
 		free_string(item->label.name);
 		jaf_free_block_item(item->label.stmt);

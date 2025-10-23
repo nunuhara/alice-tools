@@ -183,6 +183,7 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
     struct jaf_block_item *statement;
     struct jaf_function_declarator *fundecl;
     struct jaf_name name;
+    jaf_string_list strlist;
 }
 
 %code requires {
@@ -231,6 +232,7 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %type	<statement>	iteration_statement jump_statement message_statement struct_specifier
 %type	<statement>	interface_specifier rassign_statement assert_statement
 %type	<fundecl>	function_declarator functype_declarator
+%type	<strlist>	interface_list
 
 /*
  * Shift-reduce conflicts:
@@ -455,9 +457,18 @@ type_specifier
 	| TYPEDEF_NAME                                   { $$ = jaf_typedef($1); }
 	;
 
+interface_list
+	: TYPEDEF_NAME                    { kv_init($$); kv_push(struct string*, $$, $1); }
+	| interface_list ',' TYPEDEF_NAME { $$ = $1; kv_push(struct string*, $$, $3); }
+	;
+
 struct_specifier
 	: STRUCT param_identifier '{' struct_declaration_list '}' {
-		$$ = jaf_struct($2, $4);
+		$$ = jaf_struct($2, $4, NULL);
+		jaf_define_struct(jaf_ain_out, $$);
+	}
+	| STRUCT param_identifier ':' interface_list '{' struct_declaration_list '}' {
+		$$ = jaf_struct($2, $6, &$4);
 		jaf_define_struct(jaf_ain_out, $$);
 	}
 	;
