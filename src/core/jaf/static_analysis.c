@@ -221,8 +221,62 @@ static struct jaf_expression *jaf_analyze_expr(struct jaf_expression *expr, stru
 	return jaf_simplify(expr);
 }
 
+static int add_library_function(struct ain_library *lib)
+{
+	lib->functions = xrealloc_array(lib->functions, lib->nr_functions, lib->nr_functions+1,
+			sizeof(struct ain_hll_function));
+	return lib->nr_functions++;
+}
+
+#define HLL_ARG(str, t) \
+	(struct ain_hll_argument) { \
+		.name = xstrdup(str), \
+		.type = { .data = t, .struc = -1 } \
+	}
+
+static void jaf_check_builtin_hll(struct ain *ain)
+{
+	// ensure that Array.Alloc and Array.Free exist, because calls to them are
+	// generated implicitly
+	if (AIN_VERSION_GTE(ain, 11, 0)) {
+		int array_hll = ain_get_library(ain, "Array");
+		if (array_hll < 0)
+			array_hll = ain_add_library(ain, "Array");
+		assert(array_hll >= 0 && array_hll < ain->nr_libraries);
+		struct ain_library *lib = &ain->libraries[array_hll];
+		int alloc_fno = ain_get_library_function(ain, array_hll, "Alloc");
+		if (alloc_fno < 0) {
+			alloc_fno = add_library_function(lib);
+			struct ain_hll_function *f = &lib->functions[alloc_fno];
+			f->name = xstrdup("Alloc");
+			f->return_type.data = AIN_VOID;
+			f->return_type.struc = -1;
+			f->nr_arguments = 5;
+			f->arguments = xcalloc(5, sizeof(struct ain_hll_argument));
+			f->arguments[0] = HLL_ARG("self", AIN_REF_ARRAY);
+			f->arguments[1] = HLL_ARG("Numof", AIN_INT);
+			f->arguments[2] = HLL_ARG("Numof2", AIN_INT);
+			f->arguments[3] = HLL_ARG("Numof3", AIN_INT);
+			f->arguments[4] = HLL_ARG("Numof4", AIN_INT);
+		}
+		int free_fno = ain_get_library_function(ain, array_hll, "Free");
+		if (free_fno < 0) {
+			free_fno = add_library_function(lib);
+			struct ain_hll_function *f = &lib->functions[free_fno];
+			f->name = xstrdup("Free");
+			f->return_type.data = AIN_VOID;
+			f->return_type.struc = -1;
+			f->nr_arguments = 1;
+			f->arguments = xcalloc(1, sizeof(struct ain_hll_argument));
+			f->arguments[0] = HLL_ARG("self", AIN_REF_ARRAY);
+		}
+	}
+}
+
 struct jaf_block *jaf_static_analyze(struct ain *ain, struct jaf_block *block)
 {
+	jaf_check_builtin_hll(ain);
+
 	struct jaf_env env = {
 		.ain = ain,
 		.parent = NULL,
