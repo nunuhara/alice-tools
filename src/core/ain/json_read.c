@@ -101,7 +101,7 @@ static void read_type_declaration(cJSON *decl, struct ain_type *dst)
 		return;
 	if (!cJSON_IsArray(a))
 		ERROR("Non-array in array-type slot");
-	if (!cJSON_GetArraySize(a) == 0)
+	if (cJSON_GetArraySize(a) == 0)
 		return;
 
 	dst->array_type = xcalloc(1, sizeof(struct ain_type));
