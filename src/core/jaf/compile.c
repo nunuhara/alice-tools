@@ -224,16 +224,7 @@ static void end_scope(struct compiler_state *state)
 			// TODO
 		} else if (v->type.data == AIN_STRUCT || v->type.data == AIN_REF_STRUCT
 				|| v->type.data == AIN_IFACE) {
-			// .LOCALDELETE var
-			// TODO: use SH_LOCALDELETE when available
-			write_instruction0(state, PUSHLOCALPAGE);
-			write_instruction1(state, PUSH, scope->vars[i]);
-			write_instruction0(state, DUP2);
-			write_instruction0(state, REF);
-			write_instruction0(state, DELETE);
-			write_instruction1(state, PUSH, -1);
-			write_instruction0(state, ASSIGN);
-			write_instruction0(state, POP);
+			write_instruction1(state, SH_LOCALDELETE, scope->vars[i]);
 		}
 	}
 	free(scope->vars);
