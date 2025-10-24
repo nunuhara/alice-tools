@@ -216,9 +216,6 @@ static void jaf_analyze_stmt_post(struct jaf_block_item *stmt, struct jaf_visito
 
 static struct jaf_expression *jaf_analyze_expr(struct jaf_expression *expr, struct jaf_visitor *visitor)
 {
-	if (expr->type == JAF_EXP_NEW) {
-		visitor->stmt->is_scope = true;
-	}
 	jaf_type_check_expression(visitor->data, expr);
 	return jaf_simplify(expr);
 }
