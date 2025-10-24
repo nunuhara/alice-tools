@@ -126,6 +126,14 @@ static void write_instruction1(struct compiler_state *state, uint16_t opcode, ui
 		write_instruction0(state, PUSHLOCALPAGE);
 		write_instruction1(state, PUSH, arg0);
 		write_instruction0(state, REF);
+	} else if (opcode == SH_LOCALINC && AIN_VERSION_GTE(state->ain, 6, 1)) {
+		write_instruction0(state, PUSHLOCALPAGE);
+		write_instruction1(state, PUSH, arg0);
+		write_instruction0(state, INC);
+	} else if (opcode == SH_LOCALDEC && AIN_VERSION_GTE(state->ain, 6, 1)) {
+		write_instruction0(state, PUSHLOCALPAGE);
+		write_instruction1(state, PUSH, arg0);
+		write_instruction0(state, DEC);
 	} else {
 		write_opcode(state, opcode);
 		write_argument(state, arg0);
