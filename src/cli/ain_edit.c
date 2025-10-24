@@ -40,6 +40,7 @@ enum {
 	LOPT_TRANSCODE,
 	LOPT_OUTPUT,
 	LOPT_RAW,
+	LOPT_NO_VALIDATE,
 	LOPT_AIN_VERSION,
 	LOPT_SILENT,
 };
@@ -124,6 +125,9 @@ int command_ain_edit(int argc, char *argv[])
 			break;
 		case LOPT_RAW:
 			flags |= ASM_RAW;
+			break;
+		case LOPT_NO_VALIDATE:
+			flags |= ASM_NO_VALIDATE;
 			break;
 		case LOPT_AIN_VERSION:
 			if (!parse_version(optarg, &major_version, &minor_version)) {
@@ -219,6 +223,7 @@ struct command cmd_ain_edit = {
 		{ "text",        't', "Update strings/messages",                      required_argument, LOPT_TEXT },
 		{ "ain-version", 0,   "Specify the .ain version",                     required_argument, LOPT_AIN_VERSION },
 		{ "raw",         0,   "Read code in raw mode",                        no_argument,       LOPT_RAW },
+		{ "no-validate", 0,   "Skip validation of .jam code",                 no_argument,       LOPT_NO_VALIDATE },
 		{ "silent",      0,   "Don't write messages to stdout",               no_argument,       LOPT_SILENT },
 		{ "transcode",   0,   "Change the .ain file's text encoding",         required_argument, LOPT_TRANSCODE },
 		{ 0 }

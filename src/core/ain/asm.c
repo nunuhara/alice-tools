@@ -965,7 +965,6 @@ static void _asm_enter_function(struct asm_state *state, int32_t fno)
 
 static void asm_enter_function(struct asm_state *state, int32_t fno)
 {
-	NOTICE("ENTER %d", fno);
 	_asm_enter_function(state, fno);
 	state->ain->functions[fno].address = state->buf_ptr + 6;
 	asm_write_opcode(state, FUNC);
@@ -1125,7 +1124,8 @@ void ain_assemble_jam(const char *filename, struct ain *ain, uint32_t flags)
 	ain->code = state.buf;
 	ain->code_size = state.buf_ptr;
 
-	validate_ain(ain);
+	if (!(flags & ASM_NO_VALIDATE))
+		validate_ain(ain);
 }
 
 /*
@@ -1144,7 +1144,8 @@ void ain_append_jam(const char *filename, struct ain *ain, int32_t flags)
 	ain->code = state.buf;
 	ain->code_size = state.buf_ptr;
 
-	validate_ain(ain);
+	if (!(flags & ASM_NO_VALIDATE))
+		validate_ain(ain);
 }
 
 /*

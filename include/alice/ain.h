@@ -28,7 +28,8 @@ struct instruction;
 struct port;
 
 enum {
-	ASM_RAW        = 1,
+	ASM_RAW         = 1,
+	ASM_NO_VALIDATE = 2,
 };
 
 enum {
