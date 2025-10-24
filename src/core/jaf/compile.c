@@ -2042,8 +2042,8 @@ static void compile_for(struct compiler_state *state, struct jaf_block *init, st
 	write_instruction1(state, JUMP, 0);
 	// loop increment
 	start_loop(state);
-	compile_expression(state, after);
-	compile_pop(state, after->valuetype.data);
+	if (after)
+		compile_expr_and_pop(state, after);
 	write_instruction1(state, JUMP, addr[0]);
 	// loop body
 	buffer_write_int32_at(&state->out, addr[2], state->out.index);
