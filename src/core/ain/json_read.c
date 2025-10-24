@@ -194,6 +194,7 @@ static void read_function_declarations(cJSON *decl, struct ain *ain)
 	ain_free_functions(ain);
 	ain->functions = functions;
 	ain->nr_functions = i;
+	ain_index_functions(ain);
 }
 
 static struct ain_variable *read_variable_declarations(cJSON *decl, int *n)
@@ -548,4 +549,7 @@ void ain_read_json(const char *filename, struct ain *ain)
 		ERROR("Failed to parse JSON file '%s'", filename);
 
 	read_json_declarations(j, ain);
+
+	cJSON_Delete(j);
+	free(buf);
 }
