@@ -508,6 +508,10 @@ interface_specifier
 		$$ = jaf_interface($2, $4);
 		jaf_define_interface(jaf_ain_out, $$);
 	}
+	| INTERFACE IDENTIFIER '{' interface_declaration_list '}' {
+		$$ = jaf_interface($2, $4);
+		jaf_define_interface(jaf_ain_out, $$);
+	}
 	;
 
 interface_declaration_list

@@ -43,14 +43,15 @@ void jaf_define_interface(struct ain *ain, struct jaf_block_item *def)
 	assert(def->kind == JAF_DECL_INTERFACE);
 	assert(def->struc.name);
 
-	// TODO: allow defining new interface types
 	char *name = conv_output(def->struc.name->text);
 	int iface_no = ain_get_struct(ain, name);
-	free(name);
 	if (iface_no < 0) {
-		JAF_ERROR(def, "Defining new interface types not implemented");
+		def->struc.struct_no = ain_add_struct(ain, name);
+		ain->structures[def->struc.struct_no].is_interface = true;
+	} else {
+		def->struc.struct_no = iface_no;
 	}
-	def->struc.struct_no = iface_no;
+	free(name);
 }
 
 void jaf_define_functype(struct ain *ain, struct jaf_block_item *item)
