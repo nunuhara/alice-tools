@@ -94,27 +94,18 @@ static void read_type_declaration(cJSON *decl, struct ain_type *dst)
 		ERROR("Invalid type declaration (array size = %d)", size);
 
 	_read_type_declaration(decl, dst);
-	if (size == 4) {
-		int i;
-		cJSON *v, *a = cJSON_GetArrayItem(decl, 3);
-		if (cJSON_IsNull(a))
-			return;
-		if (!cJSON_IsArray(a))
-			ERROR("Non-array in array-type slot");
-		if (cJSON_GetArraySize(a) == 0)
-			return;
+	if (size != 4)
+		return;
+	cJSON *a = cJSON_GetArrayItem(decl, 3);
+	if (cJSON_IsNull(a))
+		return;
+	if (!cJSON_IsArray(a))
+		ERROR("Non-array in array-type slot");
+	if (!cJSON_GetArraySize(a) == 0)
+		return;
 
-		dst->array_type = xcalloc(cJSON_GetArraySize(a), sizeof(struct ain_variable));
-		cJSON_ArrayForEachIndex(i, v, a) {
-			if (!cJSON_IsArray(v))
-				ERROR("Non-array in array-type list");
-			if (cJSON_GetArraySize(v) != 3)
-				ERROR("Invalid type declaration (array size = %d)", cJSON_GetArraySize(v));
-			_read_type_declaration(v, &dst->array_type[i]);
-			dst->array_type[i].array_type = &dst->array_type[i+1];
-		}
-		dst->array_type[i-1].array_type = NULL;
-	}
+	dst->array_type = xcalloc(1, sizeof(struct ain_type));
+	read_type_declaration(a, dst->array_type);
 }
 
 static void read_variable_declaration(cJSON *decl, struct ain_variable *dst)
