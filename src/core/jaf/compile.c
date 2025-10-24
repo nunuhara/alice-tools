@@ -881,13 +881,28 @@ static void compile_constant_identifier(struct compiler_state *state, struct jaf
 
 static void compile_identifier(struct compiler_state *state, struct jaf_expression *expr)
 {
+	assert(expr->ident.kind != JAF_IDENT_UNRESOLVED);
 	if (expr->ident.kind == JAF_IDENT_CONST) {
 		compile_constant_identifier(state, expr);
 		return;
 	}
 	struct ain_variable *var = get_identifier_variable(state, expr);
-	compile_identifier_ref(state, expr);
-	compile_dereference(state, &var->type);
+	switch (var->type.data) {
+	case AIN_INT:
+	case AIN_FLOAT:
+	case AIN_BOOL:
+	case AIN_LONG_INT:
+	case AIN_FUNC_TYPE:
+		if (expr->ident.kind == JAF_IDENT_LOCAL)
+			write_instruction1(state, SH_LOCALREF, expr->ident.local->var);
+		else
+			write_instruction1(state, SH_GLOBALREF, expr->ident.global);
+		break;
+	default:
+		compile_identifier_ref(state, expr);
+		compile_dereference(state, &var->type);
+		break;
+	}
 }
 
 /*
@@ -2395,6 +2410,7 @@ static void compile_function(struct compiler_state *state, struct jaf_fundecl *d
 {
 	assert(decl->func_no >= 0 && decl->func_no < state->ain->nr_functions);
 	struct ain_function *f = &state->ain->functions[decl->func_no];
+	f->crc = 0;
 
 	if (decl->fun_type == JAF_FUN_CONSTRUCTOR && struct_needs_alloc(state, f->struct_type)) {
 		compile_ctor_with_alloc(state, decl);
