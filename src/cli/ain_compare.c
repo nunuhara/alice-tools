@@ -601,7 +601,7 @@ static void ain_compare(struct ain *a, struct ain *b)
 
 int command_ain_compare(int argc, char *argv[])
 {
-	initialize_instructions();
+	initialize_instructions(4);
 
 	int err;
 	struct ain *a, *b;

@@ -73,7 +73,6 @@ static void push_input(enum input_type type, const char *filename)
 
 int command_ain_edit(int argc, char *argv[])
 {
-	initialize_instructions();
 	struct ain *ain;
 	int err = AIN_SUCCESS;
 	char *project_file = NULL;
@@ -148,6 +147,8 @@ int command_ain_edit(int argc, char *argv[])
 	if (argc > 1) {
 		USAGE_ERROR(&cmd_ain_edit, "Too many arguments.");
 	}
+
+	initialize_instructions(major_version);
 
 	if (project_file) {
 		WARNING("'ain edit -p' is deprecated, and will be removed in a future version");

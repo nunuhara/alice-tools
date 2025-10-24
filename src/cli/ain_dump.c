@@ -303,7 +303,7 @@ enum {
 
 int command_ain_dump(int argc, char *argv[])
 {
-	initialize_instructions();
+	initialize_instructions(4);
 	set_input_encoding("CP932");
 	set_output_encoding("UTF-8");
 
