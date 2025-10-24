@@ -265,6 +265,7 @@ static void read_structure_declarations(cJSON *decl, struct ain *ain)
 	ain_free_structures(ain);
 	ain->structures = structs;
 	ain->nr_structures = i;
+	ain_index_structures(ain);
 }
 
 static void read_library_declaration(cJSON *decl, struct ain_library *dst)
