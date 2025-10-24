@@ -32,9 +32,10 @@ enum {
 };
 
 enum {
-	DASM_RAW = 1,
-	DASM_NO_MACROS = 2,
-	DASM_WARN_ON_ERROR = 4,
+	DASM_NO_IDENTIFIERS = 1, // don't print identifiers
+	DASM_LABEL_ALL = 2,      // label every bytecode instruction
+	DASM_NO_MACROS = 4,      // don't output macros
+	DASM_WARN_ON_ERROR = 8,
 };
 
 #define DASM_ERROR(dasm, fmt, ...) ERROR("At 0x%x: " fmt, dasm->addr, ##__VA_ARGS__)

@@ -259,7 +259,7 @@ static void print_hll_function_name(struct dasm_state *dasm, struct ain_library 
 
 static void print_argument(struct dasm_state *dasm, int32_t arg, enum instruction_argtype type, possibly_unused const char **comment)
 {
-	if (dasm->flags & DASM_RAW) {
+	if (dasm->flags & DASM_NO_IDENTIFIERS) {
 		port_printf(dasm->port, "0x%x", arg);
 		return;
 	}
@@ -533,7 +533,7 @@ static void dasm_leave_function(struct dasm_state *dasm)
 
 static void print_instruction(struct dasm_state *dasm)
 {
-	if (dasm->flags & DASM_RAW)
+	if (dasm->flags & DASM_LABEL_ALL)
 		port_printf(dasm->port, "0x%08zX:\t", dasm->addr);
 
 	switch (dasm->instr->opcode) {
@@ -590,7 +590,7 @@ static void generate_labels(struct dasm_state *dasm)
 {
 	jump_table_init();
 
-	if (!(dasm->flags & DASM_RAW)) {
+	if (!(dasm->flags & DASM_LABEL_ALL)) {
 		for (dasm->addr = 0; dasm->addr < dasm->ain->code_size;) {
 			const struct instruction *instr = dasm_get_instruction(dasm);
 			for (int i = 0; i < instr->nr_args; i++) {

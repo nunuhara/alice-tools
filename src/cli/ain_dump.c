@@ -297,6 +297,8 @@ enum {
 	LOPT_DECRYPT,
 	LOPT_MAP,
 	LOPT_NO_MACROS,
+	LOPT_NO_IDENTIFIERS,
+	LOPT_LABEL_ADDRESSES,
 };
 
 int command_ain_dump(int argc, char *argv[])
@@ -328,7 +330,7 @@ int command_ain_dump(int argc, char *argv[])
 		case 'C':
 		case LOPT_RAW_CODE:
 			dump_targets[dump_ptr++] = LOPT_CODE;
-			flags |= DASM_RAW;
+			flags |= DASM_NO_IDENTIFIERS | DASM_LABEL_ALL;
 			break;
 		case 'j':
 		case LOPT_JSON:
@@ -425,6 +427,12 @@ int command_ain_dump(int argc, char *argv[])
 		case LOPT_NO_MACROS:
 			flags |= DASM_NO_MACROS;
 			break;
+		case LOPT_NO_IDENTIFIERS:
+			flags |= DASM_NO_IDENTIFIERS;
+			break;
+		case LOPT_LABEL_ADDRESSES:
+			flags |= DASM_LABEL_ALL;
+			break;
 		}
 	}
 	argc -= optind;
@@ -454,7 +462,8 @@ int command_ain_dump(int argc, char *argv[])
 	if (output != stdout) {
 		char *tmp = strdup(output_file);
 		char *dir = dirname(tmp);
-		chdir(dir);
+		if (chdir(dir))
+			ALICE_ERROR("chdir failed: %s", strerror(errno));
 		free(tmp);
 	}
 
@@ -529,6 +538,8 @@ struct command cmd_ain_dump = {
 		{ "decrypt",            'd', "Dump decrypted .ain file",                      no_argument,       LOPT_DECRYPT },
 		{ "map",                0,   "Dump ain file map",                             no_argument,       LOPT_MAP },
 		{ "no-macros",          0,   "Don't use macros in code output",               no_argument,       LOPT_NO_MACROS },
+		{ "no-identifiers",     0,   "Don't use identifiers in code output",          no_argument,       LOPT_NO_IDENTIFIERS },
+		{ "label-addresses",    0,   "Label all bytecode addresses in code output",   no_argument,       LOPT_LABEL_ADDRESSES },
 		{ 0 }
 	}
 };
