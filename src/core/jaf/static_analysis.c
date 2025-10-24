@@ -154,6 +154,7 @@ static void jaf_analyze_struct(struct jaf_env *env, struct jaf_block_item *item)
 	if (s->nr_interfaces > 0 && s->constructor <= 0) {
 		struct string *name = string_dup(item->struc.name);
 		struct jaf_block *ctor = jaf_constructor(name, jaf_block(NULL));
+		jaf_name_append(&ctor->items[0]->fun.name, string_dup(name));
 		jaf_process_declarations(env->ain, ctor);
 		item->struc.methods = jaf_merge_blocks(item->struc.methods, ctor);
 	}
