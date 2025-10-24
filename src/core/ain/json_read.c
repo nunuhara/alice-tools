@@ -538,6 +538,7 @@ void ain_read_json(const char *filename, struct ain *ain)
 	buf = xmalloc(len + 1);
 	if (fread(buf, len, 1, f) != 1)
 		ERROR("Failed to read '%s': %s", filename, strerror(errno));
+	buf[len] = '\0';
 
 	if (fclose(f))
 		ERROR("Failed to close '%s': %s", filename, strerror(errno));
