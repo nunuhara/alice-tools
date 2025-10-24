@@ -1023,7 +1023,10 @@ static void compile_unary(struct compiler_state *state, struct jaf_expression *e
 		break;
 	case JAF_UNARY_MINUS:
 		compile_expression(state, expr->expr);
-		write_instruction0(state, INV);
+		if (expr->valuetype.data == AIN_FLOAT)
+			write_instruction0(state, F_INV);
+		else
+			write_instruction0(state, INV);
 		break;
 	case JAF_BIT_NOT:
 		compile_expression(state, expr->expr);
