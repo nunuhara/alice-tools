@@ -465,7 +465,6 @@ static void jaf_process_structdef(struct ain *ain, struct jaf_block_item *item)
 	for (unsigned i = 0; i < item->struc.methods->nr_items; i++) {
 		struct jaf_block_item *method = item->struc.methods->items[i];
 		assert(method->kind == JAF_DECL_FUN);
-		jaf_name_prepend(&method->fun.name, string_dup(item->struc.name));
 		jaf_process_function(ain, method);
 	}
 	s->nr_members = nr_members;

@@ -414,27 +414,17 @@ struct jaf_block *jaf_function(struct jaf_type_specifier *type, struct jaf_funct
 struct jaf_block *jaf_constructor(struct string *name, struct jaf_block *body)
 {
 	struct jaf_type_specifier *type = jaf_type(JAF_VOID);
-	type->qualifiers  = JAF_QUAL_CONSTRUCTOR;
-	struct jaf_name jname;
-	jaf_name_init(&jname, name);
-	jaf_name_append(&jname, string_dup(name));
-	struct jaf_function_declarator *decl = jaf_function_declarator(&jname, NULL);
+	struct jaf_function_declarator *decl = jaf_function_declarator_simple(name, NULL);
 	return jaf_function(type, decl, body);
 }
 
 struct jaf_block *jaf_destructor(struct string *name, struct jaf_block *body)
 {
 	struct jaf_type_specifier *type = jaf_type(JAF_VOID);
-	type->qualifiers  = JAF_QUAL_DESTRUCTOR;
 	struct string *dname = make_string("~", 1);
 	string_append(&dname, name);
-
-	struct jaf_name jname;
-	jaf_name_init(&jname, dname);
-	jaf_name_append(&jname, string_dup(name));
 	free_string(name);
-
-	struct jaf_function_declarator *decl = jaf_function_declarator(&jname, NULL);
+	struct jaf_function_declarator *decl = jaf_function_declarator_simple(dname, NULL);
 	return jaf_function(type, decl, body);
 }
 
@@ -642,6 +632,8 @@ struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields,
 		if (fields->items[i]->kind == JAF_DECL_VAR) {
 			p->struc.members->items[p->struc.members->nr_items++] = fields->items[i];
 		} else if (fields->items[i]->kind == JAF_DECL_FUN) {
+			struct jaf_fundecl *decl = &fields->items[i]->fun;
+			jaf_name_prepend(&decl->name, string_dup(name));
 			p->struc.methods->items[p->struc.methods->nr_items++] = fields->items[i];
 		} else {
 			_JAF_ERROR(jaf_file, jaf_line, "Unhandled declaration type in struct definition");

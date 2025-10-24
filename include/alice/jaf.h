@@ -144,9 +144,7 @@ enum jaf_type_qualifier {
 	JAF_QUAL_CONST       = 1,
 	JAF_QUAL_REF         = 2,
 	//JAF_QUAL_ARRAY       = 4,
-	JAF_QUAL_CONSTRUCTOR = 8,
-	JAF_QUAL_DESTRUCTOR  = 16,
-	JAF_QUAL_OVERRIDE    = 32,
+	JAF_QUAL_OVERRIDE    = 8,
 };
 
 enum jaf_expression_type {
