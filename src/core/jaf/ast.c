@@ -403,7 +403,7 @@ struct jaf_block *jaf_function(struct jaf_type_specifier *type, struct jaf_funct
 	p->nr_items = 1;
 	p->items = xmalloc(sizeof(struct jaf_block_item*));
 	p->items[0] = block_item(JAF_DECL_FUN);
-	p->items[0]->fun.type = type;
+	p->items[0]->fun.type = type ? type : jaf_type(JAF_VOID);
 	p->items[0]->fun.name = decl->name;
 	p->items[0]->fun.params = decl->params;
 	p->items[0]->fun.body = body;

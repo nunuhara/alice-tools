@@ -695,10 +695,12 @@ functype_parameter_declaration
 
 function_definition
 	: declaration_specifiers function_declarator compound_statement { $$ = jaf_function($1, $2, $3); }
+	| function_declarator compound_statement  { $$ = jaf_function(NULL, $1, $2); }
 	;
 
 function_declaration
 	: declaration_specifiers function_declarator ';' { $$ = jaf_function($1, $2, NULL); }
+	| function_declarator ';' { $$ = jaf_function(NULL, $1, NULL); }
 	;
 
 function_declarator
