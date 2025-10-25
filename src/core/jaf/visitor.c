@@ -15,7 +15,92 @@
  */
 
 #include <assert.h>
+#include <string.h>
 #include "alice/jaf.h"
+#include "system4/string.h"
+
+/*
+ * Create a new empty scope.
+ */
+struct jaf_env *jaf_env_push(struct jaf_env *parent)
+{
+	struct jaf_env *newenv = xcalloc(1, sizeof(struct jaf_env));
+	newenv->ain = parent->ain;
+	newenv->parent = parent;
+	newenv->func_no = parent->func_no;
+	newenv->fundecl = parent->fundecl;
+	return newenv;
+}
+
+/*
+ * Discard the current scope and return to the parent scope.
+ */
+struct jaf_env *jaf_env_pop(struct jaf_env *env)
+{
+	struct jaf_env *parent = env->parent;
+	free(env->locals);
+	free(env);
+	return parent;
+}
+
+/*
+ * Create a new scope for the body of a function call.
+ */
+struct jaf_env *jaf_env_push_function(struct jaf_env *parent, struct jaf_fundecl *decl)
+{
+	// create new scope with function arguments
+	struct jaf_env *funenv = jaf_env_push(parent);
+	funenv->func_no = decl->func_no;
+	funenv->fundecl = decl;
+	funenv->nr_locals = decl->params ? decl->params->nr_items : 0;
+	if (funenv->nr_locals) {
+		funenv->locals = xcalloc(funenv->nr_locals, sizeof(struct jaf_env_local));
+		for (size_t i = 0; i < funenv->nr_locals; i++) {
+			struct jaf_block_item *param = decl->params->items[i];
+			assert(param->kind == JAF_DECL_VAR);
+			funenv->locals[i].name = param->var.name->text;
+			funenv->locals[i].decl = &param->var;
+		}
+	}
+
+	return funenv;
+}
+
+void jaf_env_add_local(struct jaf_env *env, struct jaf_vardecl *decl)
+{
+	env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+1,
+				     sizeof(struct jaf_env_local));
+	env->locals[env->nr_locals++] = (struct jaf_env_local) {
+		.name = decl->name->text,
+		.decl = decl,
+	};
+}
+
+static struct jaf_env_local *jaf_scope_lookup(struct jaf_env *env, const char *name)
+{
+	for (size_t i = 0; i < env->nr_locals; i++) {
+		if (!strcmp(env->locals[i].name, name)) {
+			return &env->locals[i];
+		}
+	}
+	return NULL;
+}
+
+struct jaf_env_local *jaf_env_lookup(struct jaf_env *env, const char *name)
+{
+	struct jaf_env *scope = env;
+        while (scope) {
+		struct jaf_env_local *v = jaf_scope_lookup(scope, name);
+		if (v) {
+			return v;
+		}
+		scope = scope->parent;
+	}
+	return NULL;
+}
+
+static struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr,
+		struct jaf_visitor *visitor);
 
 static void jaf_accept_arglist(struct jaf_argument_list *args, struct jaf_visitor *visitor)
 {
@@ -27,7 +112,8 @@ static void jaf_accept_arglist(struct jaf_argument_list *args, struct jaf_visito
 /*
  * NOTE: Supports rewriting expressions via modified return value.
  */
-struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr, struct jaf_visitor *visitor)
+static struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr,
+		struct jaf_visitor *visitor)
 {
 	if (!expr || (!visitor->visit_expr_pre && !visitor->visit_expr_post))
 		return expr;
@@ -99,10 +185,26 @@ struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr, struct jaf_v
 	return expr;
 }
 
-void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
+static void _jaf_accept_block(struct jaf_block *block, struct jaf_visitor *visitor);
+
+static void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
 {
 	if (!stmt)
 		return;
+
+	switch (stmt->kind) {
+	case JAF_DECL_FUN:
+		if (stmt->fun.body)
+			visitor->env = jaf_env_push_function(visitor->env, &stmt->fun);
+		break;
+	case JAF_STMT_COMPOUND:
+	case JAF_STMT_SWITCH:
+	case JAF_STMT_FOR:
+		visitor->env = jaf_env_push(visitor->env);
+		break;
+	default:
+		break;
+	}
 
 	if (visitor->visit_stmt_pre) {
 		visitor->stmt = stmt;
@@ -122,21 +224,21 @@ void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
 	case JAF_DECL_FUN:
 	case JAF_DECL_FUNCTYPE:
 	case JAF_DECL_DELEGATE:
-		jaf_accept_block(stmt->fun.params, visitor);
-		jaf_accept_block(stmt->fun.body, visitor);
+		_jaf_accept_block(stmt->fun.params, visitor);
+		_jaf_accept_block(stmt->fun.body, visitor);
 		break;
 	case JAF_DECL_STRUCT:
-		jaf_accept_block(stmt->struc.members, visitor);
-		jaf_accept_block(stmt->struc.methods, visitor);
+		_jaf_accept_block(stmt->struc.members, visitor);
+		_jaf_accept_block(stmt->struc.methods, visitor);
 		break;
 	case JAF_DECL_INTERFACE:
-		jaf_accept_block(stmt->struc.methods, visitor);
+		_jaf_accept_block(stmt->struc.methods, visitor);
 		break;
 	case JAF_STMT_LABELED:
 		jaf_accept_stmt(stmt->label.stmt, visitor);
 		break;
 	case JAF_STMT_COMPOUND:
-		jaf_accept_block(stmt->block, visitor);
+		_jaf_accept_block(stmt->block, visitor);
 		break;
 	case JAF_STMT_EXPRESSION:
 		stmt->expr = jaf_accept_expr(stmt->expr, visitor);
@@ -148,7 +250,7 @@ void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
 		break;
 	case JAF_STMT_SWITCH:
 		stmt->swi.expr = jaf_accept_expr(stmt->swi.expr, visitor);
-		jaf_accept_block(stmt->swi.body, visitor);
+		_jaf_accept_block(stmt->swi.body, visitor);
 		break;
 	case JAF_STMT_WHILE:
 	case JAF_STMT_DO_WHILE:
@@ -156,7 +258,7 @@ void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
 		jaf_accept_stmt(stmt->while_loop.body, visitor);
 		break;
 	case JAF_STMT_FOR:
-		jaf_accept_block(stmt->for_loop.init, visitor);
+		_jaf_accept_block(stmt->for_loop.init, visitor);
 		stmt->for_loop.test = jaf_accept_expr(stmt->for_loop.test, visitor);
 		stmt->for_loop.after = jaf_accept_expr(stmt->for_loop.after, visitor);
 		jaf_accept_stmt(stmt->for_loop.body, visitor);
@@ -193,13 +295,42 @@ void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
 		visitor->stmt = stmt;
 		visitor->visit_stmt_post(stmt, visitor);
 	}
+
+	switch (stmt->kind) {
+	case JAF_DECL_VAR:
+		if (visitor->env->parent && !(stmt->var.type->qualifiers & JAF_QUAL_CONST))
+			jaf_env_add_local(visitor->env, &stmt->var);
+		break;
+	case JAF_DECL_FUN:
+		if (!stmt->fun.body)
+			break;
+		// fallthrough
+	case JAF_STMT_COMPOUND:
+	case JAF_STMT_SWITCH:
+	case JAF_STMT_FOR:
+		visitor->env = jaf_env_pop(visitor->env);
+		break;
+	default:
+		break;
+	}
 }
 
-void jaf_accept_block(struct jaf_block *block, struct jaf_visitor *visitor)
+static void _jaf_accept_block(struct jaf_block *block, struct jaf_visitor *visitor)
 {
 	if (!block)
 		return;
 	for (size_t i = 0; i < block->nr_items; i++) {
 		jaf_accept_stmt(block->items[i], visitor);
 	}
+}
+
+void jaf_accept_block(struct ain *ain, struct jaf_block *block, struct jaf_visitor *visitor)
+{
+	if (!block)
+		return;
+
+	struct jaf_env env = { .ain = ain };
+	visitor->env = &env;
+	_jaf_accept_block(block, visitor);
+	free(env.locals);
 }

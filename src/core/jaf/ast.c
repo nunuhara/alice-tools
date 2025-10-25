@@ -888,6 +888,7 @@ void jaf_free_block_item(struct jaf_block_item *item)
 		jaf_free_expr(item->assertion.file);
 		break;
 	}
+	kv_destroy(item->delete_vars);
 	free(item);
 }
 

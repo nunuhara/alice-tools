@@ -148,5 +148,5 @@ void jaf_resolve_types(struct ain *ain, struct jaf_block *block)
 		.visit_expr_post = jaf_resolve_expression_types,
 		.data = ain,
 	};
-	jaf_accept_block(block, &visitor);
+	jaf_accept_block(ain, block, &visitor);
 }

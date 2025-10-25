@@ -45,7 +45,7 @@ struct label {
 };
 
 struct scope {
-	size_t nr_vars;
+	int nr_vars;
 	int *vars;
 };
 
@@ -207,6 +207,27 @@ static void start_scope(struct compiler_state *state)
 	state->nr_scopes++;
 }
 
+static void compile_local_ref(struct compiler_state *state, int var_no);
+static void compile_delete_var(struct compiler_state *state, int var_no)
+{
+	struct ain_function *f = &state->ain->functions[state->func_no];
+	struct ain_variable *v = &f->vars[var_no];
+	switch (v->type.data) {
+	case AIN_STRUCT:
+	case AIN_ARRAY:
+	case AIN_REF_TYPE:
+	case AIN_IFACE:
+		write_instruction1(state, SH_LOCALDELETE, var_no);
+		break;
+	case AIN_ARRAY_TYPE:
+		compile_local_ref(state, var_no);
+		write_instruction0(state, A_FREE);
+		break;
+	default:
+		break;
+	}
+}
+
 static void end_scope(struct compiler_state *state)
 {
 	struct scope *scope = &state->scopes[--state->nr_scopes];
@@ -217,15 +238,8 @@ static void end_scope(struct compiler_state *state)
 		return;
 	}
 
-	for (size_t i = 0; i < scope->nr_vars; i++) {
-		struct ain_function *f = &state->ain->functions[state->func_no];
-		struct ain_variable *v = &f->vars[scope->vars[i]];
-		if (v->type.data == AIN_ARRAY || v->type.data == AIN_REF_ARRAY) {
-			// TODO
-		} else if (v->type.data == AIN_STRUCT || v->type.data == AIN_REF_STRUCT
-				|| v->type.data == AIN_IFACE) {
-			write_instruction1(state, SH_LOCALDELETE, scope->vars[i]);
-		}
+	for (int i = scope->nr_vars - 1; i >= 0; i--) {
+		compile_delete_var(state, scope->vars[i]);
 	}
 	free(scope->vars);
 }
@@ -1951,6 +1965,10 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 	}
 
 	switch (decl->valuetype.data) {
+	case AIN_STRUCT:
+	case AIN_ARRAY:
+	case AIN_ARRAY_TYPE:
+	case AIN_IFACE:
 	case AIN_REF_TYPE:
 		scope_add_variable(state, decl->var);
 		break;
@@ -2175,6 +2193,10 @@ static void compile_statement(struct compiler_state *state, struct jaf_block_ite
 {
 	if (item->is_scope) {
 		start_scope(state);
+	}
+
+	for (int i = (int)kv_size(item->delete_vars) - 1; i >= 0; i--) {
+		compile_delete_var(state, kv_A(item->delete_vars, i)->var);
 	}
 
 	switch (item->kind) {

@@ -84,9 +84,7 @@ static void write_variable_type(struct ain_buffer *out, struct ain *ain, struct 
 	write_int32(out, t->rank);
 
 	if (ain_is_array_data_type(t->data)) {
-		for (int i = 0; i < t->rank; i++) {
-			write_variable_type(out, ain, &t->array_type[i]);
-		}
+		write_variable_type(out, ain, t->array_type);
 	}
 }
 

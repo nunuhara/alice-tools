@@ -61,7 +61,7 @@ static struct jaf_block *insert_eof(struct ain *ain, struct jaf_block *block, co
     int file_no = ain_add_file(ain, basename(filename));
     free(filename);
 
-    struct jaf_block_item *eof = xmalloc(sizeof(struct jaf_block_item));
+    struct jaf_block_item *eof = xcalloc(1, sizeof(struct jaf_block_item));
     eof->kind = JAF_EOF;
     eof->file_no = file_no;
     return jaf_block_append(block, eof);

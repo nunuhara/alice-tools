@@ -399,6 +399,8 @@ struct jaf_vardecl {
 	int var;
 };
 
+typedef kvec_t(struct jaf_vardecl*) jaf_var_set;
+
 enum jaf_fundecl_type {
 	JAF_FUN_PROCEDURE,
 	JAF_FUN_METHOD,
@@ -424,6 +426,7 @@ struct jaf_block_item {
 	unsigned line;
 	const char *file;
 	bool is_scope;
+	jaf_var_set delete_vars;
 	enum block_item_kind kind;
 	union {
 		struct jaf_vardecl var;
@@ -623,11 +626,10 @@ struct jaf_visitor {
 	struct jaf_expression*(*visit_expr_post)(struct jaf_expression*, struct jaf_visitor*);
 	struct jaf_block_item *stmt;
 	struct jaf_expression *expr;
+	struct jaf_env *env;
 	void *data;
 };
-warn_unused struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr, struct jaf_visitor *visitor);
-void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *visitor);
-void jaf_accept_block(struct jaf_block *block, struct jaf_visitor *visitor);
+void jaf_accept_block(struct ain *ain, struct jaf_block *block, struct jaf_visitor *visitor);
 
 // jaf_ain.c
 void jaf_define_struct(struct ain *ain, struct jaf_block_item *type);

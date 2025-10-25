@@ -1963,7 +1963,6 @@ static void analyze_local_declaration(struct jaf_env *env, struct jaf_block_item
 		type_check_initval(env, &decl->valuetype, decl->init);
 	}
 	analyze_array_allocation(env, item);
-	jaf_env_add_local(env, decl);
 }
 
 static void analyze_message(struct jaf_env *env, struct jaf_block_item *item)
