@@ -203,7 +203,7 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %token	<token>		CONST OVERRIDE THIS SYM_NEW ASSERT SYM_NULL
 %token	<token>		BOOL CHAR INT LINT FLOAT VOID STRING INTP FLOATP HLL_PARAM HLL_FUNC HLL_FUNC_71
 %token	<token>		STRUCT UNION ENUM ELLIPSIS SYM_TRUE SYM_FALSE IMAIN_SYSTEM HLL_STRUCT
-%token	<token>		INTERFACE
+%token	<token>		INTERFACE PUBLIC PRIVATE
 
 %token	CASE DEFAULT IF ELSE SYM_SWITCH WHILE DO FOR GOTO CONTINUE BREAK SYM_RETURN
 
@@ -496,6 +496,8 @@ struct_declaration
 	| IDENTIFIER '(' ')' ';'                                        { $$ = jaf_constructor($1, NULL); }
 	| '~' IDENTIFIER '(' ')' compound_statement                     { $$ = jaf_destructor($2, $5); }
 	| '~' IDENTIFIER '(' ')' ';'                                    { $$ = jaf_destructor($2, NULL); }
+	| PUBLIC ':' struct_declaration                                 { $$ = $3; }
+	| PRIVATE ':' struct_declaration                                { $$ = $3; }
 	;
 
 struct_declarator_list

@@ -90,6 +90,8 @@ unsigned long jaf_line = 1;
 "struct"				{ return(STRUCT); }
 "class"					{ return(STRUCT); }
 "interface"				{ return(INTERFACE); }
+"public"				{ return(PUBLIC); }
+"private"				{ return(PRIVATE); }
 "switch"				{ return(SYM_SWITCH); }
 "union"					{ return(UNION); }
 "void"					{ return(VOID); }
