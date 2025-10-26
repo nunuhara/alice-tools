@@ -135,6 +135,7 @@ struct jaf_expression *jaf_char(struct string *text)
 
 void jaf_name_init(struct jaf_name *name, struct string *str)
 {
+	memset(name, 0, sizeof(struct jaf_name));
 	name->nr_parts = 1;
 	name->parts = xmalloc(sizeof(struct string*));
 	name->parts[0] = str;
