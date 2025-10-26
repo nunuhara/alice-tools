@@ -29,12 +29,14 @@
 #include "alice/ain.h"
 #include "alice/project.h"
 #include "cli.h"
+#include "kvec.h"
 
 enum {
 	LOPT_PROJECT = 256,
 	LOPT_CODE,
 	LOPT_JAM,
 	LOPT_JAF,
+	LOPT_HLL,
 	LOPT_JSON,
 	LOPT_TEXT,
 	LOPT_TRANSCODE,
@@ -71,6 +73,20 @@ static void push_input(enum input_type type, const char *filename)
 	};
 }
 
+typedef kvec_t(char*) hll_list;
+
+static void push_hll(hll_list *list, const char *file)
+{
+	char *filename = xstrdup(file);
+	char *libname = xstrdup(path_basename(file));
+	char *ext = strrchr(libname, '.');
+	if (ext)
+		*ext = '\0';
+
+	kv_push(char*, *list, filename);
+	kv_push(char*, *list, libname);
+}
+
 int command_ain_edit(int argc, char *argv[])
 {
 	struct ain *ain;
@@ -81,6 +97,7 @@ int command_ain_edit(int argc, char *argv[])
 	int minor_version = 0;
 	bool transcode = false;
 	uint32_t flags = 0;
+	hll_list hlls = {0};
 
 	set_input_encoding("UTF-8");
 	set_output_encoding("CP932");
@@ -104,6 +121,9 @@ int command_ain_edit(int argc, char *argv[])
 			break;
 		case LOPT_JAF:
 			push_input(IN_JAF, optarg);
+			break;
+		case LOPT_HLL:
+			push_hll(&hlls, optarg);
 			break;
 		case 'j':
 		case LOPT_JSON:
@@ -190,7 +210,7 @@ int command_ain_edit(int argc, char *argv[])
 			ain_append_jam(inputs[i].filename, ain, flags);
 			break;
 		case IN_JAF:
-			jaf_build(ain, &inputs[i].filename, 1, NULL, 0);
+			jaf_build(ain, &inputs[i].filename, 1, (const char**)kv_data(hlls), kv_size(hlls));
 			break;
 		case IN_TEXT:
 			ain_read_text(inputs[i].filename, ain);
@@ -205,6 +225,12 @@ write_ain_file:
 	NOTICE("Writing AIN file...");
 	ain_write(output_file, ain);
 	ain_free(ain);
+
+	char *p;
+	kv_foreach(p, hlls) {
+		free(p);
+	}
+	kv_destroy(hlls);
 	return 0;
 }
 
@@ -219,6 +245,7 @@ struct command cmd_ain_edit = {
 		{ "code",        'c', "Update the CODE section (assemble .jam file)", required_argument, LOPT_CODE },
 		{ "jam",         0,   "Append to the CODE section",                   required_argument, LOPT_JAM },
 		{ "jaf",         0,   "Update .ain file from .jaf source code",       required_argument, LOPT_JAF },
+		{ "hll",         0,   "Include HLL declarations for .jaf code",       required_argument, LOPT_HLL },
 		{ "json",        'j', "Update .ain file from json data",              required_argument, LOPT_JSON },
 		{ "project",     'p', "Build .ain from project file (deprecated)",    required_argument, LOPT_PROJECT },
 		{ "text",        't', "Update strings/messages",                      required_argument, LOPT_TEXT },
