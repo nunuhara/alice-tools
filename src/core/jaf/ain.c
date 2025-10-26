@@ -222,23 +222,3 @@ void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_spec
 		out->array_type = NULL;
 	}
 }
-
-void jaf_to_initval(struct ain_initval *dst, struct jaf_expression *expr)
-{
-	switch (expr->type) {
-	case JAF_EXP_INT:
-		dst->data_type = AIN_INT;
-		dst->int_value = expr->i;
-		break;
-	case JAF_EXP_FLOAT:
-		dst->data_type = AIN_FLOAT;
-		dst->float_value = expr->f;
-		break;
-	case JAF_EXP_STRING:
-		dst->data_type = AIN_STRING;
-		dst->string_value = strdup(expr->s->text);
-		break;
-	default:
-		JAF_ERROR(expr, "Initval is not constant");
-	}
-}

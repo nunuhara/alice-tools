@@ -1921,6 +1921,36 @@ static void type_check_initval(struct jaf_env *env, struct ain_type *t, struct j
 	}
 }
 
+static void jaf_to_initval(struct ain_initval *dst, struct ain *ain, struct jaf_expression *expr)
+{
+	switch (expr->type) {
+	case JAF_EXP_INT:
+		dst->data_type = AIN_INT;
+		dst->int_value = expr->i;
+		break;
+	case JAF_EXP_FLOAT:
+		dst->data_type = AIN_FLOAT;
+		dst->float_value = expr->f;
+		break;
+	case JAF_EXP_STRING:
+		dst->data_type = AIN_STRING;
+		dst->string_value = strdup(expr->s->text);
+		break;
+	case JAF_EXP_IDENTIFIER: {
+		char *name = conv_output(expr->ident.name->text);
+		int no = ain_get_global(ain, name);
+		if (no < 0)
+			JAF_ERROR(expr, "Unresolved identifier in initval");
+		dst->data_type = AIN_INT;
+		dst->int_value = no;
+		free(name);
+		break;
+	}
+	default:
+		JAF_ERROR(expr, "Initval is not constant");
+	}
+}
+
 static void analyze_const_declaration(struct jaf_env *env, struct jaf_block_item *item)
 {
 	struct jaf_vardecl *decl = &item->var;
@@ -1934,7 +1964,7 @@ static void analyze_const_declaration(struct jaf_env *env, struct jaf_block_item
 				     sizeof(struct jaf_env_local));
 	env->locals[env->nr_locals].name = decl->name->text;
 	env->locals[env->nr_locals].is_const = true;
-	jaf_to_initval(&env->locals[env->nr_locals].val, decl->init);
+	jaf_to_initval(&env->locals[env->nr_locals].val, env->ain, decl->init);
 	env->nr_locals++;
 }
 
@@ -1951,7 +1981,7 @@ static void analyze_global_declaration(struct jaf_env *env, struct jaf_block_ite
 	int g_no = ain_get_global(env->ain, decl->name->text);
 	assert(g_no >= 0);
 	int no = ain_add_initval(env->ain, g_no);
-	jaf_to_initval(&env->ain->global_initvals[no], decl->init);
+	jaf_to_initval(&env->ain->global_initvals[no], env->ain, decl->init);
 	analyze_array_allocation(env, item);
 }
 

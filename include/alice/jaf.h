@@ -638,7 +638,6 @@ void jaf_define_functype(struct ain *ain, struct jaf_block_item *item);
 void jaf_define_delegate(struct ain *ain, struct jaf_block_item *item);
 void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_specifier *in);
 enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type);
-void jaf_to_initval(struct ain_initval *dst, struct jaf_expression *expr);
 
 // jaf_error.c
 const char *jaf_type_to_string(enum jaf_type type);
