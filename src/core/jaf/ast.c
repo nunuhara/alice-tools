@@ -397,16 +397,24 @@ struct jaf_function_declarator *jaf_function_declarator_simple(struct string *st
 	return jaf_function_declarator(&name, params);
 }
 
-struct jaf_block *jaf_function(struct jaf_type_specifier *type, struct jaf_function_declarator *decl, struct jaf_block *body)
+struct jaf_block_item *_jaf_function(struct jaf_type_specifier *type, struct jaf_name *name,
+		struct jaf_block *params, struct jaf_block *body)
+{
+	struct jaf_block_item *item = block_item(JAF_DECL_FUN);
+	item->fun.type = type ? type : jaf_type(JAF_VOID);
+	item->fun.name = *name;
+	item->fun.params = params;
+	item->fun.body = body;
+	return item;
+}
+
+struct jaf_block *jaf_function(struct jaf_type_specifier *type,
+		struct jaf_function_declarator *decl, struct jaf_block *body)
 {
 	struct jaf_block *p = xmalloc(sizeof(struct jaf_block));
 	p->nr_items = 1;
 	p->items = xmalloc(sizeof(struct jaf_block_item*));
-	p->items[0] = block_item(JAF_DECL_FUN);
-	p->items[0]->fun.type = type ? type : jaf_type(JAF_VOID);
-	p->items[0]->fun.name = decl->name;
-	p->items[0]->fun.params = decl->params;
-	p->items[0]->fun.body = body;
+	p->items[0] = _jaf_function(type, &decl->name, decl->params, body);
 	free(decl);
 	return p;
 }
@@ -682,6 +690,108 @@ struct jaf_block_item *jaf_assert(struct jaf_expression *expr, int line, const c
 	item->assertion.line = line;
 	item->assertion.file = jaf_string(make_string(file, strlen(file)));
 	return item;
+}
+
+static struct jaf_argument_list *jaf_copy_argument_list(struct jaf_argument_list *args)
+{
+	struct jaf_argument_list *out = xmalloc(sizeof(struct jaf_argument_list));
+	out->nr_items = args->nr_items;
+	out->items = xmalloc(args->nr_items * sizeof(struct jaf_expression*));
+	out->var_nos = xmalloc(args->nr_items * sizeof(int));
+	for (int i = 0; i < args->nr_items; i++) {
+		out->items[i] = jaf_copy_expression(args->items[i]);
+	}
+	memcpy(out->var_nos, args->var_nos, args->nr_items * sizeof(int));
+	return out;
+}
+
+static struct jaf_type_specifier *jaf_copy_type_specifier(struct jaf_type_specifier *type)
+{
+	if (!type)
+		return NULL;
+	struct jaf_type_specifier *out = xmalloc(sizeof(struct jaf_type_specifier));
+	*out = *type;
+	if (type->name)
+		out->name = string_dup(type->name);
+	if (type->array_type)
+		out->array_type = jaf_copy_type_specifier(type->array_type);
+	return out;
+}
+
+struct jaf_expression *jaf_copy_expression(struct jaf_expression *e)
+{
+	if (!e)
+		return NULL;
+
+	struct jaf_expression *out = xmalloc(sizeof(struct jaf_expression));
+	*out = *e;
+
+	switch (e->type) {
+	case JAF_EXP_VOID:
+	case JAF_EXP_INT:
+	case JAF_EXP_FLOAT:
+	case JAF_EXP_THIS:
+	case JAF_EXP_NULL:
+		break;
+	case JAF_EXP_STRING:
+	case JAF_EXP_CHAR:
+		out->s = string_dup(e->s);
+		break;
+	case JAF_EXP_IDENTIFIER:
+		out->ident.name = string_dup(e->ident.name);
+		if (e->ident.kind == JAF_IDENT_CONST) {
+			if (e->ident.constval.data_type == AIN_STRING) {
+				out->ident.constval.string_value =
+					xstrdup(e->ident.constval.string_value);
+			}
+		}
+		break;
+	case JAF_EXP_UNARY:
+		out->expr = jaf_copy_expression(e->expr);
+		break;
+	case JAF_EXP_BINARY:
+		out->lhs = jaf_copy_expression(e->lhs);
+		out->rhs = jaf_copy_expression(e->rhs);
+		break;
+	case JAF_EXP_TERNARY:
+		out->condition = jaf_copy_expression(e->condition);
+		out->consequent = jaf_copy_expression(e->consequent);
+		out->alternative = jaf_copy_expression(e->alternative);
+		break;
+	case JAF_EXP_FUNCALL:
+	case JAF_EXP_SYSCALL:
+	case JAF_EXP_HLLCALL:
+	case JAF_EXP_METHOD_CALL:
+	case JAF_EXP_INTERFACE_CALL:
+	case JAF_EXP_BUILTIN_CALL:
+	case JAF_EXP_SUPER_CALL:
+		out->call.fun = jaf_copy_expression(e->call.fun);
+		out->call.args = jaf_copy_argument_list(e->call.args);
+		break;
+	case JAF_EXP_NEW:
+		out->new.type = jaf_copy_type_specifier(e->new.type);
+		out->new.args = jaf_copy_argument_list(e->new.args);
+		break;
+	case JAF_EXP_CAST:
+		out->cast.expr = jaf_copy_expression(e->cast.expr);
+		break;
+	case JAF_EXP_MEMBER:
+		out->member.struc = jaf_copy_expression(e->member.struc);
+		out->member.name = string_dup(e->member.name);
+		break;
+	case JAF_EXP_SEQ:
+		out->seq.head = jaf_copy_expression(e->seq.head);
+		out->seq.tail = jaf_copy_expression(e->seq.tail);
+		break;
+	case JAF_EXP_SUBSCRIPT:
+		out->subscript.expr = jaf_copy_expression(e->subscript.expr);
+		out->subscript.index = jaf_copy_expression(e->subscript.index);
+		break;
+	case JAF_EXP_DUMMYREF:
+		out->dummy.expr = jaf_copy_expression(e->dummy.expr);
+		break;
+	}
+	return out;
 }
 
 static void jaf_free_name(struct jaf_name name)

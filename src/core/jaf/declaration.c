@@ -700,6 +700,138 @@ static void jaf_process_global(struct ain *ain, struct jaf_vardecl *decl)
 	jaf_to_ain_type(ain, &ain->globals[decl->var].type, decl->type);
 }
 
+static jaf_var_set block_get_array_allocs(struct jaf_block *block)
+{
+	jaf_var_set vars = {0};
+	for (unsigned i = 0; i < block->nr_items; i++) {
+		if (block->items[i]->kind == JAF_DECL_VAR && block->items[i]->var.array_dims) {
+			kv_push(struct jaf_vardecl*, vars, &block->items[i]->var);
+		}
+	}
+	return vars;
+}
+
+static int struct_nr_iface_methods(struct ain *ain, struct ain_struct *s)
+{
+	int count = 0;
+	for (int i = 0; i < s->nr_interfaces; i++) {
+		int iface_no = s->interfaces[i].struct_type;
+		assert(iface_no >= 0 && iface_no < ain->nr_structures);
+		count += ain->structures[iface_no].nr_iface_methods;
+	}
+	return count;
+}
+
+static int get_struct_method_no(struct ain *ain, struct ain_struct *impl,
+		const char *method_name)
+{
+	struct string *name = make_string(impl->name, strlen(impl->name));
+	string_push_back(&name, '@');
+	string_append_cstr(&name, method_name, strlen(method_name));
+	int mno = ain_get_function(ain, name->text);
+	free_string(name);
+	if (mno <= 0)
+		_COMPILER_ERROR(NULL, -1, "Undefined method: %s", name->text);
+	return mno;
+}
+
+static struct jaf_block_item *array_int_assign_stmt(struct string *name, int i, int v)
+{
+	struct jaf_expression *obj = jaf_member_expr(jaf_this(), string_dup(name));
+	struct jaf_expression *sub = jaf_subscript_expr(obj, jaf_integer(i));
+	struct jaf_expression *assign = jaf_binary_expr(JAF_ASSIGN, sub, jaf_integer(v));
+	return jaf_expression_statement(assign);
+}
+
+static struct jaf_expression *var_expr(struct string *name, bool global)
+{
+	if (global)
+		return jaf_identifier(string_dup(name));
+	return jaf_member_expr(jaf_this(), string_dup(name));
+}
+
+static struct jaf_block_item *array_alloc_stmt_v11(struct ain *ain, struct jaf_vardecl *decl,
+		bool global)
+{
+	if (decl->type->rank > 4)
+		_JAF_ERROR(NULL, -1, "Invalid array rank: %u", decl->type->rank);
+
+	struct jaf_expression *var = var_expr(decl->name, global);
+	struct jaf_expression *func = jaf_member_expr(var, make_string("Alloc", 5));
+
+	struct jaf_argument_list *dims = NULL;
+	for (unsigned i = 0; i < decl->type->rank; i++) {
+		dims = jaf_args(dims, jaf_copy_expression(decl->array_dims[i]));
+	}
+	for (unsigned i = decl->type->rank; i < 4; i++) {
+		dims = jaf_args(dims, jaf_integer(-1));
+	}
+	return jaf_expression_statement(jaf_function_call(func, dims));
+}
+
+static struct jaf_block_item *array_alloc_stmt(struct ain *ain, struct jaf_vardecl *decl,
+		bool global)
+{
+	if (AIN_VERSION_GTE(ain, 11, 0))
+		return array_alloc_stmt_v11(ain, decl, global);
+
+	struct jaf_expression *var = var_expr(decl->name, global);
+	struct jaf_expression *func = jaf_member_expr(var, make_string("Alloc", 5));
+
+	struct jaf_argument_list *dims = NULL;
+	for (unsigned i = 0; i < decl->type->rank; i++) {
+		dims = jaf_args(dims, jaf_copy_expression(decl->array_dims[i]));
+	}
+
+	return jaf_expression_statement(jaf_function_call(func, dims));
+}
+
+static struct jaf_block *vtable_initializer(struct ain *ain, struct ain_struct *s)
+{
+	struct string *vtable = make_string("<vtable>", 8);
+	int nr_iface_methods = struct_nr_iface_methods(ain, s);
+	struct jaf_expression *var = jaf_member_expr(jaf_this(), vtable);
+	struct jaf_expression *func = jaf_member_expr(var, make_string("Alloc", 5));
+	struct jaf_argument_list *args = jaf_args(NULL, jaf_integer(nr_iface_methods));
+	args = jaf_args(args, jaf_integer(-1));
+	args = jaf_args(args, jaf_integer(-1));
+	args = jaf_args(args, jaf_integer(-1));
+	struct jaf_expression *call = jaf_function_call(func, args);
+	struct jaf_block *block = jaf_block(jaf_expression_statement(call));
+
+	for (int i = 0, vno = 0; i < s->nr_interfaces; i++) {
+		int iface_no = s->interfaces[i].struct_type;
+		assert(iface_no >= 0 && iface_no < ain->nr_structures);
+		struct ain_struct *iface = &ain->structures[s->interfaces[i].struct_type];
+		for (int m = 0; m < iface->nr_iface_methods; m++, vno++) {
+			int mno = get_struct_method_no(ain, s, iface->iface_methods[m].name);
+			block = jaf_block_append(block, array_int_assign_stmt(vtable, vno, mno));
+		}
+	}
+	return block;
+}
+
+static struct jaf_block *array_initializers(struct ain *ain, jaf_var_set *vars, bool global)
+{
+	struct jaf_block *block = jaf_block(NULL);
+	struct jaf_vardecl *v;
+	kv_foreach(v, *vars) {
+		block = jaf_block_append(block, array_alloc_stmt(ain, v, global));
+	}
+
+	return block;
+}
+
+static int check_iface_method(struct ain *ain, struct ain_function_type *m, struct ain_struct *s)
+{
+	struct string *name = make_string(s->name, strlen(s->name));
+	string_push_back(&name, '@');
+	string_append_cstr(&name, m->name, strlen(m->name));
+	int no = ain_get_function(ain, name->text);
+	free_string(name);
+	return no;
+}
+
 static void jaf_process_structdef(struct ain *ain, struct jaf_block_item *item)
 {
 	assert(item->struc.struct_no >= 0);
@@ -724,6 +856,8 @@ static void jaf_process_structdef(struct ain *ain, struct jaf_block_item *item)
 		m++;
 	}
 
+	bool need_alloc = need_vtable;
+
 	// process members
 	for (unsigned i = 0; i < jaf_members->nr_items; i++, m++) {
 		assert(jaf_members->items[i]->kind == JAF_DECL_VAR);
@@ -731,16 +865,84 @@ static void jaf_process_structdef(struct ain *ain, struct jaf_block_item *item)
 		if (ain->version >= 12)
 			members[m].name2 = strdup("");
 		jaf_to_ain_type(ain, &members[m].type, jaf_members->items[i]->var.type);
+		if (jaf_members->items[i]->var.array_dims)
+			need_alloc = true;
 	}
 
 	// process methods
+	struct jaf_block_item *ctor = NULL;
 	for (unsigned i = 0; i < item->struc.methods->nr_items; i++) {
 		struct jaf_block_item *method = item->struc.methods->items[i];
 		assert(method->kind == JAF_DECL_FUN);
 		jaf_process_function(ain, method);
+		if (method->fun.fun_type == JAF_FUN_CONSTRUCTOR)
+			ctor = method;
 	}
 	s->nr_members = nr_members;
 	s->members = members;
+
+	// process interfaces
+	s->nr_interfaces = kv_size(item->struc.interfaces);
+	s->interfaces = xcalloc(s->nr_interfaces, sizeof(struct ain_interface));
+
+	int iface_index = 0;
+	int vtable_offset = 0;
+	struct string *p;
+	kv_foreach(p, item->struc.interfaces) {
+		char *name = conv_output(p->text);
+		int iface_no = ain_get_struct(ain, name);
+		free(name);
+		if (iface_no < 0)
+			JAF_ERROR(item, "Undefined interface: %s", p->text);
+		struct ain_struct *iface = &ain->structures[iface_no];
+		if (!iface->is_interface)
+			JAF_ERROR(item, "Not an interface: %s", p->text);
+
+		// write interface data to struct
+		s->interfaces[iface_index].struct_type = iface_no;
+		s->interfaces[iface_index].vtable_offset = vtable_offset;
+
+		for (int i = 0; i < iface->nr_iface_methods; i++) {
+			// check that method with correct signature exists for struct
+			int mno = check_iface_method(ain, &iface->iface_methods[i], s);
+			if (mno < 0)
+				JAF_ERROR(item, "Interface method not implemented: %s::%s",
+						item->struc.name->text, p->text);
+		}
+
+		iface_index++;
+		vtable_offset += iface->nr_iface_methods;
+	}
+
+	if (need_alloc) {
+		// generate initializer function
+		jaf_var_set vars = block_get_array_allocs(item->struc.members);
+		struct jaf_block *body = array_initializers(ain, &vars, false);
+		kv_destroy(vars);
+		if (need_vtable) {
+			struct jaf_block *vtable = vtable_initializer(ain, s);
+			body = jaf_merge_blocks(vtable, body);
+		}
+
+		struct string *fname;
+		if (ctor) {
+			// name of fun is struct::2
+			fname = make_string("2", 1);
+		} else {
+			// name of fun is struct::struct (translated to struct::0 elsewhere)
+			fname = string_dup(item->struc.name);
+		}
+
+		// add alloc fun to method list
+		struct jaf_name mname;
+		jaf_name_init(&mname, string_dup(item->struc.name));
+		jaf_name_append(&mname, fname);
+		struct jaf_block_item *alloc_fun = _jaf_function(NULL, &mname, NULL, body);
+		item->struc.methods = jaf_block_append(item->struc.methods, alloc_fun);
+
+		// process
+		jaf_process_function(ain, alloc_fun);
+	}
 }
 
 static void jaf_process_interface_method(struct ain *ain, struct ain_function_type *ft,
@@ -768,8 +970,50 @@ static void jaf_process_interface(struct ain *ain, struct jaf_block_item *item)
 	}
 }
 
+static void jaf_process_global_allocs(struct ain *ain, struct jaf_block *block)
+{
+	// TODO: in v12+, GSET section is not present and we have to initialize
+	//       all globals here
+	jaf_var_set allocs = block_get_array_allocs(block);
+	if (kv_size(allocs) == 0)
+		return;
+
+	struct jaf_name name;
+	jaf_name_init(&name, make_string("0", 1));
+	struct jaf_type_specifier *type = jaf_type(JAF_VOID);
+	struct jaf_block *body = jaf_block(NULL);
+
+	// if "0" function already exists, override it
+	int alloc_no = ain_get_function(ain, "0");
+	if (alloc_no > 0) {
+		// add override qualifier
+		type->qualifiers = JAF_QUAL_OVERRIDE;
+		// begin body with call to super()
+		struct jaf_expression *super = jaf_identifier(make_string("super", 5));
+		struct jaf_expression *call = jaf_function_call(super, NULL);
+		body = jaf_block_append(body, jaf_expression_statement(call));
+	}
+
+	// generate array initializers
+	body = jaf_merge_blocks(body, array_initializers(ain, &allocs, true));
+	// add function to toplevel
+	struct jaf_block_item *alloc_fun = _jaf_function(type, &name, NULL, body);
+	jaf_block_append(block, alloc_fun);
+	// process function
+	jaf_process_function(ain, alloc_fun);
+
+	kv_destroy(allocs);
+}
+
 void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
 {
+	// process interfaces first so that method list is availble when
+	// processing structs that implement interfaces
+	for (size_t i = 0; i < block->nr_items; i++) {
+		if (block->items[i]->kind == JAF_DECL_INTERFACE)
+			jaf_process_interface(ain, block->items[i]);
+	}
+
 	for (size_t i = 0; i < block->nr_items; i++) {
 		switch (block->items[i]->kind) {
 		case JAF_DECL_VAR:
@@ -782,10 +1026,12 @@ void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
 			//      new function index generated by the override.
 			if (block->items[i]->fun.super_no) {
 				for (size_t j = 0; j < i; j++) {
-					if (block->items[j]->kind != JAF_DECL_FUN)
+					struct jaf_block_item *item_i = block->items[i];
+					struct jaf_block_item *item_j = block->items[j];
+					if (item_j->kind != JAF_DECL_FUN)
 						continue;
-					if (block->items[j]->fun.func_no == block->items[i]->fun.func_no) {
-						block->items[j]->fun.func_no = block->items[i]->fun.super_no;
+					if (item_j->fun.func_no == item_i->fun.func_no) {
+						item_j->fun.func_no = item_i->fun.super_no;
 					}
 				}
 			}
@@ -800,8 +1046,6 @@ void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
 			jaf_process_structdef(ain, block->items[i]);
 			break;
 		case JAF_DECL_INTERFACE:
-			jaf_process_interface(ain, block->items[i]);
-			break;
 		case JAF_EOF:
 			break;
 		default:
@@ -809,6 +1053,8 @@ void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
 				  block->items[i]->kind);
 		}
 	}
+
+	jaf_process_global_allocs(ain, block);
 }
 
 static void _jaf_process_hll_declaration(struct ain *ain, struct jaf_fundecl *decl, struct ain_hll_function *f)

@@ -2329,105 +2329,16 @@ static void compile_default_return(struct compiler_state *state, enum ain_data_t
 	}
 }
 
-static int struct_nr_iface_methods(struct ain *ain, struct ain_struct *s)
+static int get_alloc_fun(struct ain *ain, struct ain_function *ctor)
 {
-	int count = 0;
-	for (int i = 0; i < s->nr_interfaces; i++) {
-		int iface_no = s->interfaces[i].struct_type;
-		assert(iface_no >= 0 && iface_no < ain->nr_structures);
-		count += ain->structures[iface_no].nr_iface_methods;
-	}
-	return count;
-}
-
-static int get_struct_method_no(struct ain *ain, struct ain_struct *impl,
-		const char *method_name)
-{
-	struct string *name = make_string(impl->name, strlen(impl->name));
-	string_push_back(&name, '@');
-	string_append_cstr(&name, method_name, strlen(method_name));
-	int mno = ain_get_function(ain, name->text);
-	free_string(name);
-	if (mno <= 0)
-		_COMPILER_ERROR(NULL, -1, "Undefined method: %s", name->text);
-	return mno;
-}
-
-static void compile_ctor_with_alloc(struct compiler_state *state, struct jaf_fundecl *decl)
-{
-	struct ain_function *f = &state->ain->functions[decl->func_no];
-	struct ain_struct *s = &state->ain->structures[f->struct_type];
-
-	struct string *name = make_string(s->name, strlen(s->name));
-	string_append_cstr(&name, "@2", 2);
-	int alloc_fno = ain_add_function(state->ain, name->text);
-	free_string(name);
-
-	// XXX: ain_add_function can invalidate `f`
-	f = &state->ain->functions[decl->func_no];
-	struct ain_function *alloc_f = &state->ain->functions[alloc_fno];
-
-	// constructor
-	start_function(state, decl->func_no, decl->super_no);
-	write_instruction1(state, FUNC, decl->func_no);
-	f->address = state->out.index;
-	write_instruction1(state, CALLFUNC, alloc_fno);
-	compile_block(state, decl->body);
-	compile_default_return(state, f->return_type.data);
-	write_instruction0(state, RETURN);
-	write_instruction1(state, ENDFUNC, decl->func_no);
-	end_function(state);
-
-	// allocator
-	start_function(state, alloc_fno, -1);
-	write_instruction1(state, FUNC, alloc_fno);
-	alloc_f->address = state->out.index;
-
-	int nr_iface_methods = struct_nr_iface_methods(state->ain, s);
-	if (nr_iface_methods > 0) {
-		// allocate <vtable>
-		write_instruction0(state, PUSHSTRUCTPAGE);
-		write_instruction1(state, PUSH, 0);
-		write_instruction0(state, REF);
-		write_instruction0(state, DUP);
-		write_instruction1(state, PUSH, nr_iface_methods);
-		write_instruction1(state, PUSH, -1);
-		write_instruction1(state, PUSH, -1);
-		write_instruction1(state, PUSH, -1);
-		int array_hll = ain_get_library(state->ain, "Array");
-		int array_fno = ain_get_library_function(state->ain, array_hll, "Alloc");
-		write_instruction3(state, CALLHLL, array_hll, array_fno, AIN_INT);
-		// write interface methods to <vtable>
-		for (int i = 0, vno = 0; i < s->nr_interfaces; i++) {
-			int iface_no = s->interfaces[i].struct_type;
-			assert(iface_no >= 0 && iface_no < state->ain->nr_structures);
-			struct ain_struct *iface = &state->ain->structures[s->interfaces[i].struct_type];
-			for (int m = 0; m < iface->nr_iface_methods; m++, vno++) {
-				int mno = get_struct_method_no(state->ain, s,
-						iface->iface_methods[m].name);
-				write_instruction0(state, DUP);
-				write_instruction1(state, PUSH, vno);
-				write_instruction1(state, PUSH, mno);
-				write_instruction0(state, ASSIGN);
-				write_instruction0(state, POP);
-			}
-		}
-		write_instruction0(state, POP);
-	}
-
-	// TODO: allocate arrays, etc.
-
-	write_instruction0(state, RETURN);
-	write_instruction1(state, ENDFUNC, alloc_fno);
-	end_function(state);
-}
-
-static bool struct_needs_alloc(struct compiler_state *state, int struct_no)
-{
-	struct ain_struct *s = &state->ain->structures[struct_no];
-	if (s->nr_interfaces > 0)
-		return true;
-	return false;
+	char *alloc_name = xstrdup(ctor->name);
+	size_t len = strlen(alloc_name);
+	assert(len > 0);
+	assert(alloc_name[len-1] == '0');
+	alloc_name[len-1] = '2';
+	int no = ain_get_function(ain, alloc_name);
+	free(alloc_name);
+	return no;
 }
 
 static void compile_function(struct compiler_state *state, struct jaf_fundecl *decl)
@@ -2436,14 +2347,16 @@ static void compile_function(struct compiler_state *state, struct jaf_fundecl *d
 	struct ain_function *f = &state->ain->functions[decl->func_no];
 	f->crc = 0;
 
-	if (decl->fun_type == JAF_FUN_CONSTRUCTOR && struct_needs_alloc(state, f->struct_type)) {
-		compile_ctor_with_alloc(state, decl);
-		return;
-	}
-
 	start_function(state, decl->func_no, decl->super_no);
 	write_instruction1(state, FUNC, decl->func_no);
 	f->address = state->out.index;
+	if (decl->fun_type == JAF_FUN_CONSTRUCTOR) {
+		int alloc_no = get_alloc_fun(state->ain, f);
+		if (alloc_no > 0) {
+			write_instruction0(state, PUSHSTRUCTPAGE);
+			write_instruction1(state, CALLMETHOD, alloc_no);
+		}
+	}
 	compile_block(state, decl->body);
 	compile_default_return(state, f->return_type.data);
 	write_instruction0(state, RETURN);

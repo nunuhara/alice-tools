@@ -555,7 +555,10 @@ struct jaf_function_declarator *jaf_function_declarator(struct jaf_name *name, s
 struct jaf_function_declarator *jaf_function_declarator_simple(struct string *str,
 		struct jaf_block *params);
 struct jaf_block *jaf_parameter(struct jaf_type_specifier *type, struct jaf_declarator *declarator);
-struct jaf_block *jaf_function(struct jaf_type_specifier *type, struct jaf_function_declarator *decl, struct jaf_block *body);
+struct jaf_block_item *_jaf_function(struct jaf_type_specifier *type, struct jaf_name *name,
+		struct jaf_block *params, struct jaf_block *body);
+struct jaf_block *jaf_function(struct jaf_type_specifier *type,
+		struct jaf_function_declarator *decl, struct jaf_block *body);
 struct jaf_block *jaf_constructor(struct string *name, struct jaf_block *body);
 struct jaf_block *jaf_destructor(struct string *name, struct jaf_block *body);
 struct jaf_block *jaf_vardecl(struct jaf_type_specifier *type, struct jaf_declarator_list *declarators);
@@ -582,6 +585,7 @@ struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields,
 struct jaf_block_item *jaf_interface(struct string *name, struct jaf_block *methods);
 struct jaf_block_item *jaf_rassign(struct jaf_expression *lhs, struct jaf_expression *rhs);
 struct jaf_block_item *jaf_assert(struct jaf_expression *expr, int line, const char *file);
+struct jaf_expression *jaf_copy_expression(struct jaf_expression *e);
 void jaf_free_expr(struct jaf_expression *expr);
 void jaf_free_block(struct jaf_block *block);
 
