@@ -1,0 +1,131 @@
+
+; assign
+; ARG  0: a : int
+; RETURN: void
+FUNC 1
+	.LOCALASSIGN a 42
+	RETURN
+ENDFUNC assign
+
+; plusa
+; ARG  0: a : int
+; RETURN: void
+FUNC 2
+	.LOCALPLUSA a 42
+	RETURN
+ENDFUNC plusa
+
+; minusa
+; ARG  0: a : int
+; RETURN: void
+FUNC 3
+	.LOCALMINUSA a 42
+	RETURN
+ENDFUNC minusa
+
+; mula
+; ARG  0: a : int
+; RETURN: void
+FUNC 4
+	PUSHLOCALPAGE
+	PUSH 0
+	PUSH 42
+	MULA
+	POP
+	RETURN
+ENDFUNC mula
+
+; diva
+; ARG  0: a : int
+; RETURN: void
+FUNC 5
+	PUSHLOCALPAGE
+	PUSH 0
+	PUSH 42
+	DIVA
+	POP
+	RETURN
+ENDFUNC diva
+
+; moda
+; ARG  0: a : int
+; RETURN: void
+FUNC 6
+	PUSHLOCALPAGE
+	PUSH 0
+	PUSH 42
+	MODA
+	POP
+	RETURN
+ENDFUNC moda
+
+; anda
+; ARG  0: a : int
+; RETURN: void
+FUNC 7
+	PUSHLOCALPAGE
+	PUSH 0
+	PUSH 42
+	ANDA
+	POP
+	RETURN
+ENDFUNC anda
+
+; ora
+; ARG  0: a : int
+; RETURN: void
+FUNC 8
+	PUSHLOCALPAGE
+	PUSH 0
+	PUSH 42
+	ORA
+	POP
+	RETURN
+ENDFUNC ora
+
+; xora
+; ARG  0: a : int
+; RETURN: void
+FUNC 9
+	PUSHLOCALPAGE
+	PUSH 0
+	PUSH 42
+	XORA
+	POP
+	RETURN
+ENDFUNC xora
+
+; lshifta
+; ARG  0: a : int
+; RETURN: void
+FUNC 10
+	PUSHLOCALPAGE
+	PUSH 0
+	PUSH 2
+	LSHIFTA
+	POP
+	RETURN
+ENDFUNC lshifta
+
+; rshifta
+; ARG  0: a : int
+; RETURN: void
+FUNC 11
+	PUSHLOCALPAGE
+	PUSH 0
+	PUSH 2
+	RSHIFTA
+	POP
+	RETURN
+ENDFUNC rshifta
+
+; 0
+; RETURN: void
+FUNC 12
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF 0

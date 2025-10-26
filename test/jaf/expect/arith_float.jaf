@@ -1,0 +1,11 @@
+float f_inv(float a) { return -a; }
+float f_add(float a, float b) { return a + b; }
+float f_sub(float a, float b) { return a - b; }
+float f_mul(float a, float b) { return a * b; }
+float f_div(float a, float b) { return a / b; }
+int f_lt(float a, float b) { return a < b; }
+int f_gt(float a, float b) { return a > b; }
+int f_lte(float a, float b) { return a <= b; }
+int f_gte(float a, float b) { return a >= b; }
+int f_equale(float a, float b) { return a == b; }
+int f_note(float a, float b) { return a != b; }

@@ -1,0 +1,5 @@
+void f_assign(float a) { a = 42.0; }
+void f_plusa(float a) { a += 42.0; }
+void f_minusa(float a) { a -= 42.0; }
+void f_mulaa(float a) { a *= 42.0; }
+void f_diva(float a) { a /= 42.0; }

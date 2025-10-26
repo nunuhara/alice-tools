@@ -1,0 +1,137 @@
+{
+	"version":	4,
+	"keycode":	0,
+	"functions":	[{
+			"index":	0,
+			"address":	318,
+			"name":	"NULL",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	1,
+			"address":	6,
+			"name":	"intref",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[18, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"<void>",
+					"type":	[0, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	2,
+			"address":	40,
+			"name":	"floatref",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[19, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"<void>",
+					"type":	[0, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	3,
+			"address":	74,
+			"name":	"stringref",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[20, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	4,
+			"address":	104,
+			"name":	"structref",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[21, 0, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	5,
+			"address":	140,
+			"name":	"refassign",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[18, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"<void>",
+					"type":	[0, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	6,
+			"address":	204,
+			"name":	"ref_int_return",
+			"return-type":	[18, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	7,
+			"address":	244,
+			"name":	"new_struct",
+			"return-type":	[21, 0, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[{
+					"name":	"<dummy : new S>",
+					"type":	[21, 0, 0, null],
+					"group-index":	0
+				}]
+		}, {
+			"index":	8,
+			"address":	304,
+			"name":	"0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}],
+	"globals":	[],
+	"structures":	[{
+			"name":	"S",
+			"members":	[{
+					"name":	"m",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}]
+		}],
+	"main":	-1,
+	"msgf":	-1,
+	"libraries":	[],
+	"switches":	[],
+	"game-version":	100,
+	"filenames":	["ref.jaf"],
+	"ojmp":	-1
+}

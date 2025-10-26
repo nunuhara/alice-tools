@@ -1,0 +1,22 @@
+struct S { int m; };
+
+class C {
+public:
+	int method(int a, ref int b, S s_a, ref S s_b) {
+		return (a + b) + (s_a.m + s_b.m);
+	}
+};
+
+int fun(int a, ref int b, S s_a, ref S s_b)
+{
+	return (a + b) + (s_a.m + s_b.m);
+}
+
+void call(void)
+{
+	S s;
+	C c;
+	int b = 2;
+	fun(1, b, s, s);
+	c.method(1, b, s, s);
+}

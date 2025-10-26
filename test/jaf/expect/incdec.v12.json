@@ -1,0 +1,124 @@
+{
+	"version":	12,
+	"keycode":	0,
+	"functions":	[{
+			"index":	0,
+			"address":	226,
+			"name":	"NULL",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	1,
+			"address":	6,
+			"name":	"preinc",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	2,
+			"address":	42,
+			"name":	"postinc",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	3,
+			"address":	82,
+			"name":	"predec",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	4,
+			"address":	118,
+			"name":	"postdec",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	5,
+			"address":	158,
+			"name":	"localinc",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	6,
+			"address":	212,
+			"name":	"0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}],
+	"globals":	[],
+	"structures":	[],
+	"main":	-1,
+	"msgf":	0,
+	"libraries":	[{
+			"name":	"Array",
+			"functions":	[{
+					"name":	"Alloc",
+					"return-type":	0,
+					"arguments":	[{
+							"name":	"self",
+							"type":	80
+						}, {
+							"name":	"Numof",
+							"type":	10
+						}, {
+							"name":	"Numof2",
+							"type":	10
+						}, {
+							"name":	"Numof3",
+							"type":	10
+						}, {
+							"name":	"Numof4",
+							"type":	10
+						}]
+				}, {
+					"name":	"Free",
+					"return-type":	0,
+					"arguments":	[{
+							"name":	"self",
+							"type":	80
+						}]
+				}]
+		}],
+	"switches":	[],
+	"game-version":	100,
+	"filenames":	[],
+	"ojmp":	0
+}

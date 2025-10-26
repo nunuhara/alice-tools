@@ -1,0 +1,90 @@
+void ifelse(int a, int b)
+{
+	if (a) {
+		a = 1;
+	}
+	if (b) {
+		b = 2;
+	} else {
+		b = 3;
+	}
+}
+
+int and(int a, int b)
+{
+	if (a && b)
+		return 1;
+	return 2;
+}
+
+int or(int a, int b)
+{
+	if (a || b)
+		return 1;
+	return 2;
+}
+
+void while_loop(int a)
+{
+	while (a) {
+		a--;
+	}
+	while (a) {
+		a--;
+		{
+			break;
+		}
+		a++;
+	}
+	while (a) {
+		a--;
+		{
+			continue;
+		}
+		a++;
+	}
+}
+
+void for_loop(int a)
+{
+	for (int i = 0; i < a; i++) {
+		a--;
+	}
+	for (; a > 0; a--) {
+		a++;
+	}
+	for (int i = 0; ; i++) {
+		a--;
+	}
+	for (;; a++) {
+		a--;
+	}
+	for (;;) {
+		a--;
+		{
+			break;
+		}
+		a++;
+	}
+	for (;;) {
+		a--;
+		{
+			continue;
+		}
+		a++;
+	}
+}
+
+void go_to(int a)
+{
+	a++;
+	goto end;
+	a--;
+end:
+	a++;
+}
+
+int ternary(int a, int b)
+{
+	return a ? a : b;
+}

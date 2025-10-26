@@ -1,0 +1,81 @@
+{
+	"version":	4,
+	"keycode":	0,
+	"functions":	[{
+			"index":	0,
+			"address":	324,
+			"name":	"NULL",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	1,
+			"address":	6,
+			"name":	"localcreate",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[{
+					"name":	"c",
+					"type":	[13, 0, 0, null],
+					"group-index":	0
+				}]
+		}, {
+			"index":	2,
+			"address":	60,
+			"name":	"sr_assign",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[{
+					"name":	"a",
+					"type":	[13, 0, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[13, 0, 0, null],
+					"group-index":	0
+				}]
+		}, {
+			"index":	3,
+			"address":	166,
+			"name":	"new_s",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[{
+					"name":	"<dummy : new C>",
+					"type":	[21, 0, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"a",
+					"type":	[21, 0, 0, null],
+					"group-index":	0
+				}]
+		}, {
+			"index":	4,
+			"address":	310,
+			"name":	"0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}],
+	"globals":	[],
+	"structures":	[{
+			"name":	"C",
+			"members":	[{
+					"name":	"m",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}]
+		}],
+	"main":	-1,
+	"msgf":	-1,
+	"libraries":	[],
+	"switches":	[],
+	"game-version":	100,
+	"filenames":	["class.jaf"],
+	"ojmp":	-1
+}

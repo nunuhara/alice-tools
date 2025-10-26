@@ -1,0 +1,28 @@
+struct S { int m; };
+
+void jump(void)
+{
+	while (1) {
+		S s;
+		ref int i;
+		array@int a;
+		break;
+	};
+
+	while (1) {
+		S s;
+		ref int i;
+		array@int a;
+		continue;
+	}
+
+	while (1) {
+		S s;
+		ref int i;
+		array@int a;
+		goto end;
+	}
+
+end:
+	;
+}

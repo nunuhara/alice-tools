@@ -1,0 +1,77 @@
+{
+	"version":	4,
+	"keycode":	0,
+	"functions":	[{
+			"index":	0,
+			"address":	358,
+			"name":	"NULL",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	1,
+			"address":	6,
+			"name":	"compare",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	2,
+			"address":	42,
+			"name":	"foo",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[{
+					"name":	"ia",
+					"type":	[14, -1, 1, null],
+					"group-index":	0
+				}, {
+					"name":	"sa",
+					"type":	[16, -1, 1, null],
+					"group-index":	0
+				}, {
+					"name":	"s",
+					"type":	[13, 0, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"ss",
+					"type":	[17, 0, 1, null],
+					"group-index":	0
+				}]
+		}, {
+			"index":	3,
+			"address":	344,
+			"name":	"0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}],
+	"globals":	[],
+	"structures":	[{
+			"name":	"S",
+			"members":	[{
+					"name":	"m",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}]
+		}],
+	"main":	-1,
+	"msgf":	-1,
+	"libraries":	[],
+	"switches":	[],
+	"game-version":	100,
+	"filenames":	["array.jaf"],
+	"ojmp":	-1
+}

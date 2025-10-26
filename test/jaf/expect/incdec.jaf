@@ -1,0 +1,5 @@
+int preinc(int a) { return ++a; }
+int postinc(int a) { return a++; }
+int predec(int a) { return --a; }
+int postdec(int a) { return a--; }
+void localinc(int a) { a++; ++a; a--; --a; }

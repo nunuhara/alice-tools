@@ -1,0 +1,221 @@
+
+; ifelse
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: void
+FUNC 1
+	SH_LOCALREF a
+	IFNZ 0x18
+	JUMP 0x22
+0x18:
+	SH_LOCALASSIGN a 1
+0x22:
+	SH_LOCALREF b
+	IFNZ 0x34
+	JUMP 0x44
+0x34:
+	SH_LOCALASSIGN b 2
+	JUMP 0x4e
+0x44:
+	SH_LOCALASSIGN b 3
+0x4e:
+	RETURN
+ENDFUNC ifelse
+
+; and
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 2
+	SH_LOCALREF a
+	IFZ 0x80
+	SH_LOCALREF b
+	IFZ 0x80
+	PUSH 1
+	JUMP 0x86
+0x80:
+	PUSH 0
+0x86:
+	IFNZ 0x92
+	JUMP 0x9a
+0x92:
+	PUSH 1
+	RETURN
+0x9a:
+	PUSH 2
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC and
+
+; or
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 3
+	SH_LOCALREF a
+	IFNZ 0xda
+	SH_LOCALREF b
+	IFNZ 0xda
+	PUSH 0
+	JUMP 0xe0
+0xda:
+	PUSH 1
+0xe0:
+	IFNZ 0xec
+	JUMP 0xf4
+0xec:
+	PUSH 1
+	RETURN
+0xf4:
+	PUSH 2
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC or
+
+; while_loop
+; ARG  0: a : int
+; RETURN: void
+FUNC 4
+0x110:
+	SH_LOCALREF a
+	IFZ 0x128
+	SH_LOCALDEC a
+	JUMP 0x110
+0x128:
+	SH_LOCALREF a
+	IFZ 0x14c
+	SH_LOCALDEC a
+	JUMP 0x14c
+	SH_LOCALINC a
+	JUMP 0x128
+0x14c:
+	SH_LOCALREF a
+	IFZ 0x170
+	SH_LOCALDEC a
+	JUMP 0x14c
+	SH_LOCALINC a
+	JUMP 0x14c
+0x170:
+	RETURN
+ENDFUNC while_loop
+
+; for_loop
+; ARG  0: a : int
+; VAR  1: i : int
+; VAR  2: i : int
+; RETURN: void
+FUNC 5
+	SH_LOCALASSIGN i 0
+0x188:
+	SH_LOCALREF i
+	SH_LOCALREF a
+	LT
+	IFZ 0x1ba
+	JUMP 0x1ae
+0x1a2:
+	SH_LOCALINC i
+	JUMP 0x188
+0x1ae:
+	SH_LOCALDEC a
+	JUMP 0x1a2
+0x1ba:
+	SH_LOCALREF a
+	PUSH 0
+	GT
+	IFZ 0x1ec
+	JUMP 0x1e0
+0x1d4:
+	SH_LOCALDEC a
+	JUMP 0x1ba
+0x1e0:
+	SH_LOCALINC a
+	JUMP 0x1d4
+0x1ec:
+	SH_LOCALASSIGN i#1 0
+0x1f6:
+	PUSH 1
+	IFZ 0x220
+	JUMP 0x214
+0x208:
+	SH_LOCALINC i#1
+	JUMP 0x1f6
+0x214:
+	SH_LOCALDEC a
+	JUMP 0x208
+0x220:
+	PUSH 1
+	IFZ 0x24a
+	JUMP 0x23e
+0x232:
+	SH_LOCALINC a
+	JUMP 0x220
+0x23e:
+	SH_LOCALDEC a
+	JUMP 0x232
+0x24a:
+	PUSH 1
+	IFZ 0x27a
+	JUMP 0x262
+0x25c:
+	JUMP 0x24a
+0x262:
+	SH_LOCALDEC a
+	JUMP 0x27a
+	SH_LOCALINC a
+	JUMP 0x25c
+0x27a:
+	PUSH 1
+	IFZ 0x2aa
+	JUMP 0x292
+0x28c:
+	JUMP 0x27a
+0x292:
+	SH_LOCALDEC a
+	JUMP 0x28c
+	SH_LOCALINC a
+	JUMP 0x28c
+0x2aa:
+	RETURN
+ENDFUNC for_loop
+
+; go_to
+; ARG  0: a : int
+; RETURN: void
+FUNC 6
+	SH_LOCALINC a
+	JUMP 0x2ca
+	SH_LOCALDEC a
+0x2ca:
+	SH_LOCALINC a
+	RETURN
+ENDFUNC go_to
+
+; ternary
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 7
+	SH_LOCALREF a
+	IFZ 0x2f6
+	SH_LOCALREF a
+	JUMP 0x2fc
+0x2f6:
+	SH_LOCALREF b
+0x2fc:
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC ternary
+
+; 0
+; RETURN: void
+FUNC 8
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF control.jaf

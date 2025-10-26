@@ -1,0 +1,82 @@
+
+; preinc
+; ARG  0: a : int
+; RETURN: int
+FUNC 1
+	PUSHLOCALPAGE
+	PUSH 0
+	DUP2
+	INC
+	REF
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC preinc
+
+; postinc
+; ARG  0: a : int
+; RETURN: int
+FUNC 2
+	PUSHLOCALPAGE
+	PUSH 0
+	DUP2
+	REF
+	DUP_X2
+	POP
+	INC
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC postinc
+
+; predec
+; ARG  0: a : int
+; RETURN: int
+FUNC 3
+	PUSHLOCALPAGE
+	PUSH 0
+	DUP2
+	DEC
+	REF
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC predec
+
+; postdec
+; ARG  0: a : int
+; RETURN: int
+FUNC 4
+	PUSHLOCALPAGE
+	PUSH 0
+	DUP2
+	REF
+	DUP_X2
+	POP
+	DEC
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC postdec
+
+; localinc
+; ARG  0: a : int
+; RETURN: void
+FUNC 5
+	.LOCALINC a
+	.LOCALINC a
+	.LOCALDEC a
+	.LOCALDEC a
+	RETURN
+ENDFUNC localinc
+
+; 0
+; RETURN: void
+FUNC 6
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF 0

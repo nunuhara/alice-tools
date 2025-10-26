@@ -1,0 +1,64 @@
+{
+	"version":	4,
+	"keycode":	0,
+	"functions":	[{
+			"index":	0,
+			"address":	148,
+			"name":	"NULL",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	1,
+			"address":	6,
+			"name":	"foo",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	2,
+			"address":	34,
+			"name":	"functypes",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[{
+					"name":	"f",
+					"type":	[27, 0, 0, null],
+					"group-index":	0
+				}]
+		}, {
+			"index":	3,
+			"address":	134,
+			"name":	"0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}],
+	"globals":	[],
+	"structures":	[],
+	"main":	-1,
+	"msgf":	-1,
+	"libraries":	[],
+	"switches":	[],
+	"game-version":	100,
+	"filenames":	["functype.jaf"],
+	"ojmp":	-1,
+	"function-types":	[{
+			"name":	"ft",
+			"return-type":	[10, -1, 0, null],
+			"arguments":	[{
+					"name":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}]
+}

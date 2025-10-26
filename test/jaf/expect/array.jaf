@@ -1,0 +1,24 @@
+struct S { int m; };
+
+int compare(int a, int b) { return a - b; }
+
+void foo(void)
+{
+	array@int ia[2];
+	ia[0] = 42;
+
+	array@string sa[2];
+	sa[0] = "42";
+
+	S s;
+	array@S ss[2];
+	ss[0] = s;
+
+	ia.Free();
+	ia.Alloc(3);
+	ia.Erase(0);
+	ia.Insert(0, 42);
+	ia.Numof();
+	ia.Sort();
+	ia.Sort(&compare);
+}

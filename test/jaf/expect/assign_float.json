@@ -1,0 +1,90 @@
+{
+	"version":	4,
+	"keycode":	0,
+	"functions":	[{
+			"index":	0,
+			"address":	180,
+			"name":	"NULL",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	1,
+			"address":	6,
+			"name":	"f_assign",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[11, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	2,
+			"address":	38,
+			"name":	"f_plusa",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[11, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	3,
+			"address":	70,
+			"name":	"f_minusa",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[11, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	4,
+			"address":	102,
+			"name":	"f_mulaa",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[11, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	5,
+			"address":	134,
+			"name":	"f_diva",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[11, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	6,
+			"address":	166,
+			"name":	"0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}],
+	"globals":	[],
+	"structures":	[],
+	"main":	-1,
+	"msgf":	-1,
+	"libraries":	[],
+	"switches":	[],
+	"game-version":	100,
+	"filenames":	["assign_float.jaf"],
+	"ojmp":	-1
+}

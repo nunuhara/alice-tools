@@ -1,0 +1,99 @@
+{
+	"version":	6,
+	"keycode":	0,
+	"functions":	[{
+			"index":	0,
+			"address":	324,
+			"name":	"NULL",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	1,
+			"address":	6,
+			"name":	"obj@method1",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	2,
+			"address":	26,
+			"name":	"obj@method2",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	3,
+			"address":	46,
+			"name":	"non_method",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	4,
+			"address":	66,
+			"name":	"delegates",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[{
+					"name":	"o",
+					"type":	[13, 0, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"d",
+					"type":	[63, 0, 0, null],
+					"group-index":	0
+				}]
+		}, {
+			"index":	5,
+			"address":	310,
+			"name":	"0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}],
+	"globals":	[],
+	"structures":	[{
+			"name":	"obj",
+			"members":	[{
+					"name":	"m",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}]
+		}],
+	"main":	-1,
+	"msgf":	-1,
+	"libraries":	[],
+	"switches":	[],
+	"game-version":	100,
+	"filenames":	["delegate.jaf"],
+	"ojmp":	-1,
+	"delegates":	[{
+			"name":	"dg",
+			"return-type":	[10, -1, 0, null],
+			"arguments":	[{
+					"name":	"a",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}]
+}

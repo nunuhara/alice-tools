@@ -1,0 +1,110 @@
+{
+	"version":	5,
+	"keycode":	0,
+	"functions":	[{
+			"index":	0,
+			"address":	200,
+			"name":	"NULL",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	1,
+			"address":	6,
+			"name":	"li_add",
+			"return-type":	[55, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	2,
+			"address":	42,
+			"name":	"li_sub",
+			"return-type":	[55, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	3,
+			"address":	78,
+			"name":	"li_mul",
+			"return-type":	[55, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	4,
+			"address":	114,
+			"name":	"li_div",
+			"return-type":	[55, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	5,
+			"address":	150,
+			"name":	"li_mod",
+			"return-type":	[55, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	6,
+			"address":	186,
+			"name":	"0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}],
+	"globals":	[],
+	"structures":	[],
+	"main":	-1,
+	"msgf":	-1,
+	"libraries":	[],
+	"switches":	[],
+	"game-version":	100,
+	"filenames":	["arith_lint.jaf"],
+	"ojmp":	-1
+}

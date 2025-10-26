@@ -1,0 +1,129 @@
+{
+	"version":	12,
+	"keycode":	0,
+	"functions":	[{
+			"index":	0,
+			"address":	322,
+			"name":	"NULL",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	1,
+			"address":	6,
+			"name":	"S@m0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	2,
+			"address":	20,
+			"name":	"S@m1",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	3,
+			"address":	64,
+			"name":	"S@0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	4,
+			"address":	178,
+			"name":	"ifacecall",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[{
+					"name":	"<dummy : new S>",
+					"name2":	"",
+					"type":	[21, 1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"iface",
+					"name2":	"",
+					"type":	[89, 0, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"<void>",
+					"name2":	"",
+					"type":	[0, -1, 0, null],
+					"group-index":	0
+				}]
+		}, {
+			"index":	5,
+			"address":	308,
+			"name":	"0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}],
+	"globals":	[],
+	"structures":	[{
+			"name":	"I",
+			"members":	[]
+		}, {
+			"name":	"S",
+			"interfaces":	[[0, 0]],
+			"constructor":	3,
+			"members":	[{
+					"name":	"<vtable>",
+					"name2":	"<vtable>",
+					"type":	[79, 0, 1, [10, 0, 0, null]],
+					"group-index":	0
+				}]
+		}],
+	"main":	-1,
+	"msgf":	0,
+	"libraries":	[{
+			"name":	"Array",
+			"functions":	[{
+					"name":	"Alloc",
+					"return-type":	0,
+					"arguments":	[{
+							"name":	"self",
+							"type":	80
+						}, {
+							"name":	"Numof",
+							"type":	10
+						}, {
+							"name":	"Numof2",
+							"type":	10
+						}, {
+							"name":	"Numof3",
+							"type":	10
+						}, {
+							"name":	"Numof4",
+							"type":	10
+						}]
+				}, {
+					"name":	"Free",
+					"return-type":	0,
+					"arguments":	[{
+							"name":	"self",
+							"type":	80
+						}]
+				}]
+		}],
+	"switches":	[],
+	"game-version":	100,
+	"filenames":	[],
+	"ojmp":	0
+}

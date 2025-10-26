@@ -1,0 +1,23 @@
+delegate int dg(int a);
+
+struct obj {
+	int method1(int a) { }
+	int method2(int a) { }
+	int m;
+};
+
+int non_method(int a) { }
+
+void delegates(void)
+{
+	obj o;
+	dg d;
+	d = o.method1;
+	d += o.method2;
+	d -= o.method1;
+	d.Numof();
+	d.Exist(o.method2);
+	d.Clear();
+	d = &non_method;
+	d(42);
+}

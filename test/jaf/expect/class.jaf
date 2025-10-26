@@ -1,0 +1,5 @@
+class C { public: int m; };
+
+void localcreate(void) { if (1) { C c; } }
+void sr_assign(void) { if (1) { C a; C b; a = b; } }
+void new_s(void) { if (1) { ref C a = new C(); a.m = 42; } }

@@ -1,0 +1,93 @@
+
+; C@method
+; ARG  0: a : int
+; ARG  1: b : ref int
+; ARG  2: <void> : void
+; ARG  3: s_a : S
+; ARG  4: s_b : ref S
+; RETURN: int
+FUNC 1
+	.LOCALREF a
+	.LOCALREFREF b
+	REF
+	ADD
+	.LOCALREF s_a
+	PUSH 0
+	REF
+	.LOCALREF s_b
+	PUSH 0
+	REF
+	ADD
+	ADD
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC C@method
+
+; fun
+; ARG  0: a : int
+; ARG  1: b : ref int
+; ARG  2: <void> : void
+; ARG  3: s_a : S
+; ARG  4: s_b : ref S
+; RETURN: int
+FUNC 2
+	.LOCALREF a
+	.LOCALREFREF b
+	REF
+	ADD
+	.LOCALREF s_a
+	PUSH 0
+	REF
+	.LOCALREF s_b
+	PUSH 0
+	REF
+	ADD
+	ADD
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC fun
+
+; call
+; VAR  0: s : S
+; VAR  1: c : C
+; VAR  2: b : int
+; RETURN: void
+FUNC 3
+	.LOCALDELETE s
+	.LOCALCREATE s S
+	.LOCALDELETE c
+	.LOCALCREATE c C
+	.LOCALASSIGN b 2
+	PUSH 1
+	PUSHLOCALPAGE
+	PUSH 2
+	.LOCALREF s
+	A_REF
+	.LOCALREF s
+	CALLFUNC fun
+	POP
+	.LOCALREF c
+	PUSH 1
+	PUSH 1
+	PUSHLOCALPAGE
+	PUSH 2
+	.LOCALREF s
+	A_REF
+	.LOCALREF s
+	CALLMETHOD 4
+	POP
+	RETURN
+ENDFUNC call
+
+; 0
+; RETURN: void
+FUNC 4
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF 0

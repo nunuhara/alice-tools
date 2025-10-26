@@ -1,0 +1,43 @@
+
+; foo
+; ARG  0: a : int
+; RETURN: int
+FUNC 1
+	SH_LOCALREF a
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC foo
+
+; functypes
+; VAR  0: f : functype
+; RETURN: void
+FUNC 2
+	.LOCALASSIGN f 1
+	SH_LOCALREF f
+	PUSH 0
+	NOTE
+	IFNZ 0x4e
+	JUMP 0x66
+0x4e:
+	SH_LOCALREF f
+	PUSH 42
+	SWAP
+	PUSH 0
+	CALLFUNC2
+	POP
+0x66:
+	.LOCALASSIGN f 0
+	RETURN
+ENDFUNC functypes
+
+; 0
+; RETURN: void
+FUNC 3
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF functype.jaf

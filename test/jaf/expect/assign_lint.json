@@ -1,0 +1,206 @@
+{
+	"version":	5,
+	"keycode":	0,
+	"functions":	[{
+			"index":	0,
+			"address":	372,
+			"name":	"NULL",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	1,
+			"address":	6,
+			"name":	"li_assign",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	2,
+			"address":	38,
+			"name":	"li_plusa",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	3,
+			"address":	70,
+			"name":	"li_minusa",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	4,
+			"address":	102,
+			"name":	"li_mula",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	5,
+			"address":	134,
+			"name":	"li_diva",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	6,
+			"address":	166,
+			"name":	"li_moda",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	7,
+			"address":	198,
+			"name":	"li_anda",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	8,
+			"address":	230,
+			"name":	"li_ora",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	9,
+			"address":	262,
+			"name":	"li_xora",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	10,
+			"address":	294,
+			"name":	"li_lshifta",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	11,
+			"address":	326,
+			"name":	"li_rshifta",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[55, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	12,
+			"address":	358,
+			"name":	"0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}],
+	"globals":	[],
+	"structures":	[],
+	"main":	-1,
+	"msgf":	-1,
+	"libraries":	[],
+	"switches":	[],
+	"game-version":	100,
+	"filenames":	["assign_lint.jaf"],
+	"ojmp":	-1
+}

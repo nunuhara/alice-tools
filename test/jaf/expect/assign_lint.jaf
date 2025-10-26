@@ -1,0 +1,11 @@
+void li_assign(lint a, lint b) { a = b; }
+void li_plusa(lint a, lint b) { a += b; }
+void li_minusa(lint a, lint b) { a -= b; }
+void li_mula(lint a, lint b) { a *= b; }
+void li_diva(lint a, lint b) { a /= b; }
+void li_moda(lint a, lint b) { a %= b; }
+void li_anda(lint a, lint b) { a &= b; }
+void li_ora(lint a, lint b) { a |= b; }
+void li_xora(lint a, lint b) { a ^= b; }
+void li_lshifta(lint a, lint b) { a <<= b; }
+void li_rshifta(lint a, lint b) { a >>= b; }

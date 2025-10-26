@@ -1,0 +1,11 @@
+void assign(int a) { a = 42; }
+void plusa(int a) { a += 42; }
+void minusa(int a) { a -= 42; }
+void mula(int a) { a *= 42; }
+void diva(int a) { a /= 42; }
+void moda(int a) { a %= 42; }
+void anda(int a) { a &= 42; }
+void ora(int a) { a |= 42; }
+void xora(int a) { a ^= 42; }
+void lshifta(int a) { a <<= 2; }
+void rshifta(int a) { a >>= 2; }

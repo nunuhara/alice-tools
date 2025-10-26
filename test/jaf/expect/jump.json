@@ -1,0 +1,93 @@
+{
+	"version":	4,
+	"keycode":	0,
+	"functions":	[{
+			"index":	0,
+			"address":	460,
+			"name":	"NULL",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	1,
+			"address":	6,
+			"name":	"jump",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[{
+					"name":	"s",
+					"type":	[13, 0, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"i",
+					"type":	[18, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"<void>",
+					"type":	[0, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"a",
+					"type":	[14, -1, 1, null],
+					"group-index":	0
+				}, {
+					"name":	"s",
+					"type":	[13, 0, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"i",
+					"type":	[18, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"<void>",
+					"type":	[0, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"a",
+					"type":	[14, -1, 1, null],
+					"group-index":	0
+				}, {
+					"name":	"s",
+					"type":	[13, 0, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"i",
+					"type":	[18, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"<void>",
+					"type":	[0, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"a",
+					"type":	[14, -1, 1, null],
+					"group-index":	0
+				}]
+		}, {
+			"index":	2,
+			"address":	446,
+			"name":	"0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}],
+	"globals":	[],
+	"structures":	[{
+			"name":	"S",
+			"members":	[{
+					"name":	"m",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}]
+		}],
+	"main":	-1,
+	"msgf":	-1,
+	"libraries":	[],
+	"switches":	[],
+	"game-version":	100,
+	"filenames":	["jump.jaf"],
+	"ojmp":	-1
+}

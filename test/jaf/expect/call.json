@@ -1,0 +1,116 @@
+{
+	"version":	4,
+	"keycode":	0,
+	"functions":	[{
+			"index":	0,
+			"address":	314,
+			"name":	"NULL",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	1,
+			"address":	6,
+			"name":	"C@method",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[18, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"<void>",
+					"type":	[0, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"s_a",
+					"type":	[13, 0, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"s_b",
+					"type":	[21, 0, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	2,
+			"address":	80,
+			"name":	"fun",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[18, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"<void>",
+					"type":	[0, -1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"s_a",
+					"type":	[13, 0, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"s_b",
+					"type":	[21, 0, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	3,
+			"address":	154,
+			"name":	"call",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[{
+					"name":	"s",
+					"type":	[13, 0, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"c",
+					"type":	[13, 1, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"b",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}]
+		}, {
+			"index":	4,
+			"address":	300,
+			"name":	"0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}],
+	"globals":	[],
+	"structures":	[{
+			"name":	"S",
+			"members":	[{
+					"name":	"m",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}]
+		}, {
+			"name":	"C",
+			"members":	[]
+		}],
+	"main":	-1,
+	"msgf":	-1,
+	"libraries":	[],
+	"switches":	[],
+	"game-version":	100,
+	"filenames":	["call.jaf"],
+	"ojmp":	-1
+}

@@ -1,0 +1,89 @@
+
+; localcreate
+; VAR  0: c : C
+; RETURN: void
+FUNC 1
+	PUSH 1
+	IFNZ 0x18
+	JUMP 0x6a
+0x18:
+	.LOCALDELETE c
+	.LOCALCREATE c C
+	.LOCALDELETE c
+0x6a:
+	RETURN
+ENDFUNC localcreate
+
+; sr_assign
+; VAR  0: a : C
+; VAR  1: b : C
+; RETURN: void
+FUNC 2
+	PUSH 1
+	IFNZ 0x8a
+	JUMP 0x14e
+0x8a:
+	.LOCALDELETE a
+	.LOCALCREATE a C
+	.LOCALDELETE b
+	.LOCALCREATE b C
+	.LOCALREF a
+	.LOCALREF b
+	A_REF
+	PUSH 0
+	SR_ASSIGN
+	SR_POP
+	.LOCALDELETE b
+	.LOCALDELETE a
+0x14e:
+	RETURN
+ENDFUNC sr_assign
+
+; new_s
+; VAR  0: <dummy : new C> : ref C
+; VAR  1: a : ref C
+; RETURN: void
+FUNC 3
+	PUSH 1
+	IFNZ 0x16e
+	JUMP 0x1f4
+0x16e:
+	PUSHLOCALPAGE
+	PUSH 1
+	DUP2
+	REF
+	DELETE
+	DUP2
+	.LOCALREF "<dummy : new C>"
+	DELETE
+	PUSHLOCALPAGE
+	PUSH 0
+	NEW C -1
+	ASSIGN
+	ASSIGN
+	DUP_X2
+	POP
+	REF
+	SP_INC
+	POP
+	.LOCALREF a
+	PUSH 0
+	PUSH 42
+	ASSIGN
+	POP
+	.LOCALDELETE a
+	.LOCALDELETE "<dummy : new C>"
+0x1f4:
+	RETURN
+ENDFUNC new_s
+
+; 0
+; RETURN: void
+FUNC 4
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF 0

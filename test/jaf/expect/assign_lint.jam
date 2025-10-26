@@ -1,0 +1,154 @@
+
+; li_assign
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: void
+FUNC 1
+	PUSHLOCALPAGE
+	PUSH 0
+	SH_LOCALREF b
+	LI_ASSIGN
+	POP
+	RETURN
+ENDFUNC li_assign
+
+; li_plusa
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: void
+FUNC 2
+	PUSHLOCALPAGE
+	PUSH 0
+	SH_LOCALREF b
+	LI_PLUSA
+	POP
+	RETURN
+ENDFUNC li_plusa
+
+; li_minusa
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: void
+FUNC 3
+	PUSHLOCALPAGE
+	PUSH 0
+	SH_LOCALREF b
+	LI_MINUSA
+	POP
+	RETURN
+ENDFUNC li_minusa
+
+; li_mula
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: void
+FUNC 4
+	PUSHLOCALPAGE
+	PUSH 0
+	SH_LOCALREF b
+	LI_MULA
+	POP
+	RETURN
+ENDFUNC li_mula
+
+; li_diva
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: void
+FUNC 5
+	PUSHLOCALPAGE
+	PUSH 0
+	SH_LOCALREF b
+	LI_DIVA
+	POP
+	RETURN
+ENDFUNC li_diva
+
+; li_moda
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: void
+FUNC 6
+	PUSHLOCALPAGE
+	PUSH 0
+	SH_LOCALREF b
+	LI_MODA
+	POP
+	RETURN
+ENDFUNC li_moda
+
+; li_anda
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: void
+FUNC 7
+	PUSHLOCALPAGE
+	PUSH 0
+	SH_LOCALREF b
+	LI_ANDA
+	POP
+	RETURN
+ENDFUNC li_anda
+
+; li_ora
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: void
+FUNC 8
+	PUSHLOCALPAGE
+	PUSH 0
+	SH_LOCALREF b
+	LI_ORA
+	POP
+	RETURN
+ENDFUNC li_ora
+
+; li_xora
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: void
+FUNC 9
+	PUSHLOCALPAGE
+	PUSH 0
+	SH_LOCALREF b
+	LI_XORA
+	POP
+	RETURN
+ENDFUNC li_xora
+
+; li_lshifta
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: void
+FUNC 10
+	PUSHLOCALPAGE
+	PUSH 0
+	SH_LOCALREF b
+	LI_LSHIFTA
+	POP
+	RETURN
+ENDFUNC li_lshifta
+
+; li_rshifta
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: void
+FUNC 11
+	PUSHLOCALPAGE
+	PUSH 0
+	SH_LOCALREF b
+	LI_RSHIFTA
+	POP
+	RETURN
+ENDFUNC li_rshifta
+
+; 0
+; RETURN: void
+FUNC 12
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF assign_lint.jaf

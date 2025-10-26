@@ -1,0 +1,152 @@
+
+; f_inv
+; ARG  0: a : float
+; RETURN: float
+FUNC 1
+	SH_LOCALREF a
+	F_INV
+	RETURN
+	F_PUSH 0.000000
+	RETURN
+ENDFUNC f_inv
+
+; f_add
+; ARG  0: a : float
+; ARG  1: b : float
+; RETURN: float
+FUNC 2
+	SH_LOCALREF a
+	SH_LOCALREF b
+	F_ADD
+	RETURN
+	F_PUSH 0.000000
+	RETURN
+ENDFUNC f_add
+
+; f_sub
+; ARG  0: a : float
+; ARG  1: b : float
+; RETURN: float
+FUNC 3
+	SH_LOCALREF a
+	SH_LOCALREF b
+	F_SUB
+	RETURN
+	F_PUSH 0.000000
+	RETURN
+ENDFUNC f_sub
+
+; f_mul
+; ARG  0: a : float
+; ARG  1: b : float
+; RETURN: float
+FUNC 4
+	SH_LOCALREF a
+	SH_LOCALREF b
+	F_MUL
+	RETURN
+	F_PUSH 0.000000
+	RETURN
+ENDFUNC f_mul
+
+; f_div
+; ARG  0: a : float
+; ARG  1: b : float
+; RETURN: float
+FUNC 5
+	SH_LOCALREF a
+	SH_LOCALREF b
+	F_DIV
+	RETURN
+	F_PUSH 0.000000
+	RETURN
+ENDFUNC f_div
+
+; f_lt
+; ARG  0: a : float
+; ARG  1: b : float
+; RETURN: int
+FUNC 6
+	SH_LOCALREF a
+	SH_LOCALREF b
+	F_LT
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC f_lt
+
+; f_gt
+; ARG  0: a : float
+; ARG  1: b : float
+; RETURN: int
+FUNC 7
+	SH_LOCALREF a
+	SH_LOCALREF b
+	F_GT
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC f_gt
+
+; f_lte
+; ARG  0: a : float
+; ARG  1: b : float
+; RETURN: int
+FUNC 8
+	SH_LOCALREF a
+	SH_LOCALREF b
+	F_LTE
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC f_lte
+
+; f_gte
+; ARG  0: a : float
+; ARG  1: b : float
+; RETURN: int
+FUNC 9
+	SH_LOCALREF a
+	SH_LOCALREF b
+	F_GTE
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC f_gte
+
+; f_equale
+; ARG  0: a : float
+; ARG  1: b : float
+; RETURN: int
+FUNC 10
+	SH_LOCALREF a
+	SH_LOCALREF b
+	F_EQUALE
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC f_equale
+
+; f_note
+; ARG  0: a : float
+; ARG  1: b : float
+; RETURN: int
+FUNC 11
+	SH_LOCALREF a
+	SH_LOCALREF b
+	F_NOTE
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC f_note
+
+; 0
+; RETURN: void
+FUNC 12
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF arith_float.jaf

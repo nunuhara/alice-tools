@@ -1,0 +1,19 @@
+int inv(int a) { return -a; }
+int not(int a) { return !a; }
+int compl(int a) { return ~a; }
+int add(int a, int b) { return a + b; }
+int sub(int a, int b) { return a - b; }
+int mul(int a, int b) { return a * b; }
+int div(int a, int b) { return a / b; }
+int mod(int a, int b) { return a % b; }
+int and(int a, int b) { return a & b; }
+int or(int a, int b) { return a | b; }
+int xor(int a, int b) { return a ^ b; }
+int lshift(int a, int b) { return a << b; }
+int rshift(int a, int b) { return a >> b; }
+int lt(int a, int b) { return a < b; }
+int gt(int a, int b) { return a > b; }
+int lte(int a, int b) { return a <= b; }
+int gte(int a, int b) { return a >= b; }
+int equale(int a, int b) { return a == b; }
+int note(int a, int b) { return a != b; }

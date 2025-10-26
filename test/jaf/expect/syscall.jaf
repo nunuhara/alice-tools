@@ -1,0 +1,34 @@
+void syscall(void)
+{
+	int result;
+	array@string comment[2];
+	system.Exit(42);
+	system.GlobalSave("key", "file");
+	system.GlobalLoad("key", "file");
+	system.LockPeek();
+	system.UnlockPeek();
+	system.Reset();
+	system.Output("text");
+	system.MsgBox("text");
+	system.ResumeSave("key", "file", result);
+	system.ResumeLoad("key", "file");
+	system.ExistsFile("file");
+	system.OpenWeb("url");
+	system.GetSaveFolderName();
+	system.GetTime();
+	system.GetGameName();
+	system.Error("text");
+	system.ExistsSaveFile("file");
+	system.IsDebugMode();
+	system.MsgBoxOkCancel("text");
+	system.GetFuncStackName(2);
+	system.Peek();
+	system.Sleep(42);
+	system.ResumeWriteComment("key", "file", comment);
+	system.ResumeReadComment("key", "file", comment);
+	system.GroupSave("key", "file", "group", result);
+	system.GroupLoad("key", "file", "group", result);
+	system.DeleteSaveFile("file");
+	system.ExistFunc("file");
+	system.CopySaveFile("dst", "src");
+}

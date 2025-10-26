@@ -1,0 +1,67 @@
+
+; f_assign
+; ARG  0: a : float
+; RETURN: void
+FUNC 1
+	.F_LOCALASSIGN a 42.000000
+	RETURN
+ENDFUNC f_assign
+
+; f_plusa
+; ARG  0: a : float
+; RETURN: void
+FUNC 2
+	PUSHLOCALPAGE
+	PUSH 0
+	F_PUSH 42.000000
+	F_PLUSA
+	POP
+	RETURN
+ENDFUNC f_plusa
+
+; f_minusa
+; ARG  0: a : float
+; RETURN: void
+FUNC 3
+	PUSHLOCALPAGE
+	PUSH 0
+	F_PUSH 42.000000
+	F_MINUSA
+	POP
+	RETURN
+ENDFUNC f_minusa
+
+; f_mulaa
+; ARG  0: a : float
+; RETURN: void
+FUNC 4
+	PUSHLOCALPAGE
+	PUSH 0
+	F_PUSH 42.000000
+	F_MULA
+	POP
+	RETURN
+ENDFUNC f_mulaa
+
+; f_diva
+; ARG  0: a : float
+; RETURN: void
+FUNC 5
+	PUSHLOCALPAGE
+	PUSH 0
+	F_PUSH 42.000000
+	F_DIVA
+	POP
+	RETURN
+ENDFUNC f_diva
+
+; 0
+; RETURN: void
+FUNC 6
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF assign_float.jaf

@@ -1,0 +1,15 @@
+interface I {
+		void m0(void);
+		int m1(int a, int b);
+};
+
+struct S : I {
+		void m0(void) { }
+		int m1(int a, int b) { return a + b; }
+};
+
+void ifacecall(void)
+{
+		I iface = new S();
+		iface.m1(1, 2);
+}

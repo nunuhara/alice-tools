@@ -1,0 +1,5 @@
+lint li_add(lint a, lint b) { return a + b; }
+lint li_sub(lint a, lint b) { return a - b; }
+lint li_mul(lint a, lint b) { return a * b; }
+lint li_div(lint a, lint b) { return a / b; }
+lint li_mod(lint a, lint b) { return a % b; }

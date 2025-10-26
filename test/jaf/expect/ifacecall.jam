@@ -1,0 +1,91 @@
+
+; S@m0
+; RETURN: void
+FUNC 1
+	RETURN
+ENDFUNC S@m0
+
+; S@m1
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 2
+	.LOCALREF a
+	.LOCALREF b
+	ADD
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC S@m1
+
+; S@0
+; RETURN: void
+FUNC 3
+	.STRUCTREF S <vtable>
+	PUSH 2
+	PUSH -1
+	PUSH -1
+	PUSH -1
+	CALLHLL Array Alloc 10
+	.STRUCTREF S <vtable>
+	PUSH 0
+	PUSH 1
+	ASSIGN
+	POP
+	.STRUCTREF S <vtable>
+	PUSH 1
+	PUSH 2
+	ASSIGN
+	POP
+	RETURN
+ENDFUNC S@0
+
+; ifacecall
+; VAR  0: <dummy : new S> : ref S
+; VAR  1: iface : I
+; VAR  2: <void> : void
+; RETURN: void
+FUNC 4
+	PUSHLOCALPAGE
+	PUSH 1
+	DUP2
+	REF
+	DELETE
+	DUP2
+	.LOCALREF "<dummy : new S>"
+	DELETE
+	PUSHLOCALPAGE
+	PUSH 0
+	NEW S 3
+	ASSIGN
+	PUSH 0
+	R_ASSIGN
+	POP
+	POP
+	REF
+	SP_INC
+	.LOCALREFREF iface
+	DUP_U2
+	PUSH 0
+	REF
+	SWAP
+	PUSH 1
+	ADD
+	REF
+	PUSH 1
+	PUSH 2
+	CALLMETHOD 2
+	POP
+	RETURN
+ENDFUNC ifacecall
+
+; 0
+; RETURN: void
+FUNC 5
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF 0

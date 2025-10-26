@@ -1,0 +1,10 @@
+functype int ft(int);
+
+int foo(int a) { return a; }
+
+void functypes(void) {
+	ft f = &foo;
+	if (f != NULL)
+		f(42);
+	f = NULL;
+}

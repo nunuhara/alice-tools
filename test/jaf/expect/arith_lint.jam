@@ -1,0 +1,76 @@
+
+; li_add
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: lint
+FUNC 1
+	SH_LOCALREF a
+	SH_LOCALREF b
+	LI_ADD
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC li_add
+
+; li_sub
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: lint
+FUNC 2
+	SH_LOCALREF a
+	SH_LOCALREF b
+	LI_SUB
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC li_sub
+
+; li_mul
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: lint
+FUNC 3
+	SH_LOCALREF a
+	SH_LOCALREF b
+	LI_MUL
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC li_mul
+
+; li_div
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: lint
+FUNC 4
+	SH_LOCALREF a
+	SH_LOCALREF b
+	LI_DIV
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC li_div
+
+; li_mod
+; ARG  0: a : lint
+; ARG  1: b : lint
+; RETURN: lint
+FUNC 5
+	SH_LOCALREF a
+	SH_LOCALREF b
+	LI_MOD
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC li_mod
+
+; 0
+; RETURN: void
+FUNC 6
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF arith_lint.jaf

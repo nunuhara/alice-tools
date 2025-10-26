@@ -1,0 +1,117 @@
+
+; syscall
+; VAR  0: result : int
+; VAR  1: comment : array<string>
+; RETURN: void
+FUNC 1
+	SH_LOCALASSIGN result 0
+	PUSHLOCALPAGE
+	PUSH 1
+	PUSH 2
+	PUSH 1
+	A_ALLOC
+	PUSH 42
+	CALLSYS system.Exit
+	S_PUSH "key"
+	S_PUSH "file"
+	CALLSYS system.GlobalSave
+	POP
+	S_PUSH "key"
+	S_PUSH "file"
+	CALLSYS system.GlobalLoad
+	POP
+	CALLSYS system.LockPeek
+	POP
+	CALLSYS system.UnlockPeek
+	POP
+	CALLSYS system.Reset
+	S_PUSH "text"
+	CALLSYS system.Output
+	S_POP
+	S_PUSH "text"
+	CALLSYS system.MsgBox
+	S_POP
+	S_PUSH "key"
+	S_PUSH "file"
+	PUSHLOCALPAGE
+	PUSH 0
+	CALLSYS system.ResumeSave
+	POP
+	S_PUSH "key"
+	S_PUSH "file"
+	CALLSYS system.ResumeLoad
+	S_PUSH "file"
+	CALLSYS system.ExistsFile
+	POP
+	S_PUSH "url"
+	CALLSYS system.OpenWeb
+	CALLSYS system.GetSaveFolderName
+	S_POP
+	CALLSYS system.GetTime
+	POP
+	CALLSYS system.GetGameName
+	S_POP
+	S_PUSH "text"
+	CALLSYS system.Error
+	S_POP
+	S_PUSH "file"
+	CALLSYS system.ExistsSaveFile
+	POP
+	CALLSYS system.IsDebugMode
+	POP
+	S_PUSH "text"
+	CALLSYS system.MsgBoxOkCancel
+	POP
+	PUSH 2
+	CALLSYS system.GetFuncStackName
+	S_POP
+	CALLSYS system.Peek
+	PUSH 42
+	CALLSYS system.Sleep
+	S_PUSH "key"
+	S_PUSH "file"
+	SH_LOCALREF comment
+	CALLSYS system.ResumeWriteComment
+	POP
+	S_PUSH "key"
+	S_PUSH "file"
+	SH_LOCALREF comment
+	CALLSYS system.ResumeReadComment
+	POP
+	S_PUSH "key"
+	S_PUSH "file"
+	S_PUSH "group"
+	PUSHLOCALPAGE
+	PUSH 0
+	CALLSYS system.GroupSave
+	POP
+	S_PUSH "key"
+	S_PUSH "file"
+	S_PUSH "group"
+	PUSHLOCALPAGE
+	PUSH 0
+	CALLSYS system.GroupLoad
+	POP
+	S_PUSH "file"
+	CALLSYS system.DeleteSaveFile
+	POP
+	S_PUSH "file"
+	CALLSYS system.ExistFunc
+	POP
+	S_PUSH "dst"
+	S_PUSH "src"
+	CALLSYS system.CopySaveFile
+	POP
+	RETURN
+ENDFUNC syscall
+
+; 0
+; RETURN: void
+FUNC 2
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF syscall.jaf

@@ -1,0 +1,8 @@
+struct S { int m; };
+void intref(ref int a) { a = 42; }
+void floatref(ref float a) { a = 4.2; }
+void stringref(ref string a) { a = "42"; }
+void structref(ref S a) { a.m = 42; }
+void refassign(ref int a, int b) { a <- b; }
+ref int ref_int_return(int a) { return a; }
+ref S new_struct(void) { return new S(); }

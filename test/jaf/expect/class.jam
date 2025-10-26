@@ -1,0 +1,97 @@
+
+; localcreate
+; VAR  0: c : C
+; RETURN: void
+FUNC 1
+	PUSH 1
+	IFNZ 0x18
+	JUMP 0x2e
+0x18:
+	SH_LOCALDELETE c
+	SH_LOCALCREATE c C
+	SH_LOCALDELETE c
+0x2e:
+	RETURN
+ENDFUNC localcreate
+
+; sr_assign
+; VAR  0: a : C
+; VAR  1: b : C
+; RETURN: void
+FUNC 2
+	PUSH 1
+	IFNZ 0x4e
+	JUMP 0x98
+0x4e:
+	SH_LOCALDELETE a
+	SH_LOCALCREATE a C
+	SH_LOCALDELETE b
+	SH_LOCALCREATE b C
+	SH_LOCALREF a
+	PUSHLOCALPAGE
+	PUSH 1
+	SR_REF C
+	PUSH 0
+	SR_ASSIGN
+	SR_POP
+	SH_LOCALDELETE b
+	SH_LOCALDELETE a
+0x98:
+	RETURN
+ENDFUNC sr_assign
+
+; new_s
+; VAR  0: <dummy : new C> : ref C
+; VAR  1: a : ref C
+; RETURN: void
+FUNC 3
+	PUSH 1
+	IFNZ 0xb8
+	JUMP 0x128
+0xb8:
+	CALLSYS system.LockPeek
+	POP
+	PUSHLOCALPAGE
+	PUSH 1
+	DUP2
+	REF
+	DELETE
+	DUP2
+	PUSHLOCALPAGE
+	PUSH 0
+	PUSH 0
+	CALLSYS system.LockPeek
+	POP
+	NEW
+	ASSIGN
+	CALLSYS system.UnlockPeek
+	POP
+	ASSIGN
+	DUP_X2
+	POP
+	REF
+	SP_INC
+	POP
+	CALLSYS system.UnlockPeek
+	POP
+	SH_LOCALREF a
+	PUSH 0
+	PUSH 42
+	ASSIGN
+	POP
+	SH_LOCALDELETE a
+	SH_LOCALDELETE "<dummy : new C>"
+0x128:
+	RETURN
+ENDFUNC new_s
+
+; 0
+; RETURN: void
+FUNC 4
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF class.jaf

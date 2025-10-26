@@ -1,0 +1,10 @@
+int c_ref(string s) { return s[0]; }
+void c_assign(string s) { s[0] = 'あ'; }
+int s_equale(string a, string b) { return a == b; }
+int s_note(string a, string b) { return a != b; }
+int s_lt(string a, string b) { return a < b; }
+int s_gt(string a, string b) { return a > b; }
+int s_lte(string a, string b) { return a <= b; }
+int s_gte(string a, string b) { return a >= b; }
+void s_assign(string a) { a = "42"; }
+void s_plusa(string a) { a += "42"; }

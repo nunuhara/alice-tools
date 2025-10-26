@@ -1,0 +1,159 @@
+
+; c_ref
+; ARG  0: s : string
+; RETURN: int
+FUNC 1
+	SH_LOCALREF s
+	PUSH 0
+	C_REF
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC c_ref
+
+; c_assign
+; ARG  0: s : string
+; RETURN: void
+FUNC 2
+	SH_LOCALREF s
+	PUSH 0
+	PUSH 41090
+	C_ASSIGN
+	POP
+	RETURN
+ENDFUNC c_assign
+
+; s_equale
+; ARG  0: a : string
+; ARG  1: b : string
+; RETURN: int
+FUNC 3
+	PUSHLOCALPAGE
+	PUSH 0
+	S_REF
+	PUSHLOCALPAGE
+	PUSH 1
+	S_REF
+	S_EQUALE
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC s_equale
+
+; s_note
+; ARG  0: a : string
+; ARG  1: b : string
+; RETURN: int
+FUNC 4
+	PUSHLOCALPAGE
+	PUSH 0
+	S_REF
+	PUSHLOCALPAGE
+	PUSH 1
+	S_REF
+	S_NOTE
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC s_note
+
+; s_lt
+; ARG  0: a : string
+; ARG  1: b : string
+; RETURN: int
+FUNC 5
+	PUSHLOCALPAGE
+	PUSH 0
+	S_REF
+	PUSHLOCALPAGE
+	PUSH 1
+	S_REF
+	S_LT
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC s_lt
+
+; s_gt
+; ARG  0: a : string
+; ARG  1: b : string
+; RETURN: int
+FUNC 6
+	PUSHLOCALPAGE
+	PUSH 0
+	S_REF
+	PUSHLOCALPAGE
+	PUSH 1
+	S_REF
+	S_GT
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC s_gt
+
+; s_lte
+; ARG  0: a : string
+; ARG  1: b : string
+; RETURN: int
+FUNC 7
+	PUSHLOCALPAGE
+	PUSH 0
+	S_REF
+	PUSHLOCALPAGE
+	PUSH 1
+	S_REF
+	S_LTE
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC s_lte
+
+; s_gte
+; ARG  0: a : string
+; ARG  1: b : string
+; RETURN: int
+FUNC 8
+	PUSHLOCALPAGE
+	PUSH 0
+	S_REF
+	PUSHLOCALPAGE
+	PUSH 1
+	S_REF
+	S_GTE
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC s_gte
+
+; s_assign
+; ARG  0: a : string
+; RETURN: void
+FUNC 9
+	SH_LOCALREF a
+	S_PUSH "42"
+	S_ASSIGN
+	S_POP
+	RETURN
+ENDFUNC s_assign
+
+; s_plusa
+; ARG  0: a : string
+; RETURN: void
+FUNC 10
+	SH_LOCALREF a
+	S_PUSH "42"
+	S_PLUSA2
+	S_POP
+	RETURN
+ENDFUNC s_plusa
+
+; 0
+; RETURN: void
+FUNC 11
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF string.jaf

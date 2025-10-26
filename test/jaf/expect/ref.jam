@@ -1,0 +1,118 @@
+
+; intref
+; ARG  0: a : ref int
+; ARG  1: <void> : void
+; RETURN: void
+FUNC 1
+	.LOCALREFREF a
+	PUSH 42
+	ASSIGN
+	POP
+	RETURN
+ENDFUNC intref
+
+; floatref
+; ARG  0: a : ref float
+; ARG  1: <void> : void
+; RETURN: void
+FUNC 2
+	.LOCALREFREF a
+	F_PUSH 4.200000
+	F_ASSIGN
+	POP
+	RETURN
+ENDFUNC floatref
+
+; stringref
+; ARG  0: a : ref string
+; RETURN: void
+FUNC 3
+	SH_LOCALREF a
+	S_PUSH "42"
+	S_ASSIGN
+	S_POP
+	RETURN
+ENDFUNC stringref
+
+; structref
+; ARG  0: a : ref S
+; RETURN: void
+FUNC 4
+	SH_LOCALREF a
+	PUSH 0
+	PUSH 42
+	ASSIGN
+	POP
+	RETURN
+ENDFUNC structref
+
+; refassign
+; ARG  0: a : ref int
+; ARG  1: <void> : void
+; ARG  2: b : int
+; RETURN: void
+FUNC 5
+	CALLSYS system.LockPeek
+	POP
+	PUSHLOCALPAGE
+	PUSH 0
+	DUP2
+	REF
+	DELETE
+	DUP2
+	PUSHLOCALPAGE
+	PUSH 2
+	R_ASSIGN
+	POP
+	POP
+	REF
+	SP_INC
+	CALLSYS system.UnlockPeek
+	POP
+	RETURN
+ENDFUNC refassign
+
+; ref_int_return
+; ARG  0: a : int
+; RETURN: ref int
+FUNC 6
+	PUSHLOCALPAGE
+	PUSH 0
+	DUP_U2
+	SP_INC
+	RETURN
+	PUSH -1
+	PUSH 0
+	RETURN
+ENDFUNC ref_int_return
+
+; new_struct
+; VAR  0: <dummy : new S> : ref S
+; RETURN: ref S
+FUNC 7
+	PUSHLOCALPAGE
+	PUSH 0
+	PUSH 0
+	CALLSYS system.LockPeek
+	POP
+	NEW
+	ASSIGN
+	CALLSYS system.UnlockPeek
+	POP
+	DUP
+	SP_INC
+	RETURN
+	PUSH -1
+	RETURN
+ENDFUNC new_struct
+
+; 0
+; RETURN: void
+FUNC 8
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF ref.jaf

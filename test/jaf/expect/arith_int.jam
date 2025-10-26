@@ -1,0 +1,252 @@
+
+; inv
+; ARG  0: a : int
+; RETURN: int
+FUNC 1
+	SH_LOCALREF a
+	INV
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC inv
+
+; not
+; ARG  0: a : int
+; RETURN: int
+FUNC 2
+	SH_LOCALREF a
+	NOT
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC not
+
+; compl
+; ARG  0: a : int
+; RETURN: int
+FUNC 3
+	SH_LOCALREF a
+	COMPL
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC compl
+
+; add
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 4
+	SH_LOCALREF a
+	SH_LOCALREF b
+	ADD
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC add
+
+; sub
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 5
+	SH_LOCALREF a
+	SH_LOCALREF b
+	SUB
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC sub
+
+; mul
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 6
+	SH_LOCALREF a
+	SH_LOCALREF b
+	MUL
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC mul
+
+; div
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 7
+	SH_LOCALREF a
+	SH_LOCALREF b
+	DIV
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC div
+
+; mod
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 8
+	SH_LOCALREF a
+	SH_LOCALREF b
+	MOD
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC mod
+
+; and
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 9
+	SH_LOCALREF a
+	SH_LOCALREF b
+	AND
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC and
+
+; or
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 10
+	SH_LOCALREF a
+	SH_LOCALREF b
+	OR
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC or
+
+; xor
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 11
+	SH_LOCALREF a
+	SH_LOCALREF b
+	XOR
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC xor
+
+; lshift
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 12
+	SH_LOCALREF a
+	SH_LOCALREF b
+	LSHIFT
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC lshift
+
+; rshift
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 13
+	SH_LOCALREF a
+	SH_LOCALREF b
+	RSHIFT
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC rshift
+
+; lt
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 14
+	SH_LOCALREF a
+	SH_LOCALREF b
+	LT
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC lt
+
+; gt
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 15
+	SH_LOCALREF a
+	SH_LOCALREF b
+	GT
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC gt
+
+; lte
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 16
+	SH_LOCALREF a
+	SH_LOCALREF b
+	LTE
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC lte
+
+; gte
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 17
+	SH_LOCALREF a
+	SH_LOCALREF b
+	GTE
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC gte
+
+; equale
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 18
+	SH_LOCALREF a
+	SH_LOCALREF b
+	EQUALE
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC equale
+
+; note
+; ARG  0: a : int
+; ARG  1: b : int
+; RETURN: int
+FUNC 19
+	SH_LOCALREF a
+	SH_LOCALREF b
+	NOTE
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC note
+
+; 0
+; RETURN: void
+FUNC 20
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF arith_int.jaf

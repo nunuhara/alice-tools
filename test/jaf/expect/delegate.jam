@@ -1,0 +1,84 @@
+
+; obj@method1
+; ARG  0: a : int
+; RETURN: int
+FUNC 1
+	PUSH 0
+	RETURN
+ENDFUNC obj@method1
+
+; obj@method2
+; ARG  0: a : int
+; RETURN: int
+FUNC 2
+	PUSH 0
+	RETURN
+ENDFUNC obj@method2
+
+; non_method
+; ARG  0: a : int
+; RETURN: int
+FUNC 3
+	PUSH 0
+	RETURN
+ENDFUNC non_method
+
+; delegates
+; VAR  0: o : obj
+; VAR  1: d : delegate
+; RETURN: void
+FUNC 4
+	SH_LOCALDELETE o
+	SH_LOCALCREATE o obj
+	.LOCALREF d
+	DG_CLEAR
+	.LOCALREF d
+	SH_LOCALREF o
+	PUSH 1
+	DG_SET
+	.LOCALREF d
+	SH_LOCALREF o
+	PUSH 2
+	DG_ADD
+	.LOCALREF d
+	SH_LOCALREF o
+	PUSH 1
+	DG_ERASE
+	.LOCALREF d
+	DG_NUMOF
+	POP
+	.LOCALREF d
+	SH_LOCALREF o
+	PUSH 2
+	DG_EXIST
+	.LOCALREF d
+	DG_CLEAR
+	POP
+	.LOCALREF d
+	DG_CLEAR
+	.LOCALREF d
+	PUSH 3
+	PUSH -1
+	SWAP
+	DG_SET
+	.LOCALREF d
+	PUSH 42
+	DG_CALLBEGIN dg
+0x116:
+	DG_CALL dg 0x126
+	JUMP 0x116
+0x126:
+	POP
+	RETURN
+ENDFUNC delegates
+
+; 0
+; RETURN: void
+FUNC 5
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF delegate.jaf
