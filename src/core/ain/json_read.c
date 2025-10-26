@@ -429,6 +429,7 @@ static void read_delegate_declarations(cJSON *decl, struct ain *ain)
 {
 	ain_free_delegates(ain);
 	ain->delegates = _read_function_type_declarations(decl, &ain->nr_delegates);
+	ain->DELG.present = true;
 }
 
 static void read_global_group_declarations(cJSON *decl, struct ain *ain)
