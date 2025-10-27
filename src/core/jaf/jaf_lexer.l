@@ -111,6 +111,7 @@ unsigned long jaf_line = 1;
 "hll_func_71"                           { return HLL_FUNC_71; }
 "hll_func"                              { return HLL_FUNC; }
 "hll_struct"                            { return HLL_STRUCT; }
+"hll_delegate"                          { return HLL_DELEGATE; }
 "functype"                              { return FUNCTYPE; }
 "delegate"                              { return DELEGATE; }
 "override"                              { return OVERRIDE; }
