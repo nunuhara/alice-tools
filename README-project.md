@@ -11,6 +11,12 @@ The `alice project build` tool provides a solution to this problem by
 specifying a declarative format for describing all of the inputs and outputs of
 the build process.
 
+## Initializing a Project Directory
+
+Run the command `alice project init --mod <ain-file>` to set up a project
+directory for creating a mod for the given .ain file. This will create a
+directory structure similar to the one described below.
+
 ## Project Files
 
 The main configuration for a project is contained in a .pje file in the

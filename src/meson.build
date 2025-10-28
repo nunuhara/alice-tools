@@ -80,6 +80,7 @@ cli_sources = ['cli/alice.c',
                'cli/flat_build.c',
                'cli/flat_extract.c',
                'cli/project_build.c',
+               'cli/project_init.c',
 ]
 
 static_link_args = []

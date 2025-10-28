@@ -30,7 +30,7 @@ static int command_project_build(int argc, char *argv[])
 	set_output_encoding("CP932");
 
 	while (1) {
-		int c = alice_getopt(argc, argv, &cmd_cg_convert);
+		int c = alice_getopt(argc, argv, &cmd_project_build);
 		if (c == -1)
 			break;
 	}

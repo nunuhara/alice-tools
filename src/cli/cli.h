@@ -66,6 +66,7 @@ extern struct command cmd_flat_build;
 extern struct command cmd_flat_extract;
 extern struct command cmd_fnl_dump;
 extern struct command cmd_project_build;
+extern struct command cmd_project_init;
 
 extern struct command cmd_alice;
 extern struct command cmd_acx;

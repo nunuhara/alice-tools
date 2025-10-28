@@ -143,6 +143,7 @@ struct command cmd_project = {
 	.parent = &cmd_alice,
 	.commands = {
 		&cmd_project_build,
+		&cmd_project_init,
 		NULL
 	}
 };
