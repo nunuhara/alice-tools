@@ -355,12 +355,12 @@ void ain_dump_enum(struct port *port, struct ain *ain, int i)
 	port_printf(port, "enum ");
 	print_sjis(port, e->name);
 	port_printf(port, " {");
-	for (int i = 0; i < e->nr_symbols; i++) {
+	for (int i = 0; i < e->nr_values; i++) {
 		if (i > 0)
 			port_putc(port, ',');
 		port_printf(port, "\n\t");
-		print_sjis(port, e->symbols[i]);
-		port_printf(port, " = %d", i);
+		print_sjis(port, e->values[i].symbol);
+		port_printf(port, " = %d", e->values[i].value);
 	}
 	port_printf(port, "\n};\n");
 }

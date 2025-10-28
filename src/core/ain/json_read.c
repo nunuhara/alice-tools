@@ -450,14 +450,28 @@ static void read_enum_declarations(cJSON *decl, struct ain *ain)
 
 		int j;
 		cJSON *s, *syms = cJSON_GetObjectArray_NonNull(e, "values");
-		char **symbols = xcalloc(cJSON_GetArraySize(syms), sizeof(char*));
+		struct ain_enum_value *values = xcalloc(cJSON_GetArraySize(syms), sizeof(char*));
 		cJSON_ArrayForEachIndex(j, s, syms) {
-			if (!cJSON_IsString(s))
-				ERROR("Non-string in enum symbol list");
-			symbols[i] = strdup(s->valuestring);
+			if (cJSON_IsArray(s)) {
+				if (cJSON_GetArraySize(s) != 2)
+					ERROR("Unexpected enum array size");
+				cJSON *str = cJSON_GetArrayItem(s, 0);
+				cJSON *val = cJSON_GetArrayItem(s, 1);
+				if (!cJSON_IsString(str))
+					ERROR("Non-string as enum symbol");
+				if (!cJSON_IsNumber(val))
+					ERROR("Non-number as enum value");
+				values[j].symbol = xstrdup(str->valuestring);
+				values[j].value = val->valueint;
+			} else if (cJSON_IsString(s)) {
+				values[j].symbol = xstrdup(s->valuestring);
+				values[j].value = j;
+			} else {
+				ERROR("Invalid value as enum value list");
+			}
 		}
-		enums[i].nr_symbols = j;
-		enums[i].symbols = symbols;
+		enums[i].nr_values = j;
+		enums[i].values = values;
 	}
 
 	ain_free_enums(ain);

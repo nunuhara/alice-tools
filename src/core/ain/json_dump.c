@@ -209,8 +209,11 @@ static cJSON *ain_enum_to_json(struct ain_enum *e)
 	cJSON_AddStringToObject(o, "name", e->name);
 
 	cJSON *a = cJSON_CreateArray();
-	for (int i = 0; i < e->nr_symbols; i++) {
-		cJSON_AddItemToArray(a, cJSON_CreateString(e->symbols[i]));
+	for (int i = 0; i < e->nr_values; i++) {
+		cJSON *v = cJSON_CreateArray();
+		cJSON_AddItemToArray(v, cJSON_CreateString(e->values[i].symbol));
+		cJSON_AddItemToArray(v, cJSON_CreateNumber(e->values[i].value));
+		cJSON_AddItemToArray(a, v);
 	}
 	cJSON_AddItemToObject(o, "values", a);
 
