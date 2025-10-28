@@ -38,3 +38,4 @@ jobs:
       run: |
         export ALICE=$(realpath out/${{ matrix.build-type }}/src/alice)
         test/jaf/expect/run-tests.sh
+        test/rtt-ex.sh test/ex/test.ex
