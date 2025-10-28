@@ -237,8 +237,7 @@ void jaf_print_expression(struct port *out, struct jaf_expression *expr)
 		port_putc(out, ']');
 		break;
 	case JAF_EXP_CHAR:
-		// FIXME: shift-jis
-		port_printf(out, "'%c'", (char)expr->i);
+		port_printf(out, "'%s'", expr->s->text);
 		break;
 	case JAF_EXP_NULL:
 		port_printf(out, "NULL");
