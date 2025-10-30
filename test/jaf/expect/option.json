@@ -1,0 +1,85 @@
+{
+	"version":	12,
+	"keycode":	0,
+	"functions":	[{
+			"index":	0,
+			"address":	276,
+			"name":	"NULL",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	1,
+			"address":	6,
+			"name":	"foo",
+			"return-type":	[86, -1, 1, [10, -1, 0, null]],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	2,
+			"address":	94,
+			"name":	"baz",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[{
+					"name":	"v",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}]
+		}, {
+			"index":	3,
+			"address":	262,
+			"name":	"0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}],
+	"globals":	[],
+	"structures":	[],
+	"main":	-1,
+	"msgf":	0,
+	"libraries":	[{
+			"name":	"Array",
+			"functions":	[{
+					"name":	"Alloc",
+					"return-type":	0,
+					"arguments":	[{
+							"name":	"self",
+							"type":	80
+						}, {
+							"name":	"Numof",
+							"type":	10
+						}, {
+							"name":	"Numof2",
+							"type":	10
+						}, {
+							"name":	"Numof3",
+							"type":	10
+						}, {
+							"name":	"Numof4",
+							"type":	10
+						}]
+				}, {
+					"name":	"Free",
+					"return-type":	0,
+					"arguments":	[{
+							"name":	"self",
+							"type":	80
+						}]
+				}]
+		}],
+	"switches":	[],
+	"game-version":	100,
+	"filenames":	[],
+	"ojmp":	0
+}

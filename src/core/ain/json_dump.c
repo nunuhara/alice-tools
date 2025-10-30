@@ -127,7 +127,7 @@ static cJSON *ain_structure_to_json(struct ain *ain, struct ain_struct *s)
 	return o;
 }
 
-static cJSON *ain_library_to_json(struct ain_library *lib)
+static cJSON *ain_library_to_json(struct ain *ain, struct ain_library *lib)
 {
 	cJSON *o = cJSON_CreateObject();
 	cJSON_AddStringToObject(o, "name", lib->name);
@@ -136,15 +136,24 @@ static cJSON *ain_library_to_json(struct ain_library *lib)
 	for (int i = 0; i < lib->nr_functions; i++) {
 		cJSON *f = cJSON_CreateObject();
 		cJSON_AddStringToObject(f, "name", lib->functions[i].name);
-		cJSON_AddNumberToObject(f, "return-type", lib->functions[i].return_type.data);
-		// TODO: v14 has full variable type
+		if (AIN_VERSION_GTE(ain, 14, 0)) {
+			cJSON_AddItemToObject(f, "return-type",
+					ain_type_to_json(ain, &lib->functions[i].return_type));
+		} else {
+			cJSON_AddNumberToObject(f, "return-type",
+					lib->functions[i].return_type.data);
+		}
 
 		cJSON *args = cJSON_CreateArray();
 		for (int j = 0; j < lib->functions[i].nr_arguments; j++) {
+			struct ain_hll_argument *a = &lib->functions[i].arguments[j];
 			cJSON *arg = cJSON_CreateObject();
-			cJSON_AddStringToObject(arg, "name", lib->functions[i].arguments[j].name);
-			cJSON_AddNumberToObject(arg, "type", lib->functions[i].arguments[j].type.data);
-			// TODO: v14 has full variable type
+			cJSON_AddStringToObject(arg, "name", a->name);
+			if (AIN_VERSION_GTE(ain, 14, 0)) {
+				cJSON_AddItemToObject(arg, "type", ain_type_to_json(ain, &a->type));
+			} else {
+				cJSON_AddNumberToObject(arg, "type", a->type.data);
+			}
 			cJSON_AddItemToArray(args, arg);
 		}
 		cJSON_AddItemToObject(f, "arguments", args);
@@ -261,7 +270,7 @@ static cJSON *ain_to_json(struct ain *ain)
 	// HLL0: libraries
 	a = cJSON_CreateArray();
 	for (int i = 0; i < ain->nr_libraries; i++) {
-		cJSON_AddItemToArray(a, ain_library_to_json(&ain->libraries[i]));
+		cJSON_AddItemToArray(a, ain_library_to_json(ain, &ain->libraries[i]));
 	}
 	cJSON_AddItemToObject(j, "libraries", a);
 

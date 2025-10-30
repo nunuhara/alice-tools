@@ -28,6 +28,10 @@ static void jaf_analyze_stmt_pre(struct jaf_block_item *stmt, struct jaf_visitor
 	if (stmt->kind == JAF_DECL_FUN && stmt->fun.body) {
 		jaf_to_ain_type(visitor->env->ain, &stmt->fun.valuetype, stmt->fun.type);
 	}
+	if (stmt->kind == JAF_DECL_VAR && stmt->var.type->type == JAF_OPTION
+			&& AIN_VERSION_LT(visitor->env->ain, 14, 0)) {
+		JAF_ERROR(stmt, "option<> variables not supported in this .ain version");
+	}
 }
 
 static void jaf_analyze_stmt_post(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
@@ -80,6 +84,17 @@ static int add_library_function(struct ain_library *lib)
 		.type = { .data = t, .struc = -1 } \
 	}
 
+static void init_array_self_param(struct ain *ain, struct ain_hll_argument *arg)
+{
+	*arg = HLL_ARG("self", AIN_REF_ARRAY);
+	if (AIN_VERSION_GTE(ain, 14, 0)) {
+		arg->type.rank = 1;
+		arg->type.array_type = xcalloc(1, sizeof(struct ain_type));
+		arg->type.array_type->data = AIN_HLL_PARAM;
+		arg->type.array_type->struc = -1;
+	}
+}
+
 static void jaf_check_builtin_hll(struct ain *ain)
 {
 	// ensure that Array.Alloc and Array.Free exist, because calls to them are
@@ -95,26 +110,26 @@ static void jaf_check_builtin_hll(struct ain *ain)
 			alloc_fno = add_library_function(lib);
 			struct ain_hll_function *f = &lib->functions[alloc_fno];
 			f->name = xstrdup("Alloc");
-			f->return_type.data = AIN_VOID;
-			f->return_type.struc = -1;
+			f->return_type = (struct ain_type) { .data = AIN_VOID, .struc = -1 };
 			f->nr_arguments = 5;
 			f->arguments = xcalloc(5, sizeof(struct ain_hll_argument));
-			f->arguments[0] = HLL_ARG("self", AIN_REF_ARRAY);
+			init_array_self_param(ain, &f->arguments[0]);
 			f->arguments[1] = HLL_ARG("Numof", AIN_INT);
 			f->arguments[2] = HLL_ARG("Numof2", AIN_INT);
 			f->arguments[3] = HLL_ARG("Numof3", AIN_INT);
 			f->arguments[4] = HLL_ARG("Numof4", AIN_INT);
+			if (AIN_VERSION_GTE(ain, 14, 0))
+				assert(f->arguments[0].type.array_type);
 		}
 		int free_fno = ain_get_library_function(ain, array_hll, "Free");
 		if (free_fno < 0) {
 			free_fno = add_library_function(lib);
 			struct ain_hll_function *f = &lib->functions[free_fno];
 			f->name = xstrdup("Free");
-			f->return_type.data = AIN_VOID;
-			f->return_type.struc = -1;
+			f->return_type = (struct ain_type) { .data = AIN_VOID, .struc = -1 };
 			f->nr_arguments = 1;
 			f->arguments = xcalloc(1, sizeof(struct ain_hll_argument));
-			f->arguments[0] = HLL_ARG("self", AIN_REF_ARRAY);
+			init_array_self_param(ain, &f->arguments[0]);
 		}
 	}
 }

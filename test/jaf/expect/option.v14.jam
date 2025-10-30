@@ -1,0 +1,100 @@
+
+; foo
+; ARG  0: a : int
+; RETURN: option<int>
+FUNC 1
+	.LOCALREF a
+	PUSH 0
+	GT
+	IFNZ 0x28
+	JUMP 0x3e
+0x28:
+	.LOCALREF a
+	PUSH 0
+	RETURN
+0x3e:
+	PUSH -1
+	PUSH 1
+	RETURN
+	PUSH -1
+	PUSH 1
+	RETURN
+ENDFUNC foo
+
+; bar
+; ARG  0: a : option<int>
+; ARG  1: <void> : void
+; RETURN: int
+FUNC 2
+	PUSHLOCALPAGE
+	PUSH 0
+	X_REF 2
+	PUSH 1
+	GTE
+	IFZ 0x8a
+	POP
+	PUSH 2
+0x8a:
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC bar
+
+; baz
+; VAR  0: opt : option<int>
+; VAR  1: <void> : void
+; VAR  2: v : int
+; RETURN: void
+FUNC 3
+	PUSHLOCALPAGE
+	PUSH 0
+	PUSH 1
+	CALLFUNC foo
+	X_ASSIGN 2
+	POP
+	POP
+	PUSHLOCALPAGE
+	PUSH 2
+	PUSHLOCALPAGE
+	PUSH 0
+	X_REF 2
+	CALLFUNC bar
+	X_ASSIGN 1
+	POP
+	PUSHLOCALPAGE
+	PUSH 0
+	X_REF 2
+	X_MOV 2 1
+	POP
+	PUSH 1
+	LT
+	IFNZ 0x110
+	JUMP 0x126
+0x110:
+	.LOCALASSIGN v 1
+0x126:
+	PUSHLOCALPAGE
+	PUSH 0
+	X_REF 2
+	X_MOV 2 1
+	POP
+	PUSH 1
+	GTE
+	IFNZ 0x154
+	JUMP 0x16a
+0x154:
+	.LOCALASSIGN v 0
+0x16a:
+	RETURN
+ENDFUNC baz
+
+; 0
+; RETURN: void
+FUNC 4
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF 0

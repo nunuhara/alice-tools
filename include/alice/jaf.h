@@ -55,6 +55,7 @@ enum jaf_type {
 	JAF_ENUM,
 	JAF_ARRAY,
 	JAF_WRAP,
+	JAF_OPTION,
 	JAF_HLL_PARAM,
 	JAF_HLL_FUNC_71,
 	JAF_HLL_FUNC,
@@ -85,6 +86,7 @@ enum _ain_type {
 	_AIN_SUPER    = 255 - 7, // super call - can be either function or method call
 	_AIN_NULLTYPE = 255 - 8, // untyped NULL expression
 	_AIN_IMETHOD  = 255 - 9, // member: interface method reference (e.g. iface.method)
+	_AIN_NONETYPE = 255 - 10, // untyped 'None' expression
 };
 #define AIN_FUNCTION ((enum ain_data_type)_AIN_FUNCTION)
 #define AIN_LIBRARY  ((enum ain_data_type)_AIN_LIBRARY)
@@ -96,6 +98,7 @@ enum _ain_type {
 #define AIN_SUPER    ((enum ain_data_type)_AIN_SUPER)
 #define AIN_NULLTYPE ((enum ain_data_type)_AIN_NULLTYPE)
 #define AIN_IMETHOD  ((enum ain_data_type)_AIN_IMETHOD)
+#define AIN_NONETYPE ((enum ain_data_type)_AIN_NONETYPE)
 
 /*
  * Built-in libraries; these are negative to disambiguate between true built-ins
@@ -107,6 +110,7 @@ enum jaf_builtin_lib {
 	JAF_BUILTIN_STRING   = -3,
 	JAF_BUILTIN_ARRAY    = -4,
 	JAF_BUILTIN_DELEGATE = -5,
+	JAF_BUILTIN_OPTION   = -6,
 };
 
 enum jaf_builtin_method {
@@ -137,8 +141,11 @@ enum jaf_builtin_method {
 	JAF_DELEGATE_NUMOF,
 	JAF_DELEGATE_EXIST,
 	JAF_DELEGATE_CLEAR,
+	JAF_OPTION_VALUE,
+	JAF_OPTION_ISSOME,
+	JAF_OPTION_ISNONE,
 };
-#define JAF_NR_BUILTINS (JAF_DELEGATE_CLEAR+1)
+#define JAF_NR_BUILTINS (JAF_OPTION_ISNONE+1)
 
 enum jaf_type_qualifier {
 	JAF_QUAL_CONST       = 1,
@@ -171,6 +178,8 @@ enum jaf_expression_type {
 	JAF_EXP_SUBSCRIPT,
 	JAF_EXP_CHAR,
 	JAF_EXP_NULL,
+	JAF_EXP_NONE,
+	JAF_EXP_SOME,
 	JAF_EXP_DUMMYREF,
 };
 
@@ -519,6 +528,8 @@ _Noreturn void jaf_block_item_error(struct jaf_block_item *item, const char *msg
 // jaf_ast.c
 struct jaf_expression *jaf_expr(enum jaf_expression_type type, enum jaf_operator op);
 struct jaf_expression *jaf_null(void);
+struct jaf_expression *jaf_none(void);
+struct jaf_expression *jaf_some(struct jaf_expression *expr);
 struct jaf_expression *jaf_integer(int i);
 struct jaf_expression *jaf_parse_integer(struct string *text);
 struct jaf_expression *jaf_float(float f);
@@ -547,6 +558,7 @@ struct jaf_type_specifier *jaf_type(enum jaf_type type);
 struct jaf_type_specifier *jaf_typedef(struct string *name);
 struct jaf_type_specifier *jaf_array_type(struct jaf_type_specifier *type, int rank);
 struct jaf_type_specifier *jaf_wrap(struct jaf_type_specifier *type);
+struct jaf_type_specifier *jaf_option(struct jaf_type_specifier *type);
 struct jaf_declarator *jaf_declarator(struct string *name);
 struct jaf_declarator *jaf_array_allocation(struct string *name, struct jaf_expression *dim);
 struct jaf_declarator *jaf_array_dimension(struct jaf_declarator *d, struct jaf_expression *dim);

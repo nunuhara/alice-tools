@@ -86,6 +86,7 @@ const char *jaf_type_to_string(enum jaf_type type)
 	case JAF_ENUM: return "enum";
 	case JAF_ARRAY: return "array";
 	case JAF_WRAP: return "wrap";
+	case JAF_OPTION: return "option";
 	case JAF_HLL_PARAM: return "hll_param";
 	case JAF_HLL_FUNC_71: return "hll_func_71";
 	case JAF_HLL_FUNC: return "hll_func";
@@ -241,6 +242,14 @@ void jaf_print_expression(struct port *out, struct jaf_expression *expr)
 		break;
 	case JAF_EXP_NULL:
 		port_printf(out, "NULL");
+		break;
+	case JAF_EXP_NONE:
+		port_printf(out, "None");
+		break;
+	case JAF_EXP_SOME:
+		port_printf(out, "Some(");
+		jaf_print_expression(out, expr->expr);
+		port_putc(out, ')');
 		break;
 	case JAF_EXP_DUMMYREF:
 		jaf_print_expression(out, expr->dummy.expr);

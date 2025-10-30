@@ -138,6 +138,7 @@ static bool type_identical(struct ain_type *a, struct ain_type *b)
 	case AIN_ARRAY:
 	case AIN_REF_ARRAY:
 	case AIN_WRAP:
+	case AIN_OPTION:
 		assert(a->rank == 1 && a->array_type);
 		assert(b->rank == 1 && b->array_type);
 		return type_identical(a->array_type, b->array_type);
@@ -182,6 +183,7 @@ static bool type_equal(struct jaf_env *env, struct ain_type *expected, struct ai
 		case AIN_ARRAY:
 		case AIN_REF_ARRAY:
 		case AIN_WRAP:
+		case AIN_OPTION:
 			// XXX: array without array type means any array type allowed
 			//      (used by Array HLL)
 			if (!expected->rank)
@@ -191,6 +193,10 @@ static bool type_equal(struct jaf_env *env, struct ain_type *expected, struct ai
 		default:
 			return true;
 		}
+	}
+	if (expected->data == AIN_OPTION) {
+		assert(expected->array_type);
+		return type_identical(expected->array_type, actual);
 	}
 #define T(a,b) (((a) << 8) | (b))
 	switch (T(expected->data, actual->data)) {
@@ -233,6 +239,13 @@ static void type_check(struct jaf_env *env, struct ain_type *expected, struct ja
 			ain_copy_type(&actual->valuetype, expected);
 			break;
 		default:
+			TYPE_ERROR(actual, expected->data);
+		}
+		break;
+	case AIN_NONETYPE:
+		if (expected->data == AIN_OPTION) {
+			ain_copy_type(&actual->valuetype, expected);
+		} else {
 			TYPE_ERROR(actual, expected->data);
 		}
 		break;
@@ -907,6 +920,8 @@ static bool ain_wide_type(enum ain_data_type type) {
 	case AIN_REF_FLOAT:
 	case AIN_REF_BOOL:
 	case AIN_REF_LONG_INT:
+	case AIN_IFACE:
+	case AIN_OPTION:
 		return true;
 	default:
 		return false;
@@ -1188,37 +1203,39 @@ struct builtin {
 	const char *name;
 	int min_args;
 	int max_args;
-	enum opcode opcode;
 };
 
 static struct builtin builtins[] = {
-	[JAF_INT_STRING]        = { AIN_STRING, AIN_INT, "String",        0, 0, I_STRING },
-	[JAF_FLOAT_STRING]      = { AIN_STRING, AIN_FLOAT, "String",      0, 0, FTOS },
-	[JAF_STRING_INT]        = { AIN_INT,    AIN_STRING, "Int",        0, 0, STOI },
-	[JAF_STRING_LENGTH]     = { AIN_INT,    AIN_STRING, "Length",     0, 0, S_LENGTH },
-	[JAF_STRING_LENGTHBYTE] = { AIN_INT,    AIN_STRING, "LengthByte", 0, 0, S_LENGTHBYTE },
-	[JAF_STRING_EMPTY]      = { AIN_INT,    AIN_STRING, "Empty",      0, 0, S_EMPTY },
-	[JAF_STRING_FIND]       = { AIN_INT,    AIN_STRING, "Find",       1, 1, S_FIND },
-	[JAF_STRING_GETPART]    = { AIN_STRING, AIN_STRING, "GetPart",    2, 2, S_GETPART },
-	[JAF_STRING_PUSHBACK]   = { AIN_VOID,   AIN_STRING, "PushBack",   1, 1, S_PUSHBACK },
-	[JAF_STRING_POPBACK]    = { AIN_VOID,   AIN_STRING, "PopBack",    0, 0, S_POPBACK },
-	[JAF_STRING_ERASE]      = { AIN_VOID,   AIN_STRING, "Erase",      1, 1, S_ERASE },
-	[JAF_ARRAY_ALLOC]       = { AIN_VOID,   AIN_ARRAY, "Alloc",       1, 255, A_ALLOC },
-	[JAF_ARRAY_REALLOC]     = { AIN_VOID,   AIN_ARRAY, "Realloc",     1, 1, A_REALLOC },
-	[JAF_ARRAY_FREE]        = { AIN_VOID,   AIN_ARRAY, "Free",        0, 0, A_FREE },
-	[JAF_ARRAY_NUMOF]       = { AIN_INT,    AIN_ARRAY, "Numof",       0, 1, A_NUMOF },
-	[JAF_ARRAY_COPY]        = { AIN_INT,    AIN_ARRAY, "Copy",        4, 4, A_COPY },
-	[JAF_ARRAY_FILL]        = { AIN_INT,    AIN_ARRAY, "Fill",        3, 3, A_FILL },
-	[JAF_ARRAY_PUSHBACK]    = { AIN_VOID,   AIN_ARRAY, "PushBack",    1, 1, A_PUSHBACK },
-	[JAF_ARRAY_POPBACK]     = { AIN_VOID,   AIN_ARRAY, "PopBack",     0, 0, A_POPBACK },
-	[JAF_ARRAY_EMPTY]       = { AIN_INT,    AIN_ARRAY, "Empty",       0, 0, A_EMPTY },
-	[JAF_ARRAY_ERASE]       = { AIN_INT,    AIN_ARRAY, "Erase",       1, 1, A_ERASE },
-	[JAF_ARRAY_INSERT]      = { AIN_VOID,   AIN_ARRAY, "Insert",      2, 2, A_INSERT },
-	[JAF_ARRAY_SORT]        = { AIN_VOID,   AIN_ARRAY, "Sort",        0, 1, A_SORT },
-	[JAF_ARRAY_FIND]        = { AIN_INT,    AIN_ARRAY, "Find",        3, 4, A_FIND },
-	[JAF_DELEGATE_NUMOF]    = { AIN_INT,    AIN_DELEGATE, "Numof",    0, 0, DG_NUMOF },
-	[JAF_DELEGATE_EXIST]    = { AIN_INT,    AIN_DELEGATE, "Exist",    1, 1, DG_EXIST },
-	[JAF_DELEGATE_CLEAR]    = { AIN_VOID,   AIN_DELEGATE, "Clear",    0, 0, DG_CLEAR },
+	[JAF_INT_STRING]        = { AIN_STRING, AIN_INT, "String",        0, 0 },
+	[JAF_FLOAT_STRING]      = { AIN_STRING, AIN_FLOAT, "String",      0, 0 },
+	[JAF_STRING_INT]        = { AIN_INT,    AIN_STRING, "Int",        0, 0 },
+	[JAF_STRING_LENGTH]     = { AIN_INT,    AIN_STRING, "Length",     0, 0 },
+	[JAF_STRING_LENGTHBYTE] = { AIN_INT,    AIN_STRING, "LengthByte", 0, 0 },
+	[JAF_STRING_EMPTY]      = { AIN_INT,    AIN_STRING, "Empty",      0, 0 },
+	[JAF_STRING_FIND]       = { AIN_INT,    AIN_STRING, "Find",       1, 1 },
+	[JAF_STRING_GETPART]    = { AIN_STRING, AIN_STRING, "GetPart",    2, 2 },
+	[JAF_STRING_PUSHBACK]   = { AIN_VOID,   AIN_STRING, "PushBack",   1, 1 },
+	[JAF_STRING_POPBACK]    = { AIN_VOID,   AIN_STRING, "PopBack",    0, 0 },
+	[JAF_STRING_ERASE]      = { AIN_VOID,   AIN_STRING, "Erase",      1, 1 },
+	[JAF_ARRAY_ALLOC]       = { AIN_VOID,   AIN_ARRAY, "Alloc",       1, 255 },
+	[JAF_ARRAY_REALLOC]     = { AIN_VOID,   AIN_ARRAY, "Realloc",     1, 1 },
+	[JAF_ARRAY_FREE]        = { AIN_VOID,   AIN_ARRAY, "Free",        0, 0 },
+	[JAF_ARRAY_NUMOF]       = { AIN_INT,    AIN_ARRAY, "Numof",       0, 1 },
+	[JAF_ARRAY_COPY]        = { AIN_INT,    AIN_ARRAY, "Copy",        4, 4 },
+	[JAF_ARRAY_FILL]        = { AIN_INT,    AIN_ARRAY, "Fill",        3, 3 },
+	[JAF_ARRAY_PUSHBACK]    = { AIN_VOID,   AIN_ARRAY, "PushBack",    1, 1 },
+	[JAF_ARRAY_POPBACK]     = { AIN_VOID,   AIN_ARRAY, "PopBack",     0, 0 },
+	[JAF_ARRAY_EMPTY]       = { AIN_INT,    AIN_ARRAY, "Empty",       0, 0 },
+	[JAF_ARRAY_ERASE]       = { AIN_INT,    AIN_ARRAY, "Erase",       1, 1 },
+	[JAF_ARRAY_INSERT]      = { AIN_VOID,   AIN_ARRAY, "Insert",      2, 2 },
+	[JAF_ARRAY_SORT]        = { AIN_VOID,   AIN_ARRAY, "Sort",        0, 1 },
+	[JAF_ARRAY_FIND]        = { AIN_INT,    AIN_ARRAY, "Find",        3, 4 },
+	[JAF_DELEGATE_NUMOF]    = { AIN_INT,    AIN_DELEGATE, "Numof",    0, 0 },
+	[JAF_DELEGATE_EXIST]    = { AIN_INT,    AIN_DELEGATE, "Exist",    1, 1 },
+	[JAF_DELEGATE_CLEAR]    = { AIN_VOID,   AIN_DELEGATE, "Clear",    0, 0 },
+	[JAF_OPTION_VALUE]      = { AIN_INT,    AIN_OPTION, "Value",      1, 1 },
+	[JAF_OPTION_ISSOME]     = { AIN_INT,    AIN_OPTION, "IsSome",     0, 0 },
+	[JAF_OPTION_ISNONE]     = { AIN_INT,    AIN_OPTION, "IsNone",     0, 0 },
 };
 
 static enum ain_data_type array_data_type(struct ain_type *type);
@@ -1248,7 +1265,9 @@ static void jaf_check_comparator_type(struct jaf_env *env, struct jaf_expression
 
 static void type_check_builtin_call(struct jaf_env *env, struct jaf_expression *expr)
 {
-	struct builtin *builtin = &builtins[expr->call.fun->member.member_no];
+	enum jaf_builtin_method builtin_no = expr->call.fun->member.member_no;
+	assert(builtin_no >= 0 && builtin_no < JAF_NR_BUILTINS);
+	struct builtin *builtin = &builtins[builtin_no];
 	if (expr->call.args->nr_items < builtin->min_args)
 		JAF_ERROR(expr, "Too few arguments to builtin method: %s.%s",
 				_builtin_type_name(builtin->type), builtin->name);
@@ -1258,7 +1277,7 @@ static void type_check_builtin_call(struct jaf_env *env, struct jaf_expression *
 
 	expr->type = JAF_EXP_BUILTIN_CALL;
 	expr->valuetype.data = builtin->return_type;
-	expr->call.func_no = builtin->opcode;
+	expr->call.func_no = builtin_no;
 
 	struct ain_type val_type = { .data = AIN_VOID };
 	if (builtin->type == AIN_ARRAY) {
@@ -1266,7 +1285,7 @@ static void type_check_builtin_call(struct jaf_env *env, struct jaf_expression *
 		val_type.struc = expr->call.fun->member.struc->valuetype.struc;
 	}
 	struct jaf_argument_list *args = expr->call.args;
-	switch ((enum jaf_builtin_method)expr->call.fun->member.member_no) {
+	switch (builtin_no) {
 	case JAF_STRING_FIND:
 		type_check(env, &string_type, args->items[0]);
 		break;
@@ -1333,6 +1352,13 @@ static void type_check_builtin_call(struct jaf_env *env, struct jaf_expression *
 	case JAF_DELEGATE_EXIST:
 		check_delegate_compatible(env, &expr->call.fun->member.struc->valuetype, args->items[0]);
 		break;
+	case JAF_OPTION_VALUE: {
+		struct ain_type *t = &expr->call.fun->member.struc->valuetype;
+		assert(t->rank == 1 && t->array_type);
+		type_check(env, t->array_type, args->items[0]);
+		ain_copy_type(&expr->valuetype, t->array_type);
+		break;
+	}
 	case JAF_INT_STRING:
 	case JAF_FLOAT_STRING:
 	case JAF_STRING_INT:
@@ -1345,6 +1371,8 @@ static void type_check_builtin_call(struct jaf_env *env, struct jaf_expression *
 	case JAF_ARRAY_EMPTY:
 	case JAF_DELEGATE_NUMOF:
 	case JAF_DELEGATE_CLEAR:
+	case JAF_OPTION_ISSOME:
+	case JAF_OPTION_ISNONE:
 		break;
 	default:
 		COMPILER_ERROR(expr, "Invalid builtin");
@@ -1766,6 +1794,13 @@ static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 	case AIN_REF_ARRAY:
 		jaf_check_types_hll_builtin(env, expr);
 		break;
+	case AIN_OPTION:
+		if ((expr->member.member_no = get_builtin_no(AIN_OPTION, name)) < 0) {
+			JAF_ERROR(expr, "Invalid option builtin: %s", name);
+		}
+		expr->valuetype.data = AIN_BUILTIN;
+		expr->member.object_no = JAF_BUILTIN_OPTION;
+		break;
 	default:
 		JAF_ERROR(expr, "Invalid expression as left side of dotted expression");
 		break;
@@ -1883,6 +1918,12 @@ void jaf_type_check_expression(struct jaf_env *env, struct jaf_expression *expr)
 		break;
 	case JAF_EXP_NULL:
 		expr->valuetype.data = AIN_NULLTYPE;
+		break;
+	case JAF_EXP_NONE:
+		expr->valuetype.data = AIN_NONETYPE;
+		break;
+	case JAF_EXP_SOME:
+		ain_copy_type(&expr->valuetype, &expr->expr->valuetype);
 		break;
 	case JAF_EXP_DUMMYREF:
 		ain_copy_type(&expr->valuetype, &expr->dummy.expr->valuetype);

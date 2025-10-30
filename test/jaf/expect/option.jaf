@@ -1,0 +1,17 @@
+option<int> foo(int a)
+{
+	if (a > 0)
+		return Some(a);
+	return None;
+}
+
+void baz(void)
+{
+	int v = foo(1).Value(2);
+	if (foo(1).IsSome()) {
+		v = 1;
+	}
+	if (foo(1).IsNone()) {
+		v = 2;
+	}
+}

@@ -1,0 +1,74 @@
+
+; foo
+; ARG  0: a : int
+; RETURN: option<int>
+FUNC 1
+	.LOCALREF a
+	PUSH 0
+	GT
+	IFNZ 0x24
+	JUMP 0x36
+0x24:
+	.LOCALREF a
+	PUSH 0
+	RETURN
+0x36:
+	PUSH -1
+	PUSH -1
+	RETURN
+	PUSH -1
+	PUSH -1
+	RETURN
+ENDFUNC foo
+
+; baz
+; VAR  0: v : int
+; RETURN: void
+FUNC 2
+	PUSHLOCALPAGE
+	PUSH 0
+	PUSH 1
+	CALLFUNC foo
+	PUSH -1
+	EQUALE
+	IFZ 0x88
+	POP
+	PUSH 2
+0x88:
+	ASSIGN
+	POP
+	PUSH 1
+	CALLFUNC foo
+	SWAP
+	POP
+	PUSH -1
+	NOTE
+	IFNZ 0xb0
+	JUMP 0xc2
+0xb0:
+	.LOCALASSIGN v 1
+0xc2:
+	PUSH 1
+	CALLFUNC foo
+	SWAP
+	POP
+	PUSH -1
+	EQUALE
+	IFNZ 0xe6
+	JUMP 0xf8
+0xe6:
+	.LOCALASSIGN v 2
+0xf8:
+	RETURN
+ENDFUNC baz
+
+; 0
+; RETURN: void
+FUNC 3
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+EOF 0

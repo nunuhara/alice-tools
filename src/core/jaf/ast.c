@@ -44,6 +44,21 @@ struct jaf_expression *jaf_null(void)
 	return e;
 }
 
+struct jaf_expression *jaf_none(void)
+{
+	struct jaf_expression *e = jaf_expr(JAF_EXP_NONE, 0);
+	e->valuetype.data = AIN_VOID;
+	return e;
+}
+
+struct jaf_expression *jaf_some(struct jaf_expression *expr)
+{
+	struct jaf_expression *e = jaf_expr(JAF_EXP_SOME, 0);
+	e->expr = expr;
+	e->valuetype.data = AIN_VOID;
+	return e;
+}
+
 struct jaf_expression *jaf_integer(int i)
 {
 	struct jaf_expression *e = jaf_expr(JAF_EXP_INT, 0);
@@ -302,6 +317,14 @@ struct jaf_type_specifier *jaf_wrap(struct jaf_type_specifier *type)
 	wrap_type->array_type = type;
 	wrap_type->rank = 1;
 	return wrap_type;
+}
+
+struct jaf_type_specifier *jaf_option(struct jaf_type_specifier *type)
+{
+	struct jaf_type_specifier *option_type = jaf_type(JAF_OPTION);
+	option_type->array_type = type;
+	option_type->rank = 1;
+	return option_type;
 }
 
 struct jaf_declarator *jaf_declarator(struct string *name)
@@ -733,6 +756,7 @@ struct jaf_expression *jaf_copy_expression(struct jaf_expression *e)
 	case JAF_EXP_FLOAT:
 	case JAF_EXP_THIS:
 	case JAF_EXP_NULL:
+	case JAF_EXP_NONE:
 		break;
 	case JAF_EXP_STRING:
 	case JAF_EXP_CHAR:
@@ -748,6 +772,7 @@ struct jaf_expression *jaf_copy_expression(struct jaf_expression *e)
 		}
 		break;
 	case JAF_EXP_UNARY:
+	case JAF_EXP_SOME:
 		out->expr = jaf_copy_expression(e->expr);
 		break;
 	case JAF_EXP_BINARY:
@@ -839,6 +864,7 @@ void jaf_free_expr(struct jaf_expression *expr)
 	case JAF_EXP_FLOAT:
 	case JAF_EXP_THIS:
 	case JAF_EXP_NULL:
+	case JAF_EXP_NONE:
 		break;
 	case JAF_EXP_STRING:
 	case JAF_EXP_CHAR:
@@ -853,6 +879,7 @@ void jaf_free_expr(struct jaf_expression *expr)
 		}
 		break;
 	case JAF_EXP_UNARY:
+	case JAF_EXP_SOME:
 		jaf_free_expr(expr->expr);
 		break;
 	case JAF_EXP_BINARY:

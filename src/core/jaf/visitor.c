@@ -125,6 +125,7 @@ static struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr,
 
 	switch (expr->type) {
 	case JAF_EXP_UNARY:
+	case JAF_EXP_SOME:
 		expr->expr = jaf_accept_expr(expr->expr, visitor);
 		break;
 	case JAF_EXP_BINARY:
@@ -174,6 +175,7 @@ static struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr,
 	case JAF_EXP_IDENTIFIER:
 	case JAF_EXP_THIS:
 	case JAF_EXP_NULL:
+	case JAF_EXP_NONE:
 		break;
 	}
 

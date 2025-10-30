@@ -194,7 +194,9 @@ static warn_unused int _init_variable(struct alloc_state *state, const char *nam
 	case AIN_REF_FLOAT:
 	case AIN_REF_BOOL:
 	case AIN_REF_LONG_INT:
+	case AIN_REF_FUNC_TYPE:
 	case AIN_IFACE:
+	case AIN_OPTION:
 		state->nr_vars++;
 		state->vars[var+1].name = strdup("<void>");
 		if (state->ain->version >= 12)
@@ -691,8 +693,9 @@ static void jaf_process_delegate(struct ain *ain, struct jaf_fundecl *decl)
 	function_init_args(ain, decl, &f->nr_arguments, &f->nr_variables, &f->variables);
 }
 
-static void jaf_process_global(struct ain *ain, struct jaf_vardecl *decl)
+static void jaf_process_global(struct ain *ain, struct jaf_block_item *item)
 {
+	struct jaf_vardecl *decl = &item->var;
 	char *tmp = conv_output(decl->name->text);
 	decl->var = ain_add_global(ain, tmp);
 	free(tmp);
@@ -1017,7 +1020,7 @@ void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
 	for (size_t i = 0; i < block->nr_items; i++) {
 		switch (block->items[i]->kind) {
 		case JAF_DECL_VAR:
-			jaf_process_global(ain, &block->items[i]->var);
+			jaf_process_global(ain, block->items[i]);
 			break;
 		case JAF_DECL_FUN:
 			jaf_process_function(ain, block->items[i]);

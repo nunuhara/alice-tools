@@ -104,6 +104,7 @@ unsigned long jaf_line = 1;
 "ref"                                   { return SYM_REF; }
 "array"                                 { return ARRAY; }
 "wrap"                                  { return WRAP; }
+"option"                                { return OPTION; }
 "hll_param"                             { return HLL_PARAM; }
 "hll_func_71"                           { return HLL_FUNC_71; }
 "hll_func"                              { return HLL_FUNC; }
@@ -116,6 +117,8 @@ unsigned long jaf_line = 1;
 "new"                                   { return SYM_NEW; }
 "assert"                                { return ASSERT; }
 "NULL"					{ return SYM_NULL; }
+"None"					{ return NONE; }
+"Some"					{ return SOME; }
 
 {L}                                     { RETURN_STRING(IDENTIFIER); }
 {L}{A}*{AT}                             { RETURN_STRING(IDENTIFIER); }

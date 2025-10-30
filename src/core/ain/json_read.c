@@ -108,6 +108,19 @@ static void read_type_declaration(cJSON *decl, struct ain_type *dst)
 	read_type_declaration(a, dst->array_type);
 }
 
+static void read_type_declaration_or_data_type(cJSON *decl, struct ain_type *dst)
+{
+	if (cJSON_IsArray(decl)) {
+		read_type_declaration(decl, dst);
+	} else if (cJSON_IsNumber(decl)) {
+		dst->data = decl->valueint;
+		dst->struc = -1;
+		dst->rank = 0;
+	} else {
+		ERROR("Invalid type declaration (not a number or array)");
+	}
+}
+
 static void read_variable_declaration(cJSON *decl, struct ain_variable *dst)
 {
 	dst->name = cJSON_GetObjectString_NonNull(decl, "name");
@@ -268,20 +281,16 @@ static void read_library_declaration(cJSON *decl, struct ain_library *dst)
 	struct ain_hll_function *funs = xcalloc(cJSON_GetArraySize(jfuns), sizeof(struct ain_hll_function));
 	cJSON_ArrayForEachIndex(i, f, jfuns) {
 		funs[i].name = cJSON_GetObjectString_NonNull(f, "name");
-		funs[i].return_type.data = cJSON_GetObjectInteger_NonNull(f, "return-type");
-		// TODO: v14 has full variable type
-		funs[i].return_type.struc = -1;
-		funs[i].return_type.rank = 0;
+		read_type_declaration_or_data_type(cJSON_GetObjectItem(f, "return-type"),
+				&funs[i].return_type);
 
 		int j;
 		cJSON *arg, *jargs = cJSON_GetObjectArray_NonNull(f, "arguments");
 		struct ain_hll_argument *args = xcalloc(cJSON_GetArraySize(jargs), sizeof(struct ain_hll_argument));
 		cJSON_ArrayForEachIndex(j, arg, jargs) {
 			args[j].name = cJSON_GetObjectString_NonNull(arg, "name");
-			args[j].type.data = cJSON_GetObjectInteger_NonNull(arg, "type");
-			// TODO: v14 has full variable type
-			args[j].type.struc = -1;
-			args[j].type.rank = 0;
+			read_type_declaration_or_data_type(cJSON_GetObjectItem(arg, "type"),
+					&args[j].type);
 		}
 		funs[i].nr_arguments = j;
 		funs[i].arguments = args;

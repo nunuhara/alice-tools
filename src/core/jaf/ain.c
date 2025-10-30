@@ -88,6 +88,7 @@ enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type)
 	case JAF_ENUM:      return AIN_ENUM;
 	case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 	case JAF_WRAP:      return AIN_WRAP;
+	case JAF_OPTION:    return AIN_OPTION;
 	case JAF_HLL_PARAM: return AIN_HLL_PARAM;
 	case JAF_HLL_FUNC_71: return AIN_HLL_FUNC_71;
 	case JAF_HLL_FUNC:  return AIN_HLL_FUNC;
@@ -117,6 +118,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_ENUM:      _COMPILER_ERROR(NULL, -1, "Enums not supported");
 		case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 		case JAF_WRAP:      _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
+		case JAF_OPTION:    _COMPILER_ERROR(NULL, -1, "Invalid option type specifier");
 		case JAF_HLL_PARAM: _COMPILER_ERROR(NULL, -1, "Invalid hll_param specifier");
 		case JAF_HLL_FUNC_71: _COMPILER_ERROR(NULL, -1, "Invalid hll_func_71 specifier");
 		case JAF_HLL_FUNC:  _COMPILER_ERROR(NULL, -1, "Invalid hll_func specifier");
@@ -138,6 +140,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_ENUM:      return AIN_REF_ENUM;
 		case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 		case JAF_WRAP:      _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
+		case JAF_OPTION:    _COMPILER_ERROR(NULL, -1, "Invalid option type specifier");
 		case JAF_HLL_PARAM: return AIN_REF_HLL_PARAM;
 		case JAF_HLL_FUNC_71: _COMPILER_ERROR(NULL, -1, "Invalid hll_func_71 specifier");
 		case JAF_HLL_FUNC:  _COMPILER_ERROR(NULL, -1, "Invalid hll_func specifier");
@@ -162,6 +165,7 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_ENUM:      _COMPILER_ERROR(NULL, -1, "Enums not supported");
 		case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 		case JAF_WRAP:      _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
+		case JAF_OPTION:    _COMPILER_ERROR(NULL, -1, "Invalid option type specifier");
 		case JAF_HLL_PARAM: _COMPILER_ERROR(NULL, -1, "Invalid hll_param specifier");
 		case JAF_HLL_FUNC_71: _COMPILER_ERROR(NULL, -1, "Invalid hll_func_71 specifier");
 		case JAF_HLL_FUNC:  _COMPILER_ERROR(NULL, -1, "Invalid hll_func specifier");
@@ -214,6 +218,13 @@ void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_spec
 	} else if (in->type == JAF_WRAP) {
 		if (!AIN_VERSION_GTE(ain, 11, 0)) {
 			_JAF_ERROR(NULL, -1, "wrap<> type is ain v11+ only");
+		}
+		out->rank = 1;
+		out->array_type = xcalloc(1, sizeof(struct ain_type));
+		jaf_to_ain_type(ain, out->array_type, in->array_type);
+	} else if (in->type == JAF_OPTION) {
+		if (!AIN_VERSION_GTE(ain, 12, 0)) {
+			_JAF_ERROR(NULL, -1, "option<> type is ain v12+ only");
 		}
 		out->rank = 1;
 		out->array_type = xcalloc(1, sizeof(struct ain_type));

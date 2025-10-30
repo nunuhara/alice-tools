@@ -174,10 +174,10 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %token	<token>		AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
 %token	<token>		SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN DOUBLE_COLON
 %token	<token>		XOR_ASSIGN OR_ASSIGN
-%token	<token>		SYM_REF REF_ASSIGN ARRAY WRAP FUNCTYPE DELEGATE
+%token	<token>		SYM_REF REF_ASSIGN ARRAY WRAP OPTION FUNCTYPE DELEGATE
 %token	<token>		FILE_MACRO LINE_MACRO FUNC_MACRO DATE_MACRO TIME_MACRO
 
-%token	<token>		CONST OVERRIDE THIS SYM_NEW ASSERT SYM_NULL
+%token	<token>		CONST OVERRIDE THIS SYM_NEW ASSERT SYM_NULL NONE SOME
 %token	<token>		BOOL CHAR INT LINT FLOAT VOID STRING INTP FLOATP HLL_PARAM HLL_FUNC HLL_FUNC_71
 %token	<token>		STRUCT UNION ENUM ELLIPSIS SYM_TRUE SYM_FALSE IMAIN_SYSTEM HLL_STRUCT
 %token	<token>		HLL_DELEGATE INTERFACE PUBLIC PRIVATE
@@ -222,11 +222,12 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %%
 
 primary_expression
-	: IDENTIFIER         { $$ = jaf_identifier($1); }
-	| THIS               { $$ = jaf_this(); }
-	| constant           { $$ = $1; }
-	| string             { $$ = jaf_string($1); }
-	| '(' expression ')' { $$ = $2; }
+	: IDENTIFIER              { $$ = jaf_identifier($1); }
+	| THIS                    { $$ = jaf_this(); }
+	| constant                { $$ = $1; }
+	| string                  { $$ = jaf_string($1); }
+	| '(' expression ')'      { $$ = $2; }
+	| SOME '(' expression ')' { $$ = jaf_some($3); }
 	;
 
 constant
@@ -236,6 +237,7 @@ constant
 	| SYM_TRUE             { $$ = jaf_integer(1); }
 	| SYM_FALSE            { $$ = jaf_integer(0); }
 	| SYM_NULL             { $$ = jaf_null(); }
+	| NONE                 { $$ = jaf_none(); }
 	| ENUMERATION_CONSTANT { ERROR("Enums not supported"); } /* after it has been defined as such */
 	;
 
@@ -426,13 +428,14 @@ type_specifier
 	: atomic_type_specifier                          { $$ = jaf_type($1); }
 	| ARRAY '@' atomic_type_specifier                { $$ = jaf_array_type(jaf_type($3), 1); }
 	| ARRAY '@' atomic_type_specifier '@' I_CONSTANT { $$ = jaf_array_type(jaf_type($3), parse_int($5)); }
-	| ARRAY '@' IDENTIFIER                         { $$ = jaf_array_type(jaf_typedef($3), 1); }
-	| ARRAY '@' IDENTIFIER '@' I_CONSTANT          { $$ = jaf_array_type(jaf_typedef($3), parse_int($5)); }
+	| ARRAY '@' IDENTIFIER                           { $$ = jaf_array_type(jaf_typedef($3), 1); }
+	| ARRAY '@' IDENTIFIER '@' I_CONSTANT            { $$ = jaf_array_type(jaf_typedef($3), parse_int($5)); }
 	| ARRAY '<' type_specifier '>'                   { $$ = jaf_array_type($3, 1); }
 	| ARRAY '<' '?' '>'                              { $$ = jaf_array_type(jaf_type(JAF_VOID), 1); }
 	| WRAP  '<' type_specifier '>'                   { $$ = jaf_wrap($3); }
 	| WRAP  '<' '?' '>'                              { $$ = jaf_wrap(jaf_type(JAF_VOID)); }
-	| IDENTIFIER                                   { $$ = jaf_typedef($1); }
+	| OPTION '<' type_specifier '>'                  { $$ = jaf_option($3); }
+	| IDENTIFIER                                     { $$ = jaf_typedef($1); }
 	;
 
 interface_list
