@@ -162,7 +162,7 @@ void jaf_print_expression(struct port *out, struct jaf_expression *expr)
 		port_printf(out, "this");
 		break;
 	case JAF_EXP_IDENTIFIER:
-		port_printf(out, "%s", expr->ident.name->text);
+		port_printf(out, "%s", jaf_name_collapse(NULL, &expr->ident.name)->text);
 		break;
 	case JAF_EXP_UNARY:
 		port_putc(out, '(');

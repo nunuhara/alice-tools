@@ -619,7 +619,7 @@ static void type_check_identifier(struct jaf_env *env, struct jaf_expression *ex
 	int no;
 	struct ain_variable *v;
 	struct jaf_env_local *local;
-	char *u = conv_output(expr->ident.name->text);
+	char *u = conv_output(jaf_name_collapse(env->ain, &expr->ident.name)->text);
 	if (!strcmp(u, "super")) {
 		if (!env->fundecl || env->fundecl->super_no <= 0) {
 			JAF_ERROR(expr, "'super' used outside of a function override");
@@ -651,7 +651,7 @@ static void type_check_identifier(struct jaf_env *env, struct jaf_expression *ex
 		expr->valuetype.data = AIN_LIBRARY;
 		expr->valuetype.struc = no;
 	} else {
-		JAF_ERROR(expr, "Undefined variable: %s", expr->ident.name->text);
+		JAF_ERROR(expr, "Undefined variable: %s", expr->ident.name.collapsed->text);
 	}
 	free(u);
 }
@@ -1393,7 +1393,7 @@ static void type_check_builtin_hll_call(struct jaf_env *env, struct jaf_expressi
 {
 	struct jaf_expression *obj = expr->call.fun->member.struc;
 	// dummy expression
-	expr->call.fun->member.struc = jaf_identifier(builtin_type_name(obj->valuetype.data));
+	expr->call.fun->member.struc = jaf_simple_identifier(builtin_type_name(obj->valuetype.data));
 
 	// put obj at head of argument list
 	struct jaf_argument_list *args = expr->call.args;
@@ -1991,7 +1991,7 @@ static void jaf_to_initval(struct ain_initval *dst, struct ain *ain, struct jaf_
 		dst->string_value = strdup(expr->s->text);
 		break;
 	case JAF_EXP_IDENTIFIER: {
-		char *name = conv_output(expr->ident.name->text);
+		char *name = conv_output(jaf_name_collapse(ain, &expr->ident.name)->text);
 		int no = ain_get_global(ain, name);
 		if (no < 0)
 			JAF_ERROR(expr, "Unresolved identifier in initval");

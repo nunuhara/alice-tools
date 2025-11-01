@@ -286,7 +286,7 @@ struct jaf_expression {
 		struct string *s;
 		struct {
 			enum jaf_ident_type kind;
-			struct string *name;
+			struct jaf_name name;
 			union {
 				struct jaf_vardecl *local;
 				int global;
@@ -541,7 +541,8 @@ struct jaf_expression *jaf_char(struct string *text);
 void jaf_name_init(struct jaf_name *name, struct string *str);
 void jaf_name_append(struct jaf_name *name, struct string *str);
 void jaf_name_prepend(struct jaf_name *name, struct string *str);
-struct jaf_expression *jaf_identifier(struct string *name);
+struct jaf_expression *jaf_identifier(struct jaf_name name);
+struct jaf_expression *jaf_simple_identifier(struct string *name);
 struct jaf_expression *jaf_this(void);
 struct string *jaf_method_name(struct string *ns, struct string *name);
 struct jaf_expression *jaf_unary_expr(enum jaf_operator op, struct jaf_expression *expr);

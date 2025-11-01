@@ -173,11 +173,18 @@ void jaf_name_prepend(struct jaf_name *name, struct string *str)
 	name->parts[0] = str;
 }
 
-struct jaf_expression *jaf_identifier(struct string *name)
+struct jaf_expression *jaf_identifier(struct jaf_name name)
 {
 	struct jaf_expression *e = jaf_expr(JAF_EXP_IDENTIFIER, 0);
 	e->ident.name = name;
 	return e;
+}
+
+struct jaf_expression *jaf_simple_identifier(struct string *name)
+{
+	struct jaf_name jname;
+	jaf_name_init(&jname, name);
+	return jaf_identifier(jname);
 }
 
 struct jaf_expression *jaf_this(void)
@@ -742,6 +749,16 @@ static struct jaf_type_specifier *jaf_copy_type_specifier(struct jaf_type_specif
 	return out;
 }
 
+void jaf_copy_name(struct jaf_name *dst, struct jaf_name *src)
+{
+	*dst = *src;
+	for (size_t i = 0; i < dst->nr_parts; i++) {
+		dst->parts[i] = string_dup(src->parts[i]);
+	}
+	if (src->collapsed)
+		dst->collapsed = string_dup(src->collapsed);
+}
+
 struct jaf_expression *jaf_copy_expression(struct jaf_expression *e)
 {
 	if (!e)
@@ -763,7 +780,7 @@ struct jaf_expression *jaf_copy_expression(struct jaf_expression *e)
 		out->s = string_dup(e->s);
 		break;
 	case JAF_EXP_IDENTIFIER:
-		out->ident.name = string_dup(e->ident.name);
+		jaf_copy_name(&out->ident.name, &e->ident.name);
 		if (e->ident.kind == JAF_IDENT_CONST) {
 			if (e->ident.constval.data_type == AIN_STRING) {
 				out->ident.constval.string_value =
@@ -871,7 +888,7 @@ void jaf_free_expr(struct jaf_expression *expr)
 		free_string(expr->s);
 		break;
 	case JAF_EXP_IDENTIFIER:
-		free_string(expr->ident.name);
+		jaf_free_name(expr->ident.name);
 		if (expr->ident.kind == JAF_IDENT_CONST) {
 			if (expr->ident.constval.data_type == AIN_STRING) {
 				free(expr->ident.constval.string_value);

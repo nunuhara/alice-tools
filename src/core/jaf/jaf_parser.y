@@ -186,7 +186,7 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 
 %type	<token>		unary_operator assignment_operator type_qualifier atomic_type_specifier
 %type	<string>	string param_identifier
-%type	<name>		structured_name
+%type	<name>		name
 %type	<expression>	initializer
 %type	<expression>	postfix_expression unary_expression cast_expression
 %type	<expression>	multiplicative_expression additive_expression shift_expression
@@ -221,8 +221,13 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %start toplevel
 %%
 
+name
+	: IDENTIFIER                   { jaf_name_init(&$$, $1); }
+	| name DOUBLE_COLON IDENTIFIER { jaf_name_append(&$$, $3); }
+	;
+
 primary_expression
-	: IDENTIFIER              { $$ = jaf_identifier($1); }
+	: name                    { $$ = jaf_identifier($1); }
 	| THIS                    { $$ = jaf_this(); }
 	| constant                { $$ = $1; }
 	| string                  { $$ = jaf_string($1); }
@@ -681,14 +686,9 @@ function_declaration
 	;
 
 function_declarator
-	: structured_name '(' parameter_list ')' { $$ = jaf_function_declarator(&$1, $3); }
-	| structured_name '(' ')'                { $$ = jaf_function_declarator(&$1, NULL); }
-	| structured_name '(' VOID ')'           { $$ = jaf_function_declarator(&$1, NULL); }
-	;
-
-structured_name
-	: IDENTIFIER                              { jaf_name_init(&$$, $1); }
-	| structured_name DOUBLE_COLON IDENTIFIER   { jaf_name_append(&$$, $3); }
+	: name '(' parameter_list ')' { $$ = jaf_function_declarator(&$1, $3); }
+	| name '(' ')'                { $$ = jaf_function_declarator(&$1, NULL); }
+	| name '(' VOID ')'           { $$ = jaf_function_declarator(&$1, NULL); }
 	;
 
 parameter_list

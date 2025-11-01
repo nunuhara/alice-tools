@@ -1870,7 +1870,7 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 		.type = JAF_EXP_IDENTIFIER,
 		.valuetype = decl->valuetype,
 		.ident = {
-			.name = decl->name,
+			.name = { 0 },
 			.kind = JAF_IDENT_LOCAL,
 			.local = decl
 		}

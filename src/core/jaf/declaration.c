@@ -48,7 +48,7 @@ struct string *jaf_name_collapse(struct ain *ain, struct jaf_name *name)
 	string_push_back(&tmp, ':');
 	string_append(&tmp, name->parts[name->nr_parts - 1]);
 	char *tmp_conv = conv_output(tmp->text);
-	if (ain_get_function(ain, tmp_conv) > 0) {
+	if (ain && ain_get_function(ain, tmp_conv) > 0) {
 		free_string(name->collapsed);
 		free(tmp_conv);
 		name->collapsed = tmp;
@@ -749,7 +749,7 @@ static struct jaf_block_item *array_int_assign_stmt(struct string *name, int i, 
 static struct jaf_expression *var_expr(struct string *name, bool global)
 {
 	if (global)
-		return jaf_identifier(string_dup(name));
+		return jaf_simple_identifier(string_dup(name));
 	return jaf_member_expr(jaf_this(), string_dup(name));
 }
 
@@ -999,7 +999,7 @@ static void jaf_process_global_allocs(struct ain *ain, struct jaf_block *block)
 		// add override qualifier
 		type->qualifiers = JAF_QUAL_OVERRIDE;
 		// begin body with call to super()
-		struct jaf_expression *super = jaf_identifier(make_string("super", 5));
+		struct jaf_expression *super = jaf_simple_identifier(make_string("super", 5));
 		struct jaf_expression *call = jaf_function_call(super, NULL);
 		body = jaf_block_append(body, jaf_expression_statement(call));
 	}
