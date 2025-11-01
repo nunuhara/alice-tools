@@ -598,6 +598,16 @@ static struct ain_variable *get_local_variable(struct compiler_state *state, int
 	return &state->ain->functions[state->func_no].vars[var_no];
 }
 
+static struct ain_variable *get_struct_variable(struct compiler_state *state, int member_no)
+{
+	assert(state->func_no > 0 && state->func_no < state->ain->nr_functions);
+	struct ain_function *f = &state->ain->functions[state->func_no];
+	assert(f->struct_type >= 0 && f->struct_type < state->ain->nr_structures);
+	struct ain_struct *s = &state->ain->structures[f->struct_type];
+	assert(member_no >= 0 && member_no < s->nr_members);
+	return &s->members[member_no];
+}
+
 static struct ain_variable *get_global_variable(struct compiler_state *state, int var_no)
 {
 	assert(var_no >= 0 && var_no < state->ain->nr_globals);
@@ -610,6 +620,8 @@ static struct ain_variable *get_identifier_variable(struct compiler_state *state
 	switch (expr->ident.kind) {
 	case JAF_IDENT_LOCAL:
 		return get_local_variable(state, expr->ident.local->var);
+	case JAF_IDENT_STRUCT:
+		return get_struct_variable(state, expr->ident.struc);
 	case JAF_IDENT_GLOBAL:
 		return get_global_variable(state, expr->ident.global);
 	case JAF_IDENT_CONST:
@@ -625,6 +637,12 @@ static void compile_local_pageref(struct compiler_state *state, int var_no)
 	write_instruction1(state, PUSH, var_no);
 }
 
+static void compile_struct_pageref(struct compiler_state *state, int member_no)
+{
+	write_instruction0(state, PUSHSTRUCTPAGE);
+	write_instruction1(state, PUSH, member_no);
+}
+
 static void compile_global_pageref(struct compiler_state *state, int var_no)
 {
 	write_instruction0(state, PUSHGLOBALPAGE);
@@ -636,6 +654,9 @@ static void compile_identifier_pageref(struct compiler_state *state, struct jaf_
 	switch (expr->ident.kind) {
 	case JAF_IDENT_LOCAL:
 		compile_local_pageref(state, expr->ident.local->var);
+		break;
+	case JAF_IDENT_STRUCT:
+		compile_struct_pageref(state, expr->ident.struc);
 		break;
 	case JAF_IDENT_GLOBAL:
 		compile_global_pageref(state, expr->ident.global);
@@ -712,11 +733,14 @@ static void compile_lvalue(struct compiler_state *state, struct jaf_expression *
 		case AIN_REF_STRING:
 		case AIN_REF_ARRAY_TYPE:
 		case AIN_REF_STRUCT:
-			if (expr->ident.kind == JAF_IDENT_LOCAL)
+			if (expr->ident.kind == JAF_IDENT_LOCAL) {
 				write_instruction1(state, SH_LOCALREF, expr->ident.local->var);
-			else
+				break;
+			} else if (expr->ident.kind == JAF_IDENT_GLOBAL) {
 				write_instruction1(state, SH_GLOBALREF, expr->ident.global);
-			break;
+				break;
+			}
+			// fallthrough
 		default:
 			compile_identifier_pageref(state, expr);
 			compile_lvalue_after(state, v->type.data);
@@ -919,11 +943,14 @@ static void compile_identifier(struct compiler_state *state, struct jaf_expressi
 	case AIN_BOOL:
 	case AIN_LONG_INT:
 	case AIN_FUNC_TYPE:
-		if (expr->ident.kind == JAF_IDENT_LOCAL)
+		if (expr->ident.kind == JAF_IDENT_LOCAL) {
 			write_instruction1(state, SH_LOCALREF, expr->ident.local->var);
-		else
+			break;
+		} else if (expr->ident.kind == JAF_IDENT_GLOBAL) {
 			write_instruction1(state, SH_GLOBALREF, expr->ident.global);
-		break;
+			break;
+		}
+		// fallthrough
 	default:
 		compile_identifier_pageref(state, expr);
 		compile_dereference(state, &var->type);

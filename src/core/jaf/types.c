@@ -573,6 +573,18 @@ static void check_assign(struct jaf_env *env, struct ain_type *t, struct jaf_exp
 	}
 }
 
+static struct ain_struct *get_current_struct(struct jaf_env *env)
+{
+	if (env->func_no <= 0)
+		return NULL;
+	assert(env->func_no <= env->ain->nr_functions);
+	struct ain_function *f = &env->ain->functions[env->func_no];
+	if (f->struct_type < 0)
+		return NULL;
+	assert(f->struct_type <= env->ain->nr_structures);
+	return &env->ain->structures[f->struct_type];
+}
+
 static void check_ref_assign(struct jaf_env *env, struct jaf_expression *lhs, struct jaf_expression *rhs)
 {
 	// rhs must be a ref, or an lvalue in order to create a reference to it
@@ -586,6 +598,12 @@ static void check_ref_assign(struct jaf_env *env, struct jaf_expression *lhs, st
 		case JAF_IDENT_LOCAL:
 			lhs_t = lhs->ident.local->valuetype;
 			break;
+		case JAF_IDENT_STRUCT: {
+			struct ain_struct *s = get_current_struct(env);
+			assert(lhs->ident.struc >= 0 && lhs->ident.struc < s->nr_members);
+			lhs_t = s->members[lhs->ident.struc].type;
+			break;
+		}
 		case JAF_IDENT_GLOBAL:
 			assert(lhs->ident.global >= 0 && lhs->ident.global < env->ain->nr_globals);
 			lhs_t = env->ain->globals[lhs->ident.global].type;
@@ -614,6 +632,20 @@ static void check_ref_assign(struct jaf_env *env, struct jaf_expression *lhs, st
 	}
 }
 
+static struct ain_variable *jaf_struct_lookup(struct jaf_env *env, char *name, int *no)
+{
+	struct ain_struct *s = get_current_struct(env);
+	if (!s)
+		return NULL;
+	for (int i = 0; i < s->nr_members; i++) {
+		if (!strcmp(s->members[i].name, name)) {
+			*no = i;
+			return &s->members[i];
+		}
+	}
+	return NULL;
+}
+
 static void type_check_identifier(struct jaf_env *env, struct jaf_expression *expr)
 {
 	int no;
@@ -640,6 +672,10 @@ static void type_check_identifier(struct jaf_env *env, struct jaf_expression *ex
 			expr->ident.kind = JAF_IDENT_LOCAL;
 			expr->ident.local = local->decl;
 		}
+	} else if ((v = jaf_struct_lookup(env, u, &no))) {
+		ain_copy_type(&expr->valuetype, &v->type);
+		expr->ident.kind = JAF_IDENT_STRUCT;
+		expr->ident.struc = no;
 	} else if ((v = jaf_global_lookup(env, u, &no))) {
 		ain_copy_type(&expr->valuetype, &v->type);
 		expr->ident.kind = JAF_IDENT_GLOBAL;
