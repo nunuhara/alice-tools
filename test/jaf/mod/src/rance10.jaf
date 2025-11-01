@@ -1,0 +1,69 @@
+
+interface ISkillEffectProcess {
+	bool Evaluate(void);
+	void Process(void);
+	ref BattleLog GetLog(void);
+	int Type_get(void);
+	int Type_get2(void);
+};
+
+int test_g;
+
+struct CustomSkillEffectProcess : ISkillEffectProcess {
+	bool Evaluate(void) {
+		test_g = 42;
+		return true;
+	}
+	void Process(void) {
+	}
+	ref BattleLog GetLog(void) {
+		return NULL;
+	}
+	int Type_get(void) {
+		return 0;
+	}
+	int Type_get2(void) {
+		return 0;
+	}
+	~CustomSkillEffectProcess() {
+		test_g = 0;
+	}
+};
+
+ISkillEffectProcess ret_iface(void)
+{
+	return new CustomSkillEffectProcess();
+}
+
+void test_interface(void)
+{
+	{
+		ISkillEffectProcess p = ret_iface();
+		assert(p.Evaluate());
+		assert(test_g == 42);
+	}
+	assert(test_g == 0);
+}
+
+option<int> ret_option(int a)
+{
+	if (a)
+		return Some(a);
+	return None;
+}
+
+void test_option(void)
+{
+	// XXX: option variables are not allowed in ain v12...
+	assert(ret_option(1).IsSome());
+	assert(ret_option(0).IsNone());
+	assert(ret_option(1).Value(2) == 1);
+	assert(ret_option(0).Value(2) == 2);
+}
+
+override int main(void)
+{
+	test_interface();
+	test_option();
+	return super();
+}

@@ -1,0 +1,57 @@
+
+int test_g;
+
+interface IShopButton {
+	void Update(void);
+	void SetPos(int x, int y);
+};
+
+struct CustomButton : IShopButton {
+	void Update(void) {
+		test_g = 42;
+	}
+	void SetPos(int x, int y) {
+	}
+	~CustomButton() {
+		test_g = 0;
+	}
+};
+
+IShopButton ret_iface(void)
+{
+	return new CustomButton();
+}
+
+void test_interface(void)
+{
+	{
+		IShopButton p = ret_iface();
+		p.Update();
+		assert(test_g == 42);
+	}
+	assert(test_g == 0);
+}
+
+option<int> ret_option(int a)
+{
+	if (a)
+		return Some(a);
+	return None;
+}
+
+void test_option(void)
+{
+	option<int> opt_some = ret_option(1);
+	option<int> opt_none = ret_option(0);
+	assert(opt_some.IsSome());
+	assert(opt_none.IsNone());
+	assert(opt_some.Value(2) == 1);
+	assert(opt_none.Value(2) == 2);
+}
+
+override int main(void)
+{
+	test_interface();
+	test_option();
+	return super();
+}

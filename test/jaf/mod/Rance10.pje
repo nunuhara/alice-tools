@@ -1,0 +1,11 @@
+ProjectName = "Rance10"
+CodeName = "Rance10.ain"
+
+SourceDir = "src"
+OutputDir = "rance10"
+
+Source = {
+    "rance10.inc",
+}
+
+ModAin = "Rance10.src.ain"

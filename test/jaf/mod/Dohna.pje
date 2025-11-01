@@ -1,0 +1,11 @@
+ProjectName = "dohnadohna"
+CodeName = "dohnadohna.ain"
+
+SourceDir = "src"
+OutputDir = "dohna"
+
+Source = {
+    "dohna.inc",
+}
+
+ModAin = "dohnadohna.src.ain"
