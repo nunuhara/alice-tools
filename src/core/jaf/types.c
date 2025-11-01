@@ -189,6 +189,8 @@ static bool type_equal(struct jaf_env *env, struct ain_type *expected, struct ai
 			if (!expected->rank)
 				return true;
 			assert(actual->rank == 1 && actual->array_type);
+			if (expected->array_type->data == AIN_HLL_PARAM)
+				return true;
 			return type_equal(env, expected->array_type, actual->array_type);
 		default:
 			return true;
@@ -1101,6 +1103,7 @@ static void type_check_hll_call(struct jaf_env *env, struct jaf_expression *expr
 		expr->call.type_param = 0;
 	}
 
+	assert(expr->call.lib_no >= 0 && expr->call.lib_no < env->ain->nr_libraries);
 	const char *obj_name = env->ain->libraries[expr->call.lib_no].name;
 	const char *mbr_name = expr->call.fun->member.name->text;
 
@@ -1230,6 +1233,7 @@ static struct builtin builtins[] = {
 	[JAF_ARRAY_INSERT]      = { AIN_VOID,   AIN_ARRAY, "Insert",      2, 2 },
 	[JAF_ARRAY_SORT]        = { AIN_VOID,   AIN_ARRAY, "Sort",        0, 1 },
 	[JAF_ARRAY_FIND]        = { AIN_INT,    AIN_ARRAY, "Find",        3, 4 },
+	[JAF_ARRAY_INIT]        = { AIN_VOID,   AIN_ARRAY, "<init>",      1, 1 },
 	[JAF_DELEGATE_NUMOF]    = { AIN_INT,    AIN_DELEGATE, "Numof",    0, 0 },
 	[JAF_DELEGATE_EXIST]    = { AIN_INT,    AIN_DELEGATE, "Exist",    1, 1 },
 	[JAF_DELEGATE_CLEAR]    = { AIN_VOID,   AIN_DELEGATE, "Clear",    0, 0 },
@@ -1348,6 +1352,9 @@ static void type_check_builtin_call(struct jaf_env *env, struct jaf_expression *
 		if (args->nr_items > 3) {
 			jaf_check_comparator_type(env, args->items[3], &val_type);
 		}
+		break;
+	case JAF_ARRAY_INIT:
+		type_check(env, &int_type, args->items[0]);
 		break;
 	case JAF_DELEGATE_EXIST:
 		check_delegate_compatible(env, &expr->call.fun->member.struc->valuetype, args->items[0]);
@@ -1792,7 +1799,13 @@ static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 	}
 	case AIN_ARRAY:
 	case AIN_REF_ARRAY:
-		jaf_check_types_hll_builtin(env, expr);
+		if (!strcmp(name, "<init>")) {
+			expr->valuetype.data = AIN_BUILTIN;
+			expr->member.object_no = JAF_BUILTIN_ARRAY;
+			expr->member.member_no = JAF_ARRAY_INIT;
+		} else {
+			jaf_check_types_hll_builtin(env, expr);
+		}
 		break;
 	case AIN_OPTION:
 		if ((expr->member.member_no = get_builtin_no(AIN_OPTION, name)) < 0) {

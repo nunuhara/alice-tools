@@ -794,11 +794,18 @@ static struct jaf_block *vtable_initializer(struct ain *ain, struct ain_struct *
 	struct string *vtable = make_string("<vtable>", 8);
 	int nr_iface_methods = struct_nr_iface_methods(ain, s);
 	struct jaf_expression *var = jaf_member_expr(jaf_this(), vtable);
-	struct jaf_expression *func = jaf_member_expr(var, make_string("Alloc", 5));
-	struct jaf_argument_list *args = jaf_args(NULL, jaf_integer(nr_iface_methods));
-	args = jaf_args(args, jaf_integer(-1));
-	args = jaf_args(args, jaf_integer(-1));
-	args = jaf_args(args, jaf_integer(-1));
+	struct jaf_expression *func;
+	struct jaf_argument_list *args;
+	if (AIN_VERSION_GTE(ain, 14, 0)) {
+		func = jaf_member_expr(var, make_string("<init>", 6));
+		args = jaf_args(NULL, jaf_integer(nr_iface_methods));
+	} else {
+		func = jaf_member_expr(var, make_string("Alloc", 5));
+		args = jaf_args(NULL, jaf_integer(nr_iface_methods));
+		args = jaf_args(args, jaf_integer(-1));
+		args = jaf_args(args, jaf_integer(-1));
+		args = jaf_args(args, jaf_integer(-1));
+	}
 	struct jaf_expression *call = jaf_function_call(func, args);
 	struct jaf_block *block = jaf_block(jaf_expression_statement(call));
 

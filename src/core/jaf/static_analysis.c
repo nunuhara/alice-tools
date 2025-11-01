@@ -111,15 +111,20 @@ static void jaf_check_builtin_hll(struct ain *ain)
 			struct ain_hll_function *f = &lib->functions[alloc_fno];
 			f->name = xstrdup("Alloc");
 			f->return_type = (struct ain_type) { .data = AIN_VOID, .struc = -1 };
-			f->nr_arguments = 5;
-			f->arguments = xcalloc(5, sizeof(struct ain_hll_argument));
-			init_array_self_param(ain, &f->arguments[0]);
-			f->arguments[1] = HLL_ARG("Numof", AIN_INT);
-			f->arguments[2] = HLL_ARG("Numof2", AIN_INT);
-			f->arguments[3] = HLL_ARG("Numof3", AIN_INT);
-			f->arguments[4] = HLL_ARG("Numof4", AIN_INT);
-			if (AIN_VERSION_GTE(ain, 14, 0))
-				assert(f->arguments[0].type.array_type);
+			if (AIN_VERSION_GTE(ain, 14, 0)) {
+				f->nr_arguments = 2;
+				f->arguments = xcalloc(2, sizeof(struct ain_hll_argument));
+				init_array_self_param(ain, &f->arguments[0]);
+				f->arguments[1] = HLL_ARG("Numof", AIN_INT);
+			} else {
+				f->nr_arguments = 5;
+				f->arguments = xcalloc(5, sizeof(struct ain_hll_argument));
+				init_array_self_param(ain, &f->arguments[0]);
+				f->arguments[1] = HLL_ARG("Numof", AIN_INT);
+				f->arguments[2] = HLL_ARG("Numof2", AIN_INT);
+				f->arguments[3] = HLL_ARG("Numof3", AIN_INT);
+				f->arguments[4] = HLL_ARG("Numof4", AIN_INT);
+			}
 		}
 		int free_fno = ain_get_library_function(ain, array_hll, "Free");
 		if (free_fno < 0) {

@@ -97,6 +97,8 @@ static void write_instruction0(struct compiler_state *state, uint16_t opcode)
 		case ASSIGN:   write_instruction1(state, X_ASSIGN, 1); break;
 		case R_ASSIGN: write_instruction1(state, X_ASSIGN, 2); break;
 		case SWAP:     write_instruction2(state, X_MOV, 2, 1); break;
+		case DUP_U2:   write_instruction1(state, X_DUP, 2);
+			       write_instruction0(state, POP); break;
 		default:       write_opcode(state, opcode); break;
 		}
 	} else {
@@ -1567,6 +1569,17 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 			write_instruction1(state, PUSH, 0);
 		}
 		write_instruction0(state, A_FIND);
+		break;
+	case JAF_ARRAY_INIT:
+		assert(AIN_VERSION_GTE(state->ain, 14, 0));
+		compile_variable_ref(state, expr->call.fun->member.struc);
+		write_instruction0(state, DUP2);
+		write_instruction0(state, REF);
+		write_instruction0(state, DELETE);
+		compile_expression(state, expr->call.args->items[0]);
+		// FIXME: Argument to X_A_INIT can be 0 or 1. What does it mean?
+		write_instruction1(state, X_A_INIT, 0);
+		write_instruction0(state, POP);
 		break;
 	case JAF_DELEGATE_NUMOF:
 		compile_lvalue(state, expr->call.fun->member.struc);
