@@ -48,8 +48,8 @@ void test_interface(void)
 option<int> ret_option(int a)
 {
 	if (a)
-		return Some(a);
-	return None;
+		return Option::Some(a);
+	return Option::None;
 }
 
 void test_option(void)

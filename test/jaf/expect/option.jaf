@@ -1,8 +1,8 @@
 option<int> foo(int a)
 {
 	if (a > 0)
-		return Some(a);
-	return None;
+		return Option::Some(a);
+	return Option::None;
 }
 
 void baz(void)

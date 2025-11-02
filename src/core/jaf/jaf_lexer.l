@@ -117,8 +117,8 @@ unsigned long jaf_line = 1;
 "new"                                   { return SYM_NEW; }
 "assert"                                { return ASSERT; }
 "NULL"					{ return SYM_NULL; }
-"None"					{ return NONE; }
-"Some"					{ return SOME; }
+"Option::None"				{ return NONE; }
+"Option::Some"				{ return SOME; }
 
 {L}                                     { RETURN_STRING(IDENTIFIER); }
 {L}{A}*{AT}                             { RETURN_STRING(IDENTIFIER); }
