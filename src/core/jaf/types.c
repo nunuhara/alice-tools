@@ -113,8 +113,9 @@ static void maybe_deref(struct jaf_expression *e)
 
 static bool type_identical(struct ain_type *a, struct ain_type *b)
 {
-	if (a->data != b->data)
+	if (a->data != b->data) {
 		return false;
+	}
 	switch ((int)a->data) {
 	case AIN_ARRAY_STRUCT:
 	case AIN_REF_ARRAY_STRUCT:
@@ -132,6 +133,8 @@ static bool type_identical(struct ain_type *a, struct ain_type *b)
 	case AIN_REF_FUNC_TYPE:
 	case AIN_DELEGATE:
 	case AIN_REF_DELEGATE:
+	case AIN_ENUM:
+	case AIN_REF_ENUM:
 		if (a->struc != b->struc)
 			return false;
 		break;
@@ -179,6 +182,8 @@ static bool type_equal(struct jaf_env *env, struct ain_type *expected, struct ai
 		case AIN_REF_FUNC_TYPE:
 		case AIN_DELEGATE:
 		case AIN_REF_DELEGATE:
+		case AIN_ENUM:
+		case AIN_REF_ENUM:
 			return expected->struc == -1 || expected->struc == actual->struc;
 		case AIN_ARRAY:
 		case AIN_REF_ARRAY:
@@ -608,8 +613,9 @@ static void check_ref_assign(struct jaf_env *env, struct jaf_expression *lhs, st
 			assert(lhs->ident.global >= 0 && lhs->ident.global < env->ain->nr_globals);
 			lhs_t = env->ain->globals[lhs->ident.global].type;
 			break;
+		case JAF_IDENT_ENUMVAL:
+			JAF_ERROR(lhs, "Reference assignment to enum value");
 		case JAF_IDENT_CONST:
-			// FIXME: should this be allowed?
 			JAF_ERROR(lhs, "Reference assignment to const variable");
 		case JAF_IDENT_UNRESOLVED:
 			COMPILER_ERROR(lhs, "Unresolved identifier");
@@ -687,9 +693,37 @@ static void type_check_identifier(struct jaf_env *env, struct jaf_expression *ex
 		expr->valuetype.data = AIN_LIBRARY;
 		expr->valuetype.struc = no;
 	} else {
-		JAF_ERROR(expr, "Undefined variable: %s", expr->ident.name.collapsed->text);
+		// check for enum value of form: Enum::Value
+		struct jaf_name *name = &expr->ident.name;
+		if (name->nr_parts != 2)
+			goto undefined_variable;
+		char *enum_name = conv_output(name->parts[0]->text);
+		int no = ain_get_enum(env->ain, enum_name);
+		free(enum_name);
+		if (no < 0)
+			goto undefined_variable;
+		enum_name = conv_output(name->parts[1]->text);
+		for (int i = 0; i < env->ain->enums[no].nr_values; i++) {
+			struct ain_enum_value *value = &env->ain->enums[no].values[i];
+			if (!strcmp(value->symbol, enum_name)) {
+				expr->valuetype = (struct ain_type) {
+					.data = AIN_ENUM,
+					.struc = no,
+				};
+				expr->ident.kind = JAF_IDENT_ENUMVAL;
+				expr->ident.enumval = value->value;
+				break;
+			}
+		}
+		free(enum_name);
+		if (expr->valuetype.data != AIN_ENUM)
+			goto undefined_variable;
 	}
 	free(u);
+	return;
+
+undefined_variable:
+	JAF_ERROR(expr, "Undefined variable: %s", expr->ident.name.collapsed->text);
 }
 
 static void type_check_this(struct jaf_env *env, struct jaf_expression *expr)
@@ -893,6 +927,8 @@ static void type_check_binary(struct jaf_env *env, struct jaf_expression *expr)
 			default:
 				TYPE_ERROR(expr->rhs, AIN_FUNC_TYPE);
 			}
+		} else if (expr->lhs->valuetype.data == AIN_ENUM) {
+			type_check(env, &expr->lhs->valuetype, expr->rhs);
 		} else {
 			type_coerce_numerics(expr, expr->op, expr->lhs, expr->rhs);
 		}
@@ -1029,6 +1065,9 @@ static void type_check_function_call(struct jaf_env *env, struct jaf_expression 
 
 	check_function_arguments(env, expr, expr->call.args, &env->ain->functions[func_no]);
 	ain_copy_type(&expr->valuetype, &env->ain->functions[func_no].return_type);
+	// XXX: Simplify enum handling (v14+ doesn't use ENUM2 type anyways)
+	if (expr->valuetype.data == AIN_OPTION && expr->valuetype.array_type->data == AIN_ENUM2)
+		expr->valuetype.array_type->data = AIN_ENUM;
 	expr->call.func_no = func_no;
 }
 
@@ -1528,26 +1567,38 @@ static void type_check_cast(struct jaf_env *env, struct jaf_expression *expr)
 {
 	maybe_deref(expr->cast.expr);
 
+	// basic casts
 	switch (expr->cast.type) {
 	case JAF_INT:
 	case JAF_LONG_INT:
 	case JAF_BOOL:
 	case JAF_FLOAT:
 	case JAF_STRING:
+		switch (expr->cast.expr->valuetype.data) {
+		case AIN_INT:
+		case AIN_LONG_INT:
+		case AIN_BOOL:
+		case AIN_FLOAT:
+			goto types_ok;
+		default:
+			break;
+		}
 		break;
 	default:
-		JAF_ERROR(expr, "Invalid cast");
-	}
-	switch (expr->cast.expr->valuetype.data) {
-	case AIN_INT:
-	case AIN_LONG_INT:
-	case AIN_BOOL:
-	case AIN_FLOAT:
 		break;
-	default:
-		JAF_ERROR(expr, "Invalid cast");
 	}
 
+#define T(from, to) ((from) << 8 | (to))
+	switch (T(expr->cast.expr->valuetype.data, expr->cast.type)) {
+	case T(AIN_ENUM, JAF_INT):
+	case T(AIN_ENUM, JAF_STRING):
+		goto types_ok;
+	}
+#undef T
+
+	JAF_ERROR(expr, "Invalid cast");
+	return;
+types_ok:
 	expr->valuetype.data = jaf_to_ain_simple_type(expr->cast.type);
 }
 

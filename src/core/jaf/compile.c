@@ -396,10 +396,12 @@ static void write_instruction_for_arithmetic_op(struct compiler_state *state,
 	case T(AIN_INT, JAF_EQ):
 	case T(AIN_LONG_INT, JAF_EQ):
 	case T(AIN_BOOL, JAF_EQ):
+	case T(AIN_ENUM, JAF_EQ):
 	case T(AIN_FUNC_TYPE, JAF_EQ):      write_instruction0(state, EQUALE); break;
 	case T(AIN_INT, JAF_NEQ):
 	case T(AIN_LONG_INT, JAF_NEQ):
 	case T(AIN_BOOL, JAF_NEQ):
+	case T(AIN_ENUM, JAF_NEQ):
 	case T(AIN_FUNC_TYPE, JAF_NEQ):      write_instruction0(state, NOTE); break;
 	case T(AIN_INT, JAF_PLUS):           write_instruction0(state, ADD); break;
 	case T(AIN_INT, JAF_MINUS):          write_instruction0(state, SUB); break;
@@ -468,6 +470,7 @@ static void write_instruction_for_assignment_op(struct compiler_state *state,
 	switch (T(op, strip_ref(rhs_type))) {
 	case T(JAF_ASSIGN, AIN_INT):
 	case T(JAF_ASSIGN, AIN_BOOL):
+	case T(JAF_ASSIGN, AIN_ENUM):
 	case T(JAF_ASSIGN, AIN_FUNCTION):
 	case T(JAF_ASSIGN, AIN_FUNC_TYPE):       write_instruction0(state, ASSIGN); break;
 	case T(JAF_ADD_ASSIGN, AIN_INT):
@@ -624,6 +627,7 @@ static struct ain_variable *get_identifier_variable(struct compiler_state *state
 		return get_struct_variable(state, expr->ident.struc);
 	case JAF_IDENT_GLOBAL:
 		return get_global_variable(state, expr->ident.global);
+	case JAF_IDENT_ENUMVAL:
 	case JAF_IDENT_CONST:
 	case JAF_IDENT_UNRESOLVED:
 		break;
@@ -661,6 +665,7 @@ static void compile_identifier_pageref(struct compiler_state *state, struct jaf_
 	case JAF_IDENT_GLOBAL:
 		compile_global_pageref(state, expr->ident.global);
 		break;
+	case JAF_IDENT_ENUMVAL:
 	case JAF_IDENT_CONST:
 	case JAF_IDENT_UNRESOLVED:
 		COMPILER_ERROR(expr, "Unresolved variable");
@@ -864,6 +869,7 @@ static void compile_dereference(struct compiler_state *state, struct ain_type *t
 	case AIN_BOOL:
 	case AIN_LONG_INT:
 	case AIN_FUNC_TYPE:
+	case AIN_ENUM:
 		write_instruction0(state, REF);
 		break;
 	case AIN_REF_INT:
@@ -871,6 +877,7 @@ static void compile_dereference(struct compiler_state *state, struct ain_type *t
 	case AIN_REF_BOOL:
 	case AIN_REF_LONG_INT:
 	case AIN_REF_FUNC_TYPE:
+	case AIN_REF_ENUM:
 		write_instruction0(state, REFREF);
 		write_instruction0(state, REF);
 		break;
@@ -936,6 +943,10 @@ static void compile_identifier(struct compiler_state *state, struct jaf_expressi
 		compile_constant_identifier(state, expr);
 		return;
 	}
+	if (expr->ident.kind == JAF_IDENT_ENUMVAL) {
+		write_instruction1(state, PUSH, expr->ident.enumval);
+		return;
+	}
 	struct ain_variable *var = get_identifier_variable(state, expr);
 	switch (var->type.data) {
 	case AIN_INT:
@@ -978,6 +989,7 @@ static void compile_pop(struct compiler_state *state, enum ain_data_type type)
 	case AIN_REF_TYPE:
 	case AIN_FUNCTION:
 	case AIN_METHOD:
+	case AIN_ENUM:
 		write_instruction0(state, POP);
 		break;
 	case AIN_STRUCT:
@@ -994,6 +1006,38 @@ static void compile_pop(struct compiler_state *state, enum ain_data_type type)
 	default:
 		_COMPILER_ERROR(NULL, -1, "Unsupported type");
 	}
+}
+
+static struct string *get_enum_name(struct ain *ain, int enum_no)
+{
+	assert(enum_no >= 0 && enum_no < ain->nr_enums);
+	return make_string(ain->enums[enum_no].name, strlen(ain->enums[enum_no].name));
+}
+
+static int get_enum_function(struct ain *ain, int enum_no, const char *fname)
+{
+	struct string *name = get_enum_name(ain, enum_no);
+	string_append_cstr(&name, fname, strlen(fname));
+	int fno = ain_get_function(ain, name->text);
+	free_string(name);
+	return fno;
+}
+
+static void compile_enum_string_cast(struct compiler_state *state, struct jaf_expression *expr)
+{
+	int fno;
+	if (AIN_VERSION_GTE(state->ain, 14, 0))
+		fno = get_enum_function(state->ain, expr->valuetype.struc, "::ToString");
+	else
+		fno = get_enum_function(state->ain, expr->valuetype.struc, "@String");
+	if (fno <= 0)
+		COMPILER_ERROR(expr, "No function for enum to string cast");
+	struct ain_function *f = &state->ain->functions[fno];
+	if (f->return_type.data != AIN_STRING
+			|| f->nr_args != 1
+			|| f->vars[0].type.data != AIN_ENUM)
+		COMPILER_ERROR(expr, "Unexpected function signature for enum to string cast function");
+	write_instruction1(state, CALLFUNC, fno);
 }
 
 static bool _compile_cast(struct compiler_state *state, struct jaf_expression *expr,
@@ -1064,6 +1108,11 @@ static bool _compile_cast(struct compiler_state *state, struct jaf_expression *e
 			}
 		}
 		return false;
+	} else if (src_type == AIN_ENUM) {
+		if (dst_type == AIN_INT)
+			return true;
+		if (dst_type == AIN_STRING)
+			compile_enum_string_cast(state, expr);
 	} else {
 		return false;
 	}
@@ -1884,6 +1933,13 @@ static void compile_expr_and_pop(struct compiler_state *state, struct jaf_expres
 	compile_pop(state, expr->valuetype.data);
 }
 
+static int get_enum_default_value(struct ain *ain, int etype)
+{
+	assert(etype >= 0 && etype < ain->nr_enums);
+	assert(ain->enums[etype].nr_values > 0);
+	return ain->enums[etype].values[0].value;
+}
+
 static void compile_vardecl(struct compiler_state *state, struct jaf_block_item *item)
 {
 	struct jaf_vardecl *decl = &item->var;
@@ -1962,6 +2018,7 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 	case AIN_FLOAT:
 	case AIN_FUNC_TYPE:
 	case AIN_OPTION:
+	case AIN_ENUM:
 		if (decl->init) {
 			assign.rhs = decl->init;
 		} else {
@@ -1982,6 +2039,10 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 				break;
 			case AIN_OPTION:
 				rhs.type = JAF_EXP_NONE;
+				break;
+			case AIN_ENUM:
+				rhs.type = JAF_EXP_INT;
+				rhs.i = get_enum_default_value(state->ain, decl->valuetype.struc);
 				break;
 			default:
 				COMPILER_ERROR(item, "unreachable");

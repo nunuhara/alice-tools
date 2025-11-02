@@ -61,9 +61,29 @@ void test_option(void)
 	assert(ret_option(0).Value(2) == 2);
 }
 
+BadConditionType ret_enum_arg(BadConditionType e)
+{
+	if (e == BadConditionType::None)
+		return BadConditionType::Sleep;
+	return e;
+}
+
+void test_enum(void)
+{
+	BadConditionType e;
+	assert(e == BadConditionType::None);
+	assert(e != BadConditionType::Sleep);
+	assert(ret_enum_arg(e) == BadConditionType::Sleep);
+	assert((int)e == -1);
+	assert((string)e == "None");
+	assert(BadConditionType::Parse#1(7).Value(BadConditionType::None) == BadConditionType::Sleep);
+	assert(BadConditionType::Parse("Sleep").Value(BadConditionType::None) == BadConditionType::Sleep);
+}
+
 override int main(void)
 {
 	test_interface();
 	test_option();
+	test_enum();
 	return super();
 }

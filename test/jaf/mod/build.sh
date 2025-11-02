@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+cd $(dirname "$0")
+
 HAVE_R10=1
 HAVE_DD=1
 

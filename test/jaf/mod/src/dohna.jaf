@@ -49,9 +49,29 @@ void test_option(void)
 	assert(opt_none.Value(2) == 2);
 }
 
+TeachingItemType ret_enum_arg(TeachingItemType e)
+{
+	if (e == TeachingItemType::Invalid)
+		return TeachingItemType::Looks;
+	return e;
+}
+
+void test_enum(void)
+{
+	TeachingItemType e;
+	assert(e == TeachingItemType::Invalid);
+	assert(e != TeachingItemType::Looks);
+	assert(ret_enum_arg(e) == TeachingItemType::Looks);
+	assert((int)e == 0);
+	assert((string)e == "Invalid");
+	assert(TeachingItemType::Parse#1(1).Value(TeachingItemType::Invalid) == TeachingItemType::Looks);
+	assert(TeachingItemType::Parse("Looks").Value(TeachingItemType::Invalid) == TeachingItemType::Looks);
+}
+
 override int main(void)
 {
 	test_interface();
 	test_option();
+	test_enum();
 	return super();
 }

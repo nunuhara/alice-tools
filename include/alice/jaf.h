@@ -266,6 +266,7 @@ enum jaf_ident_type {
 	JAF_IDENT_LOCAL,
 	JAF_IDENT_STRUCT,
 	JAF_IDENT_GLOBAL,
+	JAF_IDENT_ENUMVAL,
 	JAF_IDENT_CONST,
 };
 
@@ -292,6 +293,7 @@ struct jaf_expression {
 				struct jaf_vardecl *local;
 				int global;
 				int struc;
+				int enumval;
 				struct ain_initval constval;
 			};
 		} ident;
