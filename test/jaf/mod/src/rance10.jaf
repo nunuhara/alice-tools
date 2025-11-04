@@ -68,6 +68,12 @@ BadConditionType ret_enum_arg(BadConditionType e)
 	return e;
 }
 
+enum NewEnum {
+	None = -1,
+	ValA = 0,
+	ValB = 1,
+};
+
 void test_enum(void)
 {
 	BadConditionType e;
@@ -78,10 +84,38 @@ void test_enum(void)
 	assert((string)e == "None");
 	assert(BadConditionType::Parse#1(7).Value(BadConditionType::None) == BadConditionType::Sleep);
 	assert(BadConditionType::Parse("Sleep").Value(BadConditionType::None) == BadConditionType::Sleep);
+
+	NewEnum e2;
+	assert(e2 == NewEnum::None);
+	assert(e2 != NewEnum::ValA);
+	e2 = NewEnum::ValA;
+	assert(e2 == NewEnum::ValA);
+	assert(NewEnum::Parse#1(-1).Value(NewEnum::ValA) == NewEnum::None);
+	assert(NewEnum::Parse#1(0).Value(NewEnum::None) == NewEnum::ValA);
+	assert(NewEnum::Parse#1(1).Value(NewEnum::None) == NewEnum::ValB);
+	assert(NewEnum::Parse("None").Value(NewEnum::ValA) == NewEnum::None);
+	assert(NewEnum::Parse("ValA").Value(NewEnum::None) == NewEnum::ValA);
+	assert(NewEnum::Parse("ValB").Value(NewEnum::None) == NewEnum::ValB);
+	assert((string)NewEnum::None == "None");
+	assert((string)NewEnum::ValA == "ValA");
+	assert((string)NewEnum::ValB == "ValB");
+	assert((int)NewEnum::None == -1);
+	assert((int)NewEnum::ValA == 0);
+	assert((int)NewEnum::ValB == 1);
+	array<NewEnum> a = NewEnum::GetList();
+	assert(a.Numof() == 3);
+	assert(a[0] == NewEnum::None);
+	assert(a[1] == NewEnum::ValA);
+	assert(a[2] == NewEnum::ValB);
+	assert(NewEnum::IsExist(-1));
+	assert(NewEnum::IsExist(0));
+	assert(NewEnum::IsExist(1));
+	assert(NewEnum::NumOf() == 3);
 }
 
 override int main(void)
 {
+	//CrayfishLogViewer.OpenViewer();
 	test_interface();
 	test_option();
 	test_enum();

@@ -67,7 +67,7 @@ struct jaf_expression *jaf_integer(int i)
 	return e;
 }
 
-struct jaf_expression *jaf_parse_integer(struct string *text)
+int _jaf_parse_integer(struct string *text)
 {
 	char *endptr;
 	errno = 0;
@@ -75,7 +75,12 @@ struct jaf_expression *jaf_parse_integer(struct string *text)
 	if (errno || *endptr != '\0')
 		_JAF_ERROR(jaf_file, jaf_line, "Invalid integer constant: %s", text->text);
 	free_string(text);
-	return jaf_integer(i);
+	return i;
+}
+
+struct jaf_expression *jaf_parse_integer(struct string *text)
+{
+	return jaf_integer(_jaf_parse_integer(text));
 }
 
 struct jaf_expression *jaf_float(float f)
@@ -698,6 +703,22 @@ struct jaf_block_item *jaf_interface(struct string *name, struct jaf_block *meth
 	return p;
 }
 
+struct jaf_block_item *jaf_enum(struct string *name, jaf_enum_value_list values)
+{
+	struct jaf_block_item *item = block_item(JAF_DECL_ENUM);
+	item->enume.name = name;
+	item->enume.values = values;
+
+	int next_v = 0;
+	struct jaf_enum_value *p;
+	kv_foreach_p(p, item->enume.values) {
+		if (!p->explicit_value)
+			p->value = next_v;
+		next_v = p->value + 1;
+	}
+	return item;
+}
+
 struct jaf_block_item *jaf_rassign(struct jaf_expression *lhs, struct jaf_expression *rhs)
 {
 	struct jaf_block_item *item = block_item(JAF_STMT_RASSIGN);
@@ -982,6 +1003,15 @@ void jaf_free_block_item(struct jaf_block_item *item)
 			free_string(p);
 		}
 		kv_destroy(item->struc.interfaces);
+		break;
+	}
+	case JAF_DECL_ENUM: {
+		struct jaf_enum_value *p;
+		kv_foreach_p(p, item->enume.values) {
+			free_string(p->symbol);
+		}
+		kv_destroy(item->enume.values);
+		free_string(item->enume.name);
 		break;
 	}
 	case JAF_STMT_LABELED:

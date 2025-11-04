@@ -84,6 +84,7 @@ const char *jaf_type_to_string(enum jaf_type type)
 	case JAF_STRUCT: return "struct";
 	case JAF_IFACE: return "interface";
 	case JAF_ENUM: return "enum";
+	case JAF_ENUM_OPT: return "enum#91";
 	case JAF_ARRAY: return "array";
 	case JAF_WRAP: return "wrap";
 	case JAF_OPTION: return "option";
@@ -124,7 +125,8 @@ static void print_type_specifier(struct port *out, struct jaf_type_specifier *ty
 		port_printf(out, "ref ");
 	}
 	if (type->type == JAF_STRUCT || type->type == JAF_IFACE || type->type == JAF_FUNCTYPE
-			|| type->type == JAF_DELEGATE || type->type == JAF_ENUM) {
+			|| type->type == JAF_DELEGATE || type->type == JAF_ENUM
+			|| type->type == JAF_ENUM_OPT) {
 		port_printf(out, "%s", type->name->text);
 	} else {
 		port_printf(out, "%s", jaf_type_to_string(type->type));
@@ -316,6 +318,9 @@ void jaf_print_block_item(struct port *out, struct jaf_block_item *item)
 		break;
 	case JAF_DECL_INTERFACE:
 		port_printf(out, "interface %s { ... }", item->struc.name->text);
+		break;
+	case JAF_DECL_ENUM:
+		port_printf(out, "enum %s { ... }", item->enume.name->text);
 		break;
 	case JAF_STMT_LABELED:
 	        jaf_print_block_item(out, item->label.stmt);

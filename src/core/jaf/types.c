@@ -114,6 +114,10 @@ static void maybe_deref(struct jaf_expression *e)
 static bool type_identical(struct ain_type *a, struct ain_type *b)
 {
 	if (a->data != b->data) {
+		// XXX: these types are identical for all intents and purposes
+		if ((a->data == AIN_ENUM && b->data == AIN_ENUM2)
+				|| (a->data == AIN_ENUM2 && b->data == AIN_ENUM))
+			return a->struc == b->struc;
 		return false;
 	}
 	switch ((int)a->data) {
@@ -224,6 +228,9 @@ static bool type_equal(struct jaf_env *env, struct ain_type *expected, struct ai
 		return true;
 	case T(AIN_IFACE, AIN_STRUCT):
 		return iface_compatible(env, expected->struc, actual->struc);
+	case T(AIN_ENUM, AIN_ENUM2):
+	case T(AIN_ENUM2, AIN_ENUM):
+		return expected->struc == actual->struc;
 	default:
 		return false;
 	}
@@ -705,7 +712,7 @@ static void type_check_identifier(struct jaf_env *env, struct jaf_expression *ex
 		enum_name = conv_output(name->parts[1]->text);
 		for (int i = 0; i < env->ain->enums[no].nr_values; i++) {
 			struct ain_enum_value *value = &env->ain->enums[no].values[i];
-			if (!strcmp(value->symbol, enum_name)) {
+			if (!strcmp(value->symbol->text, enum_name)) {
 				expr->valuetype = (struct ain_type) {
 					.data = AIN_ENUM,
 					.struc = no,
@@ -1107,6 +1114,39 @@ static void type_check_system_call(struct jaf_env *env, struct jaf_expression *e
 	ain_copy_type(&expr->valuetype, &syscalls[expr->call.func_no].return_type);
 }
 
+static int array_type_flags_v14(struct jaf_env *env, struct ain_type *t)
+{
+	switch (t->data) {
+	case AIN_INT:
+	case AIN_LONG_INT:
+	case AIN_FLOAT:
+	case AIN_BOOL:
+	case AIN_ENUM:
+		return 1;
+	case AIN_STRING:
+	case AIN_STRUCT:
+		return 2;
+	case AIN_IFACE_WRAP:
+		return 3;
+	case AIN_REF_STRUCT:
+	case AIN_WRAP:
+		return 0x10000;
+	case AIN_OPTION:
+		return 0x20000;
+	default:
+		WARNING("Array type flags for '%s' unknown", ain_strtype(env->ain, t->data, t->struc));
+		return 0;
+	}
+}
+
+static int array_type_param_v14(struct jaf_env *env, struct ain_type *type, int param_in)
+{
+	int param = param_in | array_type_flags_v14(env, type);
+	if (type->array_type)
+		param = array_type_param_v14(env, type->array_type, param);
+	return param;
+}
+
 /*
  * Determines the 3rd argument to CALLHLL for array member functions (ain v11+ only).
  * For ain v11-12 it's just the data type of what's stored in the array.
@@ -1114,37 +1154,8 @@ static void type_check_system_call(struct jaf_env *env, struct jaf_expression *e
  */
 static int array_type_param(struct jaf_env *env, struct ain_type *type)
 {
-	if (AIN_VERSION_GTE(env->ain, 14, 0)) {
-		// NOTE: I'm not really sure what the underlying logic is here...
-		//       * immediate types get 1
-		//       * structs and strings get 2
-		//       * 'ref struct' and 'wrap<struct>' get 0x10002
-		//       * 'wrap<iwrap<struct>>' gets 0x10003
-		switch (type->data) {
-		case AIN_REF_STRUCT:
-			return 0x10002;
-		case AIN_WRAP:
-			if (type->array_type->data == AIN_STRUCT)
-				return 0x10002;
-			if (type->array_type->data == AIN_IFACE_WRAP)
-				return 0x10003;
-			// XXX: Not totally sure if this is right... maybe always 2 here?
-			return array_type_param(env, type->array_type);
-		case AIN_ARRAY:
-		case AIN_REF_ARRAY:
-			return array_type_param(env, type->array_type);
-		case AIN_INT:
-		case AIN_FLOAT:
-			return 1;
-		case AIN_STRING:
-		case AIN_STRUCT:
-			return 2;
-		default:
-			// XXX: assume 2 for unconfirmed types...
-			WARNING("Assuming HLL type param is 2 for type: %s", ain_strtype(env->ain, type->data, -1));
-			return 2;
-		}
-	}
+	if (AIN_VERSION_GTE(env->ain, 14, 0))
+		return array_type_param_v14(env, type, 0);
 	return type->data;
 }
 

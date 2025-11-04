@@ -53,6 +53,7 @@ enum jaf_type {
 	JAF_STRUCT,
 	JAF_IFACE,
 	JAF_ENUM,
+	JAF_ENUM_OPT,
 	JAF_ARRAY,
 	JAF_WRAP,
 	JAF_OPTION,
@@ -151,8 +152,8 @@ enum jaf_builtin_method {
 enum jaf_type_qualifier {
 	JAF_QUAL_CONST       = 1,
 	JAF_QUAL_REF         = 2,
-	//JAF_QUAL_ARRAY       = 4,
-	JAF_QUAL_OVERRIDE    = 8,
+	JAF_QUAL_OVERRIDE    = 4,
+	JAF_QUAL_DUPLICATE   = 8,
 };
 
 enum jaf_expression_type {
@@ -381,7 +382,7 @@ enum block_item_kind {
 	JAF_DECL_DELEGATE,
 	JAF_DECL_STRUCT,
 	JAF_DECL_INTERFACE,
-	//JAF_DECL_ENUM,
+	JAF_DECL_ENUM,
 	JAF_STMT_NULL,
 	JAF_STMT_LABELED,
 	JAF_STMT_COMPOUND,
@@ -435,6 +436,20 @@ struct jaf_fundecl {
 
 typedef kvec_t(struct string*) jaf_string_list;
 
+struct jaf_enum_value {
+	struct string *symbol;
+	bool explicit_value;
+	int value;
+};
+
+typedef kvec_t(struct jaf_enum_value) jaf_enum_value_list;
+
+struct jaf_enumdecl {
+	struct string *name;
+	jaf_enum_value_list values;
+	int enum_no;
+};
+
 // declaration or statement
 struct jaf_block_item {
 	unsigned line;
@@ -452,6 +467,7 @@ struct jaf_block_item {
 			jaf_string_list interfaces;
 			int struct_no;
 		} struc;
+		struct jaf_enumdecl enume;
 		struct {
 			struct string *name;
 			struct jaf_block_item *stmt;
@@ -536,6 +552,7 @@ struct jaf_expression *jaf_null(void);
 struct jaf_expression *jaf_none(void);
 struct jaf_expression *jaf_some(struct jaf_expression *expr);
 struct jaf_expression *jaf_integer(int i);
+int _jaf_parse_integer(struct string *text);
 struct jaf_expression *jaf_parse_integer(struct string *text);
 struct jaf_expression *jaf_float(float f);
 struct jaf_expression *jaf_parse_float(struct string *text);
@@ -601,6 +618,7 @@ struct jaf_block_item *jaf_message_statement(struct string *msg, struct string *
 struct jaf_block_item *jaf_struct(struct string *name, struct jaf_block *fields,
 		jaf_string_list *interfaces);
 struct jaf_block_item *jaf_interface(struct string *name, struct jaf_block *methods);
+struct jaf_block_item *jaf_enum(struct string *name, jaf_enum_value_list values);
 struct jaf_block_item *jaf_rassign(struct jaf_expression *lhs, struct jaf_expression *rhs);
 struct jaf_block_item *jaf_assert(struct jaf_expression *expr, int line, const char *file);
 struct jaf_expression *jaf_copy_expression(struct jaf_expression *e);
@@ -656,6 +674,7 @@ void jaf_accept_block(struct ain *ain, struct jaf_block *block, struct jaf_visit
 // jaf_ain.c
 void jaf_define_struct(struct ain *ain, struct jaf_block_item *type);
 void jaf_define_interface(struct ain *ain, struct jaf_block_item *def);
+void jaf_define_enum(struct ain *ain, struct jaf_block_item *def);
 void jaf_define_functype(struct ain *ain, struct jaf_block_item *item);
 void jaf_define_delegate(struct ain *ain, struct jaf_block_item *item);
 void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_specifier *in);

@@ -359,7 +359,7 @@ void ain_dump_enum(struct port *port, struct ain *ain, int i)
 		if (i > 0)
 			port_putc(port, ',');
 		port_printf(port, "\n\t");
-		print_sjis(port, e->values[i].symbol);
+		print_sjis(port, e->values[i].symbol->text);
 		port_printf(port, " = %d", e->values[i].value);
 	}
 	port_printf(port, "\n};\n");

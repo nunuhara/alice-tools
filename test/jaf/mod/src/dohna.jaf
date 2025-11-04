@@ -56,6 +56,12 @@ TeachingItemType ret_enum_arg(TeachingItemType e)
 	return e;
 }
 
+enum NewEnum {
+	None = -1,
+	ValA = 0,
+	ValB = 1,
+};
+
 void test_enum(void)
 {
 	TeachingItemType e;
@@ -66,6 +72,33 @@ void test_enum(void)
 	assert((string)e == "Invalid");
 	assert(TeachingItemType::Parse#1(1).Value(TeachingItemType::Invalid) == TeachingItemType::Looks);
 	assert(TeachingItemType::Parse("Looks").Value(TeachingItemType::Invalid) == TeachingItemType::Looks);
+
+	NewEnum e2;
+	assert(e2 == NewEnum::None);
+	assert(e2 != NewEnum::ValA);
+	e2 = NewEnum::ValA;
+	assert(e2 == NewEnum::ValA);
+	assert(NewEnum::Parse#1(-1).Value(NewEnum::ValA) == NewEnum::None);
+	assert(NewEnum::Parse#1(0).Value(NewEnum::None) == NewEnum::ValA);
+	assert(NewEnum::Parse#1(1).Value(NewEnum::None) == NewEnum::ValB);
+	assert(NewEnum::Parse("None").Value(NewEnum::ValA) == NewEnum::None);
+	assert(NewEnum::Parse("ValA").Value(NewEnum::None) == NewEnum::ValA);
+	assert(NewEnum::Parse("ValB").Value(NewEnum::None) == NewEnum::ValB);
+	assert((string)NewEnum::None == "None");
+	assert((string)NewEnum::ValA == "ValA");
+	assert((string)NewEnum::ValB == "ValB");
+	assert((int)NewEnum::None == -1);
+	assert((int)NewEnum::ValA == 0);
+	assert((int)NewEnum::ValB == 1);
+	array<NewEnum> a = NewEnum::GetList();
+	assert(a.Numof() == 3);
+	assert(a[0] == NewEnum::None);
+	assert(a[1] == NewEnum::ValA);
+	assert(a[2] == NewEnum::ValB);
+	assert(NewEnum::IsExist(-1));
+	assert(NewEnum::IsExist(0));
+	assert(NewEnum::IsExist(1));
+	assert(NewEnum::NumOf() == 3);
 }
 
 override int main(void)

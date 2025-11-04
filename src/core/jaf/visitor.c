@@ -284,6 +284,7 @@ static void jaf_accept_stmt(struct jaf_block_item *stmt, struct jaf_visitor *vis
 		stmt->assertion.expr_string = jaf_accept_expr(stmt->assertion.expr_string, visitor);
 		stmt->assertion.file = jaf_accept_expr(stmt->assertion.file, visitor);
 		break;
+	case JAF_DECL_ENUM:
 	case JAF_STMT_NULL:
 	case JAF_STMT_GOTO:
 	case JAF_STMT_CONTINUE:

@@ -161,6 +161,8 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
     struct jaf_function_declarator *fundecl;
     struct jaf_name name;
     jaf_string_list strlist;
+    struct jaf_enum_value enumval;
+    jaf_enum_value_list enumlist;
 }
 
 %code requires {
@@ -168,7 +170,7 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 }
 
 %token	<string>	I_CONSTANT F_CONSTANT C_CONSTANT STRING_LITERAL
-%token	<string>	IDENTIFIER TYPEDEF_NAME ENUMERATION_CONSTANT
+%token	<string>	IDENTIFIER
 
 %token	<token>		INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP REQ_OP RNE_OP
 %token	<token>		AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
@@ -185,6 +187,7 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %token	CASE DEFAULT IF ELSE SYM_SWITCH WHILE DO FOR GOTO CONTINUE BREAK SYM_RETURN
 
 %type	<token>		unary_operator assignment_operator type_qualifier atomic_type_specifier
+%type	<token>		integer_constant
 %type	<string>	string param_identifier
 %type	<name>		name
 %type	<expression>	initializer
@@ -207,9 +210,11 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %type	<block>		compound_statement block_item_list block_item
 %type	<statement>	statement labeled_statement expression_statement selection_statement
 %type	<statement>	iteration_statement jump_statement message_statement struct_specifier
-%type	<statement>	interface_specifier rassign_statement assert_statement
+%type	<statement>	interface_specifier enum_specifier rassign_statement assert_statement
 %type	<fundecl>	function_declarator functype_declarator
 %type	<strlist>	interface_list
+%type	<enumval>	enumerator
+%type	<enumlist>	enumerator_list
 
 /*
  * Shift-reduce conflicts:
@@ -243,11 +248,6 @@ constant
 	| SYM_FALSE            { $$ = jaf_integer(0); }
 	| SYM_NULL             { $$ = jaf_null(); }
 	| NONE                 { $$ = jaf_none(); }
-	| ENUMERATION_CONSTANT { ERROR("Enums not supported"); } /* after it has been defined as such */
-	;
-
-enumeration_constant		/* before it has been defined as such */
-	: IDENTIFIER
 	;
 
 string
@@ -508,20 +508,38 @@ interface_declaration
 	;
 
 enum_specifier
-	: ENUM '{' enumerator_list '}'
-	| ENUM '{' enumerator_list ',' '}'
-	| ENUM IDENTIFIER '{' enumerator_list '}'
-	| ENUM IDENTIFIER '{' enumerator_list ',' '}'
+	: ENUM IDENTIFIER '{' enumerator_list '}' {
+		$$ = jaf_enum($2, $4);
+		jaf_define_enum(jaf_ain_out, $$);
+	}
+	| ENUM IDENTIFIER '{' enumerator_list ',' '}' {
+		$$ = jaf_enum($2, $4);
+		jaf_define_enum(jaf_ain_out, $$);
+	}
 	;
 
 enumerator_list
-	: enumerator
-	| enumerator_list ',' enumerator
+	: enumerator                     { kv_init($$); kv_push(struct jaf_enum_value, $$, $1); }
+	| enumerator_list ',' enumerator { $$ = $1; kv_push(struct jaf_enum_value, $$, $3); }
 	;
 
-enumerator	/* identifiers must be flagged as ENUMERATION_CONSTANT */
-	: enumeration_constant '=' constant_expression
-	| enumeration_constant
+integer_constant
+	: I_CONSTANT     { $$ = _jaf_parse_integer($1); }
+	| '+' I_CONSTANT { $$ = _jaf_parse_integer($2); }
+	| '-' I_CONSTANT { $$ = -_jaf_parse_integer($2); }
+	;
+
+enumerator
+	: IDENTIFIER '=' integer_constant {
+		$$ = (struct jaf_enum_value) {
+			.symbol = $1,
+			.explicit_value = true,
+			.value = $3
+		};
+	}
+	| IDENTIFIER {
+		$$ = (struct jaf_enum_value) { .symbol = $1, };
+	}
 	;
 
 type_qualifier
@@ -655,7 +673,7 @@ external_declaration
 	| declaration                                             { $$ = $1; }
 	| struct_specifier ';'                                    { $$ = jaf_block($1); }
 	| interface_specifier ';'                                 { $$ = jaf_block($1); }
-	| enum_specifier ';'                                      { ERROR("Enums not supported"); }
+	| enum_specifier ';'                                      { $$ = jaf_block($1); }
 	| FUNCTYPE declaration_specifiers functype_declarator ';' { $$ = jaf_functype($2, $3); }
 	| DELEGATE declaration_specifiers functype_declarator ';' { $$ = jaf_delegate($2, $3); }
 	;

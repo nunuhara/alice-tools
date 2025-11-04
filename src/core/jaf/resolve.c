@@ -118,6 +118,7 @@ static void jaf_resolve_statement_types(struct jaf_block_item *item, struct jaf_
 		break;
 	case JAF_DECL_STRUCT:
 	case JAF_DECL_INTERFACE:
+	case JAF_DECL_ENUM:
 	case JAF_DECL_FUNCTYPE:
 	case JAF_DECL_DELEGATE:
 	case JAF_STMT_NULL:

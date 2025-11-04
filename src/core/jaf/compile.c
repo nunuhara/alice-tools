@@ -2106,7 +2106,6 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 				if (decl->type->rank != 1) {
 					JAF_ERROR(item, "Only rank-1 arrays supported on ain v11+");
 				}
-				write_instruction0(state, DUP);
 				write_instruction1(state, PUSH, decl->array_dims[0]->i);
 				write_instruction1(state, PUSH, -1);
 				write_instruction1(state, PUSH, -1);
@@ -2396,6 +2395,8 @@ static void compile_statement(struct compiler_state *state, struct jaf_block_ite
 		JAF_ERROR(item, "Structs must be defined at top-level");
 	case JAF_DECL_INTERFACE:
 		JAF_ERROR(item, "Interfaces must be defined at top-level");
+	case JAF_DECL_ENUM:
+		JAF_ERROR(item, "Enums must be defined at top-level");
 	case JAF_STMT_NULL:
 		break;
 	case JAF_STMT_LABELED:

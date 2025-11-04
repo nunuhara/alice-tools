@@ -1,0 +1,34 @@
+enum NewEnum {
+	None = -1,
+	ValA = 0,
+	ValB = 1
+};
+
+enum ImplicitEnum {
+	Zero,
+	One,
+	Two,
+	Ten = 10,
+	Eleven,
+};
+
+NewEnum ret_enum(NewEnum e)
+{
+	if (e == NewEnum::None)
+		return NewEnum::ValB;
+	return e;
+}
+
+void test_enum(void)
+{
+	NewEnum e;
+	e = NewEnum::ValA;
+	e = ret_enum(e);
+	(int)NewEnum::ValA;
+	(string)NewEnum::ValA;
+	NewEnum::Parse("None");
+	NewEnum::Parse#1(-1);
+	array<NewEnum> a = NewEnum::GetList();
+	NewEnum::IsExist(-1);
+	NewEnum::NumOf();
+}

@@ -26,8 +26,7 @@
 void jaf_define_struct(struct ain *ain, struct jaf_block_item *def)
 {
 	assert(def->kind == JAF_DECL_STRUCT);
-	if (!def->struc.name)
-		JAF_ERROR(def, "Anonymous structs not supported");
+	assert(def->struc.name);
 
 	char *name = conv_output(def->struc.name->text);
 	if (ain_get_struct(ain, name) >= 0) {
@@ -51,6 +50,32 @@ void jaf_define_interface(struct ain *ain, struct jaf_block_item *def)
 	} else {
 		def->struc.struct_no = iface_no;
 	}
+	free(name);
+}
+
+void jaf_define_enum(struct ain *ain, struct jaf_block_item *def)
+{
+	assert(def->kind == JAF_DECL_ENUM);
+	assert(def->enume.name);
+
+	char *name = conv_output(def->enume.name->text);
+	if (ain_get_enum(ain, name) >= 0) {
+		JAF_ERROR(def, "Redefining enums not supported");
+	}
+
+	def->enume.enum_no = ain_add_enum(ain, name);
+	struct ain_enum *e = &ain->enums[def->enume.enum_no];
+	e->nr_values = kv_size(def->enume.values);
+	e->values = xcalloc(e->nr_values, sizeof(struct ain_enum_value));
+	for (unsigned i = 0; i < e->nr_values; i++) {
+		struct jaf_enum_value *jaf_v = &kv_A(def->enume.values, i);
+		struct ain_enum_value *ain_v = &e->values[i];
+		char *tmp = conv_output(jaf_v->symbol->text);
+		ain_v->symbol = make_string(tmp, strlen(tmp));
+		ain_v->value = jaf_v->value;
+		free(tmp);
+	}
+
 	free(name);
 }
 
@@ -86,6 +111,7 @@ enum ain_data_type jaf_to_ain_simple_type(enum jaf_type type)
 	case JAF_STRUCT:    return AIN_STRUCT;
 	case JAF_IFACE:     return AIN_IFACE;
 	case JAF_ENUM:      return AIN_ENUM;
+	case JAF_ENUM_OPT:  return AIN_ENUM2;
 	case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 	case JAF_WRAP:      return AIN_WRAP;
 	case JAF_OPTION:    return AIN_OPTION;
@@ -115,7 +141,8 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_STRING:    return AIN_REF_ARRAY_STRING;
 		case JAF_STRUCT:    return AIN_REF_ARRAY_STRUCT;
 		case JAF_IFACE:     _COMPILER_ERROR(NULL, -1, "Invalid interface type specifier");
-		case JAF_ENUM:      _COMPILER_ERROR(NULL, -1, "Enums not supported");
+		case JAF_ENUM:
+		case JAF_ENUM_OPT:  _COMPILER_ERROR(NULL, -1, "Invalid enum type specifier");
 		case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 		case JAF_WRAP:      _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
 		case JAF_OPTION:    _COMPILER_ERROR(NULL, -1, "Invalid option type specifier");
@@ -137,7 +164,8 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_STRING:    return AIN_REF_STRING;
 		case JAF_STRUCT:    return AIN_REF_STRUCT;
 		case JAF_IFACE:     _COMPILER_ERROR(NULL, -1, "Invalid interface type specifier");
-		case JAF_ENUM:      return AIN_REF_ENUM;
+		case JAF_ENUM:
+		case JAF_ENUM_OPT:  return AIN_REF_ENUM;
 		case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 		case JAF_WRAP:      _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
 		case JAF_OPTION:    _COMPILER_ERROR(NULL, -1, "Invalid option type specifier");
@@ -162,7 +190,8 @@ static enum ain_data_type jaf_to_ain_data_type(struct ain *ain, struct jaf_type_
 		case JAF_STRING:    return AIN_ARRAY_STRING;
 		case JAF_STRUCT:    return AIN_ARRAY_STRUCT;
 		case JAF_IFACE:     _COMPILER_ERROR(NULL, -1, "Invalid interface type specifier");
-		case JAF_ENUM:      _COMPILER_ERROR(NULL, -1, "Enums not supported");
+		case JAF_ENUM:
+		case JAF_ENUM_OPT:  _COMPILER_ERROR(NULL, -1, "Invalid enum type specifier");
 		case JAF_ARRAY:     _COMPILER_ERROR(NULL, -1, "Invalid array type specifier");
 		case JAF_WRAP:      _COMPILER_ERROR(NULL, -1, "Invalid wrap type specifier");
 		case JAF_OPTION:    _COMPILER_ERROR(NULL, -1, "Invalid option type specifier");
@@ -188,6 +217,7 @@ static int jaf_to_ain_struct_type(struct jaf_type_specifier *in)
 	case JAF_FUNCTYPE:
 	case JAF_DELEGATE:
 	case JAF_ENUM:
+	case JAF_ENUM_OPT:
 		return in->struct_no;
 	default:
 		return -1;

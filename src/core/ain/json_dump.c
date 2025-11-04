@@ -23,6 +23,7 @@
 #include "cJSON.h"
 #include "system4.h"
 #include "system4/ain.h"
+#include "system4/string.h"
 
 static cJSON *_ain_type_to_json(possibly_unused struct ain *ain, struct ain_type *t)
 {
@@ -220,7 +221,7 @@ static cJSON *ain_enum_to_json(struct ain_enum *e)
 	cJSON *a = cJSON_CreateArray();
 	for (int i = 0; i < e->nr_values; i++) {
 		cJSON *v = cJSON_CreateArray();
-		cJSON_AddItemToArray(v, cJSON_CreateString(e->values[i].symbol));
+		cJSON_AddItemToArray(v, cJSON_CreateString(e->values[i].symbol->text));
 		cJSON_AddItemToArray(v, cJSON_CreateNumber(e->values[i].value));
 		cJSON_AddItemToArray(a, v);
 	}

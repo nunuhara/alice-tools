@@ -1,0 +1,584 @@
+
+; ret_enum
+; ARG  0: e : NewEnum#92
+; RETURN: NewEnum#92
+FUNC 1
+	.LOCALREF e
+	PUSH -1
+	EQUALE
+	IFNZ 0x28
+	JUMP 0x30
+0x28:
+	PUSH 1
+	RETURN
+0x30:
+	.LOCALREF e
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC ret_enum
+
+; test_enum
+; VAR  0: e : NewEnum#92
+; VAR  1: a : array<NewEnum#92>
+; RETURN: void
+FUNC 2
+	.LOCALASSIGN e -1
+	.LOCALASSIGN e 0
+	PUSHLOCALPAGE
+	PUSH 0
+	.LOCALREF e
+	CALLFUNC ret_enum
+	X_ASSIGN 1
+	POP
+	PUSH 0
+	POP
+	PUSH 0
+	CALLFUNC NewEnum::ToString
+	DELETE
+	S_PUSH "None"
+	CALLFUNC NewEnum::Parse
+	POP
+	POP
+	PUSH -1
+	CALLFUNC NewEnum::Parse#1
+	POP
+	POP
+	PUSHLOCALPAGE
+	PUSH 1
+	X_DUP 2
+	X_REF 1
+	DELETE
+	CALLFUNC NewEnum::GetList
+	X_ASSIGN 1
+	POP
+	PUSH -1
+	CALLFUNC NewEnum::IsExist
+	POP
+	CALLFUNC NewEnum::NumOf
+	POP
+	RETURN
+ENDFUNC test_enum
+EOF 0
+
+; NewEnum::ToString
+; ARG  0: value : NewEnum#92
+; RETURN: string
+FUNC 3
+	.LOCALREF value
+	PUSH -1
+	EQUALE
+	IFNZ 0x14a
+	JUMP 0x152
+0x14a:
+	S_PUSH "None"
+	RETURN
+0x152:
+	.LOCALREF value
+	PUSH 0
+	EQUALE
+	IFNZ 0x174
+	JUMP 0x17c
+0x174:
+	S_PUSH "ValA"
+	RETURN
+0x17c:
+	.LOCALREF value
+	PUSH 1
+	EQUALE
+	IFNZ 0x19e
+	JUMP 0x1a6
+0x19e:
+	S_PUSH "ValB"
+	RETURN
+0x1a6:
+	S_PUSH ""
+	RETURN
+	S_PUSH ""
+	RETURN
+ENDFUNC NewEnum::ToString
+
+; NewEnum::Parse
+; ARG  0: value : string
+; RETURN: option<NewEnum#92>
+FUNC 4
+	.LOCALREF value
+	A_REF
+	S_PUSH "None"
+	S_EQUALE
+	IFNZ 0x1e6
+	JUMP 0x1f4
+0x1e6:
+	PUSH -1
+	PUSH 0
+	RETURN
+0x1f4:
+	.LOCALREF value
+	A_REF
+	S_PUSH "ValA"
+	S_EQUALE
+	IFNZ 0x218
+	JUMP 0x226
+0x218:
+	PUSH 0
+	PUSH 0
+	RETURN
+0x226:
+	.LOCALREF value
+	A_REF
+	S_PUSH "ValB"
+	S_EQUALE
+	IFNZ 0x24a
+	JUMP 0x258
+0x24a:
+	PUSH 1
+	PUSH 0
+	RETURN
+0x258:
+	PUSH -1
+	PUSH 1
+	RETURN
+	PUSH -1
+	PUSH 1
+	RETURN
+ENDFUNC NewEnum::Parse
+
+; NewEnum::Parse#1
+; ARG  0: value : int
+; RETURN: option<NewEnum#92>
+FUNC 5
+	.LOCALREF value
+	PUSH -1
+	EQUALE
+	IFNZ 0x2a2
+	JUMP 0x2b0
+0x2a2:
+	PUSH -1
+	PUSH 0
+	RETURN
+0x2b0:
+	.LOCALREF value
+	PUSH 0
+	EQUALE
+	IFNZ 0x2d2
+	JUMP 0x2e0
+0x2d2:
+	PUSH 0
+	PUSH 0
+	RETURN
+0x2e0:
+	.LOCALREF value
+	PUSH 1
+	EQUALE
+	IFNZ 0x302
+	JUMP 0x310
+0x302:
+	PUSH 1
+	PUSH 0
+	RETURN
+0x310:
+	PUSH -1
+	PUSH 1
+	RETURN
+	PUSH -1
+	PUSH 1
+	RETURN
+ENDFUNC NewEnum::Parse#1
+
+; NewEnum::GetList
+; VAR  0: result : array<NewEnum#92>
+; RETURN: array<NewEnum#92>
+FUNC 6
+	PUSHLOCALPAGE
+	PUSH 0
+	X_DUP 2
+	X_REF 1
+	DELETE
+	PUSH 0
+	X_A_INIT 0
+	POP
+	.LOCALREF result
+	PUSH 3
+	CALLHLL Array Alloc 1
+	.LOCALREF result
+	PUSH 0
+	PUSH -1
+	X_ASSIGN 1
+	POP
+	.LOCALREF result
+	PUSH 1
+	PUSH 0
+	X_ASSIGN 1
+	POP
+	.LOCALREF result
+	PUSH 2
+	PUSH 1
+	X_ASSIGN 1
+	POP
+	.LOCALREF result
+	A_REF
+	RETURN
+	PUSH -1
+	RETURN
+ENDFUNC NewEnum::GetList
+
+; NewEnum::IsExist
+; ARG  0: value : int
+; RETURN: bool
+FUNC 7
+	.LOCALREF value
+	PUSH -1
+	EQUALE
+	IFNZ 0x42c
+	JUMP 0x436
+0x42c:
+	PUSH 1
+	ITOB
+	RETURN
+0x436:
+	.LOCALREF value
+	PUSH 0
+	EQUALE
+	IFNZ 0x458
+	JUMP 0x462
+0x458:
+	PUSH 1
+	ITOB
+	RETURN
+0x462:
+	.LOCALREF value
+	PUSH 1
+	EQUALE
+	IFNZ 0x484
+	JUMP 0x48e
+0x484:
+	PUSH 1
+	ITOB
+	RETURN
+0x48e:
+	PUSH 0
+	ITOB
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC NewEnum::IsExist
+
+; NewEnum::NumOf
+; RETURN: int
+FUNC 8
+	PUSH 3
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC NewEnum::NumOf
+
+; ImplicitEnum::ToString
+; ARG  0: value : ImplicitEnum#92
+; RETURN: string
+FUNC 9
+	.LOCALREF value
+	PUSH 0
+	EQUALE
+	IFNZ 0x4ea
+	JUMP 0x4f2
+0x4ea:
+	S_PUSH "Zero"
+	RETURN
+0x4f2:
+	.LOCALREF value
+	PUSH 1
+	EQUALE
+	IFNZ 0x514
+	JUMP 0x51c
+0x514:
+	S_PUSH "One"
+	RETURN
+0x51c:
+	.LOCALREF value
+	PUSH 2
+	EQUALE
+	IFNZ 0x53e
+	JUMP 0x546
+0x53e:
+	S_PUSH "Two"
+	RETURN
+0x546:
+	.LOCALREF value
+	PUSH 10
+	EQUALE
+	IFNZ 0x568
+	JUMP 0x570
+0x568:
+	S_PUSH "Ten"
+	RETURN
+0x570:
+	.LOCALREF value
+	PUSH 11
+	EQUALE
+	IFNZ 0x592
+	JUMP 0x59a
+0x592:
+	S_PUSH "Eleven"
+	RETURN
+0x59a:
+	S_PUSH ""
+	RETURN
+	S_PUSH ""
+	RETURN
+ENDFUNC ImplicitEnum::ToString
+
+; ImplicitEnum::Parse
+; ARG  0: value : string
+; RETURN: option<ImplicitEnum#92>
+FUNC 10
+	.LOCALREF value
+	A_REF
+	S_PUSH "Zero"
+	S_EQUALE
+	IFNZ 0x5da
+	JUMP 0x5e8
+0x5da:
+	PUSH 0
+	PUSH 0
+	RETURN
+0x5e8:
+	.LOCALREF value
+	A_REF
+	S_PUSH "One"
+	S_EQUALE
+	IFNZ 0x60c
+	JUMP 0x61a
+0x60c:
+	PUSH 1
+	PUSH 0
+	RETURN
+0x61a:
+	.LOCALREF value
+	A_REF
+	S_PUSH "Two"
+	S_EQUALE
+	IFNZ 0x63e
+	JUMP 0x64c
+0x63e:
+	PUSH 2
+	PUSH 0
+	RETURN
+0x64c:
+	.LOCALREF value
+	A_REF
+	S_PUSH "Ten"
+	S_EQUALE
+	IFNZ 0x670
+	JUMP 0x67e
+0x670:
+	PUSH 10
+	PUSH 0
+	RETURN
+0x67e:
+	.LOCALREF value
+	A_REF
+	S_PUSH "Eleven"
+	S_EQUALE
+	IFNZ 0x6a2
+	JUMP 0x6b0
+0x6a2:
+	PUSH 11
+	PUSH 0
+	RETURN
+0x6b0:
+	PUSH -1
+	PUSH 1
+	RETURN
+	PUSH -1
+	PUSH 1
+	RETURN
+ENDFUNC ImplicitEnum::Parse
+
+; ImplicitEnum::Parse#1
+; ARG  0: value : int
+; RETURN: option<ImplicitEnum#92>
+FUNC 11
+	.LOCALREF value
+	PUSH 0
+	EQUALE
+	IFNZ 0x6fa
+	JUMP 0x708
+0x6fa:
+	PUSH 0
+	PUSH 0
+	RETURN
+0x708:
+	.LOCALREF value
+	PUSH 1
+	EQUALE
+	IFNZ 0x72a
+	JUMP 0x738
+0x72a:
+	PUSH 1
+	PUSH 0
+	RETURN
+0x738:
+	.LOCALREF value
+	PUSH 2
+	EQUALE
+	IFNZ 0x75a
+	JUMP 0x768
+0x75a:
+	PUSH 2
+	PUSH 0
+	RETURN
+0x768:
+	.LOCALREF value
+	PUSH 10
+	EQUALE
+	IFNZ 0x78a
+	JUMP 0x798
+0x78a:
+	PUSH 10
+	PUSH 0
+	RETURN
+0x798:
+	.LOCALREF value
+	PUSH 11
+	EQUALE
+	IFNZ 0x7ba
+	JUMP 0x7c8
+0x7ba:
+	PUSH 11
+	PUSH 0
+	RETURN
+0x7c8:
+	PUSH -1
+	PUSH 1
+	RETURN
+	PUSH -1
+	PUSH 1
+	RETURN
+ENDFUNC ImplicitEnum::Parse#1
+
+; ImplicitEnum::GetList
+; VAR  0: result : array<ImplicitEnum#92>
+; RETURN: array<ImplicitEnum#92>
+FUNC 12
+	PUSHLOCALPAGE
+	PUSH 0
+	X_DUP 2
+	X_REF 1
+	DELETE
+	PUSH 0
+	X_A_INIT 0
+	POP
+	.LOCALREF result
+	PUSH 5
+	CALLHLL Array Alloc 1
+	.LOCALREF result
+	PUSH 0
+	PUSH 0
+	X_ASSIGN 1
+	POP
+	.LOCALREF result
+	PUSH 1
+	PUSH 1
+	X_ASSIGN 1
+	POP
+	.LOCALREF result
+	PUSH 2
+	PUSH 2
+	X_ASSIGN 1
+	POP
+	.LOCALREF result
+	PUSH 3
+	PUSH 10
+	X_ASSIGN 1
+	POP
+	.LOCALREF result
+	PUSH 4
+	PUSH 11
+	X_ASSIGN 1
+	POP
+	.LOCALREF result
+	A_REF
+	RETURN
+	PUSH -1
+	RETURN
+ENDFUNC ImplicitEnum::GetList
+
+; ImplicitEnum::IsExist
+; ARG  0: value : int
+; RETURN: bool
+FUNC 13
+	.LOCALREF value
+	PUSH 0
+	EQUALE
+	IFNZ 0x928
+	JUMP 0x932
+0x928:
+	PUSH 1
+	ITOB
+	RETURN
+0x932:
+	.LOCALREF value
+	PUSH 1
+	EQUALE
+	IFNZ 0x954
+	JUMP 0x95e
+0x954:
+	PUSH 1
+	ITOB
+	RETURN
+0x95e:
+	.LOCALREF value
+	PUSH 2
+	EQUALE
+	IFNZ 0x980
+	JUMP 0x98a
+0x980:
+	PUSH 1
+	ITOB
+	RETURN
+0x98a:
+	.LOCALREF value
+	PUSH 10
+	EQUALE
+	IFNZ 0x9ac
+	JUMP 0x9b6
+0x9ac:
+	PUSH 1
+	ITOB
+	RETURN
+0x9b6:
+	.LOCALREF value
+	PUSH 11
+	EQUALE
+	IFNZ 0x9d8
+	JUMP 0x9e2
+0x9d8:
+	PUSH 1
+	ITOB
+	RETURN
+0x9e2:
+	PUSH 0
+	ITOB
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC ImplicitEnum::IsExist
+
+; 0
+; RETURN: void
+FUNC 15
+	RETURN
+ENDFUNC 0
+
+; NULL
+; RETURN: void
+FUNC 0
+
+; ImplicitEnum::NumOf
+; RETURN: int
+FUNC 14
+	PUSH 5
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC ImplicitEnum::NumOf

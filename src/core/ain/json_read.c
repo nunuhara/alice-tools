@@ -23,6 +23,7 @@
 #include "system4.h"
 #include "system4/ain.h"
 #include "system4/file.h"
+#include "system4/string.h"
 
 static bool cJSON_GetObjectBool(const cJSON * const o, const char * const name, bool def)
 {
@@ -459,7 +460,8 @@ static void read_enum_declarations(cJSON *decl, struct ain *ain)
 
 		int j;
 		cJSON *s, *syms = cJSON_GetObjectArray_NonNull(e, "values");
-		struct ain_enum_value *values = xcalloc(cJSON_GetArraySize(syms), sizeof(char*));
+		struct ain_enum_value *values = xcalloc(cJSON_GetArraySize(syms),
+				sizeof(struct ain_enum_value));
 		cJSON_ArrayForEachIndex(j, s, syms) {
 			if (cJSON_IsArray(s)) {
 				if (cJSON_GetArraySize(s) != 2)
@@ -470,10 +472,10 @@ static void read_enum_declarations(cJSON *decl, struct ain *ain)
 					ERROR("Non-string as enum symbol");
 				if (!cJSON_IsNumber(val))
 					ERROR("Non-number as enum value");
-				values[j].symbol = xstrdup(str->valuestring);
+				values[j].symbol = make_string(str->valuestring, strlen(str->valuestring));
 				values[j].value = val->valueint;
 			} else if (cJSON_IsString(s)) {
-				values[j].symbol = xstrdup(s->valuestring);
+				values[j].symbol = make_string(s->valuestring, strlen(s->valuestring));
 				values[j].value = j;
 			} else {
 				ERROR("Invalid value as enum value list");

@@ -1,0 +1,234 @@
+{
+	"version":	14,
+	"keycode":	0,
+	"functions":	[{
+			"index":	0,
+			"address":	2574,
+			"name":	"NULL",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	1,
+			"address":	6,
+			"name":	"ret_enum",
+			"return-type":	[92, 0, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"e",
+					"name2":	"",
+					"type":	[92, 0, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	2,
+			"address":	84,
+			"name":	"test_enum",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[{
+					"name":	"e",
+					"name2":	"",
+					"type":	[92, 0, 0, null],
+					"group-index":	0
+				}, {
+					"name":	"a",
+					"name2":	"",
+					"type":	[79, -1, 1, [92, 0, 0, null]],
+					"group-index":	0
+				}]
+		}, {
+			"index":	3,
+			"address":	296,
+			"name":	"NewEnum::ToString",
+			"return-type":	[12, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"value",
+					"name2":	"",
+					"type":	[92, 0, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	4,
+			"address":	450,
+			"name":	"NewEnum::Parse",
+			"return-type":	[86, -1, 1, [92, 0, 0, null]],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"value",
+					"name2":	"",
+					"type":	[12, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	5,
+			"address":	640,
+			"name":	"NewEnum::Parse",
+			"return-type":	[86, -1, 1, [92, 0, 0, null]],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"value",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	6,
+			"address":	824,
+			"name":	"NewEnum::GetList",
+			"return-type":	[79, -1, 1, [92, 0, 0, null]],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[{
+					"name":	"result",
+					"name2":	"",
+					"type":	[79, -1, 1, [92, 0, 0, null]],
+					"group-index":	0
+				}]
+		}, {
+			"index":	7,
+			"address":	1034,
+			"name":	"NewEnum::IsExist",
+			"return-type":	[47, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"value",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	8,
+			"address":	1196,
+			"name":	"NewEnum::NumOf",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	9,
+			"address":	1224,
+			"name":	"ImplicitEnum::ToString",
+			"return-type":	[12, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"value",
+					"name2":	"",
+					"type":	[92, 1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	10,
+			"address":	1462,
+			"name":	"ImplicitEnum::Parse",
+			"return-type":	[86, -1, 1, [92, 1, 0, null]],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"value",
+					"name2":	"",
+					"type":	[12, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	11,
+			"address":	1752,
+			"name":	"ImplicitEnum::Parse",
+			"return-type":	[86, -1, 1, [92, 1, 0, null]],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"value",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	12,
+			"address":	2032,
+			"name":	"ImplicitEnum::GetList",
+			"return-type":	[79, -1, 1, [92, 1, 0, null]],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[{
+					"name":	"result",
+					"name2":	"",
+					"type":	[79, -1, 1, [92, 1, 0, null]],
+					"group-index":	0
+				}]
+		}, {
+			"index":	13,
+			"address":	2310,
+			"name":	"ImplicitEnum::IsExist",
+			"return-type":	[47, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"value",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	14,
+			"address":	2580,
+			"name":	"ImplicitEnum::NumOf",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}, {
+			"index":	15,
+			"address":	2560,
+			"name":	"0",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[],
+			"variables":	[]
+		}],
+	"globals":	[],
+	"structures":	[],
+	"main":	-1,
+	"msgf":	0,
+	"libraries":	[{
+			"name":	"Array",
+			"functions":	[{
+					"name":	"Alloc",
+					"return-type":	[0, -1, 0, null],
+					"arguments":	[{
+							"name":	"self",
+							"type":	[80, -1, 1, [74, -1, 0, null]]
+						}, {
+							"name":	"Numof",
+							"type":	[10, -1, 0, null]
+						}]
+				}, {
+					"name":	"Free",
+					"return-type":	[0, -1, 0, null],
+					"arguments":	[{
+							"name":	"self",
+							"type":	[80, -1, 1, [74, -1, 0, null]]
+						}]
+				}]
+		}],
+	"switches":	[],
+	"game-version":	100,
+	"filenames":	[],
+	"ojmp":	0,
+	"enums":	[{
+			"name":	"NewEnum",
+			"values":	[["None", -1], ["ValA", 0], ["ValB", 1]]
+		}, {
+			"name":	"ImplicitEnum",
+			"values":	[["Zero", 0], ["One", 1], ["Two", 2], ["Ten", 10], ["Eleven", 11]]
+		}]
+}

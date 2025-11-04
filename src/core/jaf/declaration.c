@@ -598,6 +598,34 @@ static void override_function(struct ain *ain, struct jaf_block_item *item, int 
 	function_init_args(ain, decl, &fun->nr_args, &fun->nr_vars, &fun->vars);
 }
 
+static void add_function(struct ain *ain, struct jaf_fundecl *decl, char *name)
+{
+	decl->func_no = ain_add_function(ain, name);
+	struct ain_function *f = &ain->functions[decl->func_no];
+	jaf_to_ain_type(ain, &f->return_type, decl->type);
+	function_init_args(ain, decl, &f->nr_args, &f->nr_vars, &f->vars);
+	f->struct_type = decl->name.struct_no;
+	decl->super_no = 0;
+	if (decl->name.is_constructor || decl->name.is_destructor) {
+		assert(decl->name.struct_no >= 0 && decl->name.struct_no < ain->nr_structures);
+		struct ain_struct *s = &ain->structures[decl->name.struct_no];
+		if (decl->name.is_constructor) {
+			s->constructor = decl->func_no;
+			decl->fun_type = JAF_FUN_CONSTRUCTOR;
+		} else {
+			s->destructor = decl->func_no;
+			decl->fun_type = JAF_FUN_DESTRUCTOR;
+		}
+	} else if (decl->name.struct_no >= 0) {
+		decl->fun_type = JAF_FUN_METHOD;
+	} else {
+		decl->fun_type = JAF_FUN_PROCEDURE;
+	}
+	if (decl->body)
+		f->crc = 1; // XXX: hack to allow checking for multiple definitions
+
+}
+
 static void jaf_process_function(struct ain *ain, struct jaf_block_item *item)
 {
 	struct jaf_fundecl *decl = &item->fun;
@@ -613,6 +641,10 @@ static void jaf_process_function(struct ain *ain, struct jaf_block_item *item)
 					name_str->text);
 		}
 		override_function(ain, item, no);
+	} else if (decl->type->qualifiers & JAF_QUAL_DUPLICATE) {
+		if (!existing)
+			WARNING("Function is not a duplicate: %s", name_str->text);
+		add_function(ain, decl, name);
 	} else if (existing) {
 		if (existing->crc && decl->body)
 			JAF_ERROR(item, "Multiple definitions of function '%s'", name_str->text);
@@ -627,29 +659,7 @@ static void jaf_process_function(struct ain *ain, struct jaf_block_item *item)
 		ain_free_variables(f.vars, f.nr_vars);
 		ain_free_type(&f.return_type);
 	} else {
-		decl->func_no = ain_add_function(ain, name);
-		struct ain_function *f = &ain->functions[decl->func_no];
-		jaf_to_ain_type(ain, &f->return_type, decl->type);
-		function_init_args(ain, decl, &f->nr_args, &f->nr_vars, &f->vars);
-		f->struct_type = decl->name.struct_no;
-		decl->super_no = 0;
-		if (decl->name.is_constructor || decl->name.is_destructor) {
-			assert(decl->name.struct_no >= 0 && decl->name.struct_no < ain->nr_structures);
-			struct ain_struct *s = &ain->structures[decl->name.struct_no];
-			if (decl->name.is_constructor) {
-				s->constructor = decl->func_no;
-				decl->fun_type = JAF_FUN_CONSTRUCTOR;
-			} else {
-				s->destructor = decl->func_no;
-				decl->fun_type = JAF_FUN_DESTRUCTOR;
-			}
-		} else if (decl->name.struct_no >= 0) {
-			decl->fun_type = JAF_FUN_METHOD;
-		} else {
-			decl->fun_type = JAF_FUN_PROCEDURE;
-		}
-		if (decl->body)
-			f->crc = 1; // XXX: hack to allow checking for multiple definitions
+		add_function(ain, decl, name);
 	}
 
 	if (!strcmp(name_str->text, "main")) {
@@ -980,6 +990,256 @@ static void jaf_process_interface(struct ain *ain, struct jaf_block_item *item)
 	}
 }
 
+static struct jaf_type_specifier *enum_type_specifier(struct jaf_enumdecl *e)
+{
+	struct jaf_type_specifier *t = jaf_type(JAF_ENUM);
+	t->name = string_dup(e->name);
+	t->struct_no = e->enum_no;
+	return t;
+}
+
+static struct jaf_type_specifier *enum_opt_type_specifier(struct ain *ain, struct jaf_enumdecl *e)
+{
+	enum jaf_type data_t = AIN_VERSION_GTE(ain, 14, 0) ? JAF_ENUM : JAF_ENUM_OPT;
+	struct jaf_type_specifier *t = jaf_type(data_t);
+	t->name = string_dup(e->name);
+	t->struct_no = e->enum_no;
+	return jaf_option(t);
+}
+
+static struct jaf_name enum_constant_name(struct string *ename, struct string *vname)
+{
+	struct jaf_name name;
+	jaf_name_init(&name, string_dup(ename));
+	jaf_name_append(&name, string_dup(vname));
+	return name;
+}
+
+static struct jaf_name enum_fun_name(struct string *ename, const char *fname)
+{
+	struct jaf_name name;
+	jaf_name_init(&name, string_dup(ename));
+	jaf_name_append(&name, make_string(fname, strlen(fname)));
+	return name;
+}
+
+/*
+ * string EnumType::ToString(EnumType value) {
+ *     if (value == EnumType::ValueA)
+ *         return "ValueA";
+ *     ...
+ *     return "";
+ * }
+ *
+ * (name is EnumType@String in ain v12)
+ */
+static struct jaf_block_item *gen_enum_to_string(struct ain *ain, struct jaf_enumdecl *e)
+{
+	struct jaf_block *body = jaf_block(NULL);
+	struct string *var_name = make_string("value", 5);
+
+	struct jaf_enum_value *v;
+	kv_foreach_p(v, e->values) {
+		struct jaf_expression *test = jaf_binary_expr(JAF_EQ,
+				jaf_simple_identifier(string_dup(var_name)),
+				jaf_identifier(enum_constant_name(e->name, v->symbol)));
+		struct jaf_block_item *ret = jaf_return(jaf_string(string_dup(v->symbol)));
+		jaf_block_append(body, jaf_if_statement(test, ret, NULL));
+	}
+	jaf_block_append(body, jaf_return(jaf_string(make_string("", 0))));
+
+	struct jaf_name fname;
+	if (AIN_VERSION_GTE(ain, 14, 0)) {
+		fname = enum_fun_name(e->name, "ToString");
+	} else {
+		fname = enum_fun_name(e->name, "String");
+		// XXX: hack to generate non-method with '@'
+		fname.collapsed = string_dup(e->name);
+		string_append_cstr(&fname.collapsed, "@String", 7);
+	}
+
+	struct jaf_block_item *fun = _jaf_function(jaf_type(JAF_STRING), &fname,
+			jaf_parameter(enum_type_specifier(e), jaf_declarator(var_name)),
+			body);
+	jaf_process_function(ain, fun);
+	return fun;
+}
+
+/*
+ * Option<EnumType> EnumType::Parse(string value) {
+ *     if (value == "ValueA")
+ *         return Option::Some(EnumType::ValueA);
+ *     ...
+ *     return Option::None;
+ * }
+ *
+ * (return type is EnumType#91 in ain v12)
+ */
+static struct jaf_block_item *gen_enum_parse_string(struct ain *ain, struct jaf_enumdecl *e)
+{
+	struct jaf_block *body = jaf_block(NULL);
+	struct string *var_name = make_string("value", 5);
+
+	struct jaf_enum_value *v;
+	kv_foreach_p(v, e->values) {
+		struct jaf_expression *test = jaf_binary_expr(JAF_EQ,
+				jaf_simple_identifier(string_dup(var_name)),
+				jaf_string(string_dup(v->symbol)));
+		struct jaf_expression *rname = jaf_identifier(enum_constant_name(e->name, v->symbol));
+		struct jaf_block_item *ret = jaf_return(jaf_some(rname));
+		jaf_block_append(body, jaf_if_statement(test, ret, NULL));
+	}
+	jaf_block_append(body, jaf_return(jaf_none()));
+
+	struct jaf_name fname = enum_fun_name(e->name, "Parse");
+	struct jaf_block_item *fun = _jaf_function(
+			enum_opt_type_specifier(ain, e),
+			&fname,
+			jaf_parameter(jaf_type(JAF_STRING), jaf_declarator(var_name)),
+			body);
+	jaf_process_function(ain, fun);
+	return fun;
+}
+
+/*
+ * Option<EnumType> EnumType::Parse(int value) {
+ *     if (value == (int)EnumType::ValueA)
+ *         return Option::Some(EnumType::ValueA);
+ *     ...
+ *     return Option::None;
+ * }
+ *
+ * (return type is EnumType#92 on ain v12)
+ */
+static struct jaf_block_item *gen_enum_parse_int(struct ain *ain, struct jaf_enumdecl *e)
+{
+	struct jaf_block *body = jaf_block(NULL);
+	struct string *var_name = make_string("value", 5);
+
+	struct jaf_enum_value *v;
+	kv_foreach_p(v, e->values) {
+		struct jaf_expression *test = jaf_binary_expr(JAF_EQ,
+				jaf_simple_identifier(string_dup(var_name)),
+				jaf_integer(v->value));
+		struct jaf_expression *rname = jaf_identifier(enum_constant_name(e->name, v->symbol));
+		struct jaf_block_item *ret = jaf_return(jaf_some(rname));
+		jaf_block_append(body, jaf_if_statement(test, ret, NULL));
+	}
+	jaf_block_append(body, jaf_return(jaf_none()));
+
+	struct jaf_name fname = enum_fun_name(e->name, "Parse");
+	struct jaf_block_item *fun = _jaf_function(
+			enum_opt_type_specifier(ain, e),
+			&fname,
+			jaf_parameter(jaf_type(JAF_INT), jaf_declarator(var_name)),
+			body);
+	// XXX: hack to allow multiple definitions of "EnumType::Parse"
+	fun->fun.type->qualifiers = JAF_QUAL_DUPLICATE;
+	jaf_process_function(ain, fun);
+	return fun;
+}
+
+/*
+ * Array<EnumType> EnumType::GetList(void) {
+ *     Array<EnumType> result[nr_values];
+ *     result[0] = EnumType::ValueA:
+ *     ...
+ *     return result;
+ * }
+ */
+static struct jaf_block_item *gen_enum_get_list(struct ain *ain, struct jaf_enumdecl *e)
+{
+	struct string *var_name = make_string("result", 6);
+
+	struct jaf_declarator *decl = jaf_array_allocation(var_name, jaf_integer(kv_size(e->values)));
+	struct jaf_block *body = jaf_vardecl(jaf_array_type(enum_type_specifier(e), 1),
+			jaf_declarators(NULL, decl));
+
+	for (unsigned i = 0; i < kv_size(e->values); i++) {
+		struct jaf_enum_value *v = &kv_A(e->values, i);
+		struct jaf_expression *name = jaf_identifier(enum_constant_name(e->name, v->symbol));
+		struct jaf_expression *e = jaf_simple_identifier(string_dup(var_name));
+		e = jaf_subscript_expr(e, jaf_integer(i));
+		e = jaf_binary_expr(JAF_ASSIGN, e, name);
+		jaf_block_append(body, jaf_expression_statement(e));
+	}
+	jaf_block_append(body, jaf_return(jaf_simple_identifier(string_dup(var_name))));
+
+	struct jaf_name fname = enum_fun_name(e->name, "GetList");
+	struct jaf_block_item *fun = _jaf_function(
+			jaf_array_type(enum_type_specifier(e), 1),
+			&fname,
+			NULL,
+			body);
+	jaf_process_function(ain, fun);
+	return fun;
+}
+
+/*
+ * bool EnumType::IsExist(int value) {
+ *     if (value == (int)EnumType::ValueA)
+ *         return true;
+ *     ...
+ *     return false;
+ * }
+ */
+static struct jaf_block_item *gen_enum_is_exist(struct ain *ain, struct jaf_enumdecl *e)
+{
+	struct jaf_block *body = jaf_block(NULL);
+	struct string *var_name = make_string("value", 5);
+
+	struct jaf_enum_value *v;
+	kv_foreach_p(v, e->values) {
+		struct jaf_expression *test = jaf_binary_expr(JAF_EQ,
+				jaf_simple_identifier(string_dup(var_name)),
+				jaf_integer(v->value));
+		jaf_block_append(body, jaf_if_statement(test, jaf_return(jaf_integer(1)), NULL));
+	}
+	jaf_block_append(body, jaf_return(jaf_integer(0)));
+
+	struct jaf_name fname = enum_fun_name(e->name, "IsExist");
+	struct jaf_block_item *fun = _jaf_function(
+			jaf_type(JAF_BOOL),
+			&fname,
+			jaf_parameter(jaf_type(JAF_INT), jaf_declarator(var_name)),
+			body);
+	jaf_process_function(ain, fun);
+	return fun;
+}
+
+/*
+ * int EnumType::NumOf(void) {
+ *     return nr_values;
+ * }
+ */
+static struct jaf_block_item *gen_enum_num_of(struct ain *ain, struct jaf_enumdecl *e)
+{
+	struct jaf_block *body = jaf_block(jaf_return(jaf_integer(kv_size(e->values))));
+
+	struct jaf_name fname;
+	jaf_name_init(&fname, string_dup(e->name));
+	jaf_name_append(&fname, make_string("NumOf", 5));
+	struct jaf_block_item *fun = _jaf_function(
+			jaf_type(JAF_INT),
+			&fname,
+			NULL,
+			body);
+	jaf_process_function(ain, fun);
+	return fun;
+}
+
+static void jaf_process_enumdef(struct ain *ain, struct jaf_block_item *item,
+		struct jaf_block *block)
+{
+	struct jaf_enumdecl *e = &item->enume;
+	jaf_block_append(block, gen_enum_to_string(ain, e));
+	jaf_block_append(block, gen_enum_parse_string(ain, e));
+	jaf_block_append(block, gen_enum_parse_int(ain, e));
+	jaf_block_append(block, gen_enum_get_list(ain, e));
+	jaf_block_append(block, gen_enum_is_exist(ain, e));
+	jaf_block_append(block, gen_enum_num_of(ain, e));
+}
+
 static void jaf_process_global_allocs(struct ain *ain, struct jaf_block *block)
 {
 	// TODO: in v12+, GSET section is not present and we have to initialize
@@ -1056,6 +1316,7 @@ void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
 			jaf_process_structdef(ain, block->items[i]);
 			break;
 		case JAF_DECL_INTERFACE:
+		case JAF_DECL_ENUM:
 		case JAF_EOF:
 			break;
 		default:
@@ -1065,6 +1326,10 @@ void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
 	}
 
 	jaf_process_global_allocs(ain, block);
+	for (size_t i = 0; i < block->nr_items; i++) {
+		if (block->items[i]->kind == JAF_DECL_ENUM)
+			jaf_process_enumdef(ain, block->items[i], block);
+	}
 }
 
 static void _jaf_process_hll_declaration(struct ain *ain, struct jaf_fundecl *decl, struct ain_hll_function *f)
