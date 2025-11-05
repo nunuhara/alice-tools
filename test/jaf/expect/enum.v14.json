@@ -108,7 +108,7 @@
 		}, {
 			"index":	8,
 			"address":	1196,
-			"name":	"NewEnum::NumOf",
+			"name":	"NewEnum::Numof",
 			"return-type":	[10, -1, 0, null],
 			"crc":	0,
 			"arguments":	[],
@@ -181,7 +181,7 @@
 		}, {
 			"index":	14,
 			"address":	2580,
-			"name":	"ImplicitEnum::NumOf",
+			"name":	"ImplicitEnum::Numof",
 			"return-type":	[10, -1, 0, null],
 			"crc":	0,
 			"arguments":	[],

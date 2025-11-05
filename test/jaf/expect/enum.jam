@@ -51,7 +51,7 @@ FUNC 2
 	PUSH -1
 	CALLFUNC NewEnum::IsExist
 	POP
-	CALLFUNC NewEnum::NumOf
+	CALLFUNC NewEnum::Numof
 	POP
 	RETURN
 ENDFUNC test_enum
@@ -254,14 +254,14 @@ FUNC 7
 	RETURN
 ENDFUNC NewEnum::IsExist
 
-; NewEnum::NumOf
+; NewEnum::Numof
 ; RETURN: int
 FUNC 8
 	PUSH 3
 	RETURN
 	PUSH 0
 	RETURN
-ENDFUNC NewEnum::NumOf
+ENDFUNC NewEnum::Numof
 
 ; ImplicitEnum@String
 ; ARG  0: value : ImplicitEnum#92
@@ -560,11 +560,11 @@ ENDFUNC 0
 ; RETURN: void
 FUNC 0
 
-; ImplicitEnum::NumOf
+; ImplicitEnum::Numof
 ; RETURN: int
 FUNC 14
 	PUSH 5
 	RETURN
 	PUSH 0
 	RETURN
-ENDFUNC ImplicitEnum::NumOf
+ENDFUNC ImplicitEnum::Numof

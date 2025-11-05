@@ -79,6 +79,33 @@ void jaf_define_enum(struct ain *ain, struct jaf_block_item *def)
 	free(name);
 }
 
+void jaf_extend_enum(struct ain *ain, struct jaf_block_item *def)
+{
+	assert(def->kind == JAF_DECL_ENUM);
+	assert(def->enume.name);
+
+	char *name = conv_output(def->enume.name->text);
+	if ((def->enume.enum_no = ain_get_enum(ain, name)) < 0)
+		JAF_ERROR(def, "enum cannot be extended because it doesn't exist");
+
+	def->enume.extends = true;
+	struct ain_enum *e = &ain->enums[def->enume.enum_no];
+	int new_nr_values = e->nr_values + kv_size(def->enume.values);
+	e->values = xrealloc_array(e->values, e->nr_values, new_nr_values,
+			sizeof(struct ain_enum_value));
+	for (int i = 0; i < kv_size(def->enume.values); i++) {
+		struct jaf_enum_value *jaf_v = &kv_A(def->enume.values, i);
+		struct ain_enum_value *ain_v = &e->values[e->nr_values+i];
+		char *tmp = conv_output(jaf_v->symbol->text);
+		ain_v->symbol = make_string(tmp, strlen(tmp));
+		ain_v->value = jaf_v->value;
+		free(tmp);
+	}
+	e->nr_values += kv_size(def->enume.values);
+
+	free(name);
+}
+
 void jaf_define_functype(struct ain *ain, struct jaf_block_item *item)
 {
 	struct jaf_fundecl *decl = &item->fun;

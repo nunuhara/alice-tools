@@ -113,6 +113,7 @@ unsigned long jaf_line = 1;
 "functype"                              { return FUNCTYPE; }
 "delegate"                              { return DELEGATE; }
 "override"                              { return OVERRIDE; }
+"extend"                                { return EXTEND; }
 "this"                                  { return THIS; }
 "new"                                   { return SYM_NEW; }
 "assert"                                { return ASSERT; }

@@ -448,6 +448,7 @@ struct jaf_enumdecl {
 	struct string *name;
 	jaf_enum_value_list values;
 	int enum_no;
+	bool extends;
 };
 
 // declaration or statement
@@ -675,6 +676,7 @@ void jaf_accept_block(struct ain *ain, struct jaf_block *block, struct jaf_visit
 void jaf_define_struct(struct ain *ain, struct jaf_block_item *type);
 void jaf_define_interface(struct ain *ain, struct jaf_block_item *def);
 void jaf_define_enum(struct ain *ain, struct jaf_block_item *def);
+void jaf_extend_enum(struct ain *ain, struct jaf_block_item *def);
 void jaf_define_functype(struct ain *ain, struct jaf_block_item *item);
 void jaf_define_delegate(struct ain *ain, struct jaf_block_item *item);
 void jaf_to_ain_type(struct ain *ain, struct ain_type *out, struct jaf_type_specifier *in);

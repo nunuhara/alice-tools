@@ -179,7 +179,7 @@ static struct jaf_block *jaf_delegate(struct jaf_type_specifier *type, struct ja
 %token	<token>		SYM_REF REF_ASSIGN ARRAY WRAP OPTION FUNCTYPE DELEGATE
 %token	<token>		FILE_MACRO LINE_MACRO FUNC_MACRO DATE_MACRO TIME_MACRO
 
-%token	<token>		CONST OVERRIDE THIS SYM_NEW ASSERT SYM_NULL NONE SOME
+%token	<token>		CONST OVERRIDE EXTEND THIS SYM_NEW ASSERT SYM_NULL NONE SOME
 %token	<token>		BOOL CHAR INT LINT FLOAT VOID STRING INTP FLOATP HLL_PARAM HLL_FUNC HLL_FUNC_71
 %token	<token>		STRUCT UNION ENUM ELLIPSIS SYM_TRUE SYM_FALSE IMAIN_SYSTEM HLL_STRUCT
 %token	<token>		HLL_DELEGATE INTERFACE PUBLIC PRIVATE
@@ -449,14 +449,10 @@ interface_list
 	;
 
 struct_specifier
-	: STRUCT param_identifier '{' struct_declaration_list '}' {
-		$$ = jaf_struct($2, $4, NULL);
-		jaf_define_struct(jaf_ain_out, $$);
-	}
-	| STRUCT param_identifier ':' interface_list '{' struct_declaration_list '}' {
-		$$ = jaf_struct($2, $6, &$4);
-		jaf_define_struct(jaf_ain_out, $$);
-	}
+	: STRUCT param_identifier '{' struct_declaration_list '}'
+		{ $$ = jaf_struct($2, $4, NULL); }
+	| STRUCT param_identifier ':' interface_list '{' struct_declaration_list '}'
+		{ $$ = jaf_struct($2, $6, &$4); }
 	;
 
 param_identifier
@@ -492,10 +488,7 @@ struct_declarator_list
 	;
 
 interface_specifier
-	: INTERFACE IDENTIFIER '{' interface_declaration_list '}' {
-		$$ = jaf_interface($2, $4);
-		jaf_define_interface(jaf_ain_out, $$);
-	}
+	: INTERFACE IDENTIFIER '{' interface_declaration_list '}' { $$ = jaf_interface($2, $4); }
 	;
 
 interface_declaration_list
@@ -508,14 +501,8 @@ interface_declaration
 	;
 
 enum_specifier
-	: ENUM IDENTIFIER '{' enumerator_list '}' {
-		$$ = jaf_enum($2, $4);
-		jaf_define_enum(jaf_ain_out, $$);
-	}
-	| ENUM IDENTIFIER '{' enumerator_list ',' '}' {
-		$$ = jaf_enum($2, $4);
-		jaf_define_enum(jaf_ain_out, $$);
-	}
+	: ENUM IDENTIFIER '{' enumerator_list '}'     { $$ = jaf_enum($2, $4); }
+	| ENUM IDENTIFIER '{' enumerator_list ',' '}' { $$ = jaf_enum($2, $4); }
 	;
 
 enumerator_list
@@ -671,11 +658,24 @@ external_declaration
 	: function_definition                                     { $$ = $1; }
 	| function_declaration                                    { $$ = $1; }
 	| declaration                                             { $$ = $1; }
-	| struct_specifier ';'                                    { $$ = jaf_block($1); }
-	| interface_specifier ';'                                 { $$ = jaf_block($1); }
-	| enum_specifier ';'                                      { $$ = jaf_block($1); }
 	| FUNCTYPE declaration_specifiers functype_declarator ';' { $$ = jaf_functype($2, $3); }
 	| DELEGATE declaration_specifiers functype_declarator ';' { $$ = jaf_delegate($2, $3); }
+	| struct_specifier ';' {
+		jaf_define_struct(jaf_ain_out, $1);
+		$$ = jaf_block($1);
+	}
+	| interface_specifier ';' {
+		jaf_define_interface(jaf_ain_out, $1);
+		$$ = jaf_block($1);
+	}
+	| enum_specifier ';' {
+		jaf_define_enum(jaf_ain_out, $1);
+		$$ = jaf_block($1);
+	}
+	| EXTEND enum_specifier ';' {
+		jaf_extend_enum(jaf_ain_out, $2);
+		$$ = jaf_block($2);
+	}
 	;
 
 functype_declarator
