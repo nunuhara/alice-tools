@@ -66,6 +66,8 @@ static enum ain_data_type _strip_ref(struct ain_type *type)
 	case AIN_REF_ARRAY_BOOL:      return AIN_ARRAY_BOOL;
 	case AIN_REF_LONG_INT:        return AIN_LONG_INT;
 	case AIN_REF_ARRAY_LONG_INT:  return AIN_ARRAY_LONG_INT;
+	case AIN_REF_DELEGATE:        return AIN_DELEGATE;
+	case AIN_REF_ARRAY_DELEGATE:  return AIN_ARRAY_DELEGATE;
 	case AIN_REF_ARRAY:           return AIN_ARRAY;
 	case AIN_WRAP:
 		assert(type->array_type);
@@ -99,6 +101,8 @@ static enum ain_data_type add_ref(struct ain_type *type)
 	case AIN_ARRAY_BOOL:      return AIN_REF_ARRAY_BOOL;
 	case AIN_LONG_INT:        return AIN_REF_LONG_INT;
 	case AIN_ARRAY_LONG_INT:  return AIN_REF_ARRAY_LONG_INT;
+	case AIN_DELEGATE:        return AIN_REF_DELEGATE;
+	case AIN_ARRAY_DELEGATE:  return AIN_REF_ARRAY_DELEGATE;
 	case AIN_ARRAY:           return AIN_REF_ARRAY;
 	default:                  return type->data;
 	}
@@ -231,6 +235,9 @@ static bool type_equal(struct jaf_env *env, struct ain_type *expected, struct ai
 	case T(AIN_ENUM, AIN_ENUM2):
 	case T(AIN_ENUM2, AIN_ENUM):
 		return expected->struc == actual->struc;
+	case T(AIN_HLL_FUNC, AIN_METHOD):
+	case T(AIN_HLL_FUNC, AIN_FUNCTION):
+		return true;
 	default:
 		return false;
 	}
@@ -1186,7 +1193,7 @@ static void type_check_hll_call(struct jaf_env *env, struct jaf_expression *expr
 		assert(type->array_type);
 		expr->call.type_param = array_type_param(env, type->array_type);
 	} else {
-		expr->call.type_param = 0;
+		expr->call.type_param = -1;
 	}
 
 	assert(expr->call.lib_no >= 0 && expr->call.lib_no < env->ain->nr_libraries);
@@ -1690,6 +1697,9 @@ static int get_builtin_lib(struct ain *ain, enum ain_data_type type, struct jaf_
 	case AIN_STRING:
 		lib = ain_get_library(ain, "String");
 		break;
+	case AIN_DELEGATE:
+		lib = ain_get_library(ain, "Delegate");
+		break;
 	default:
 		JAF_ERROR(expr, "Methods not supported on built-in type: %s",
 			  ain_strtype(ain, type, -1));
@@ -1881,7 +1891,8 @@ static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 			expr->member.object_no = lib_no;
 			expr->member.member_no = no;
 		} else {
-			JAF_ERROR(expr, "Undefined HLL function: %s.%s", obj->s->text, name);
+			char *libname = env->ain->libraries[lib_no].name;
+			JAF_ERROR(expr, "Undefined HLL function: %s.%s", libname, name);
 		}
 		break;
 	}

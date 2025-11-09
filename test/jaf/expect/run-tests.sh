@@ -32,6 +32,7 @@ run_test control.jaf
 run_test jump.jaf
 run_test functype.jaf
 run_test delegate.jaf 6
+run_test delegate.jaf delegate.v12 12
 run_test option.jaf 12
 run_test option.v14.jaf 14
 run_test enum.jaf 12

@@ -108,6 +108,70 @@
 							"type":	80
 						}]
 				}]
+		}, {
+			"name":	"Delegate",
+			"functions":	[{
+					"name":	"Set",
+					"return-type":	0,
+					"arguments":	[{
+							"name":	"Self",
+							"type":	67
+						}, {
+							"name":	"Func",
+							"type":	95
+						}]
+				}, {
+					"name":	"Add",
+					"return-type":	0,
+					"arguments":	[{
+							"name":	"Self",
+							"type":	67
+						}, {
+							"name":	"Func",
+							"type":	95
+						}]
+				}, {
+					"name":	"Numof",
+					"return-type":	10,
+					"arguments":	[{
+							"name":	"Self",
+							"type":	67
+						}]
+				}, {
+					"name":	"Empty",
+					"return-type":	47,
+					"arguments":	[{
+							"name":	"Self",
+							"type":	67
+						}]
+				}, {
+					"name":	"Exist",
+					"return-type":	47,
+					"arguments":	[{
+							"name":	"Self",
+							"type":	67
+						}, {
+							"name":	"Func",
+							"type":	95
+						}]
+				}, {
+					"name":	"Erase",
+					"return-type":	0,
+					"arguments":	[{
+							"name":	"Self",
+							"type":	67
+						}, {
+							"name":	"Func",
+							"type":	95
+						}]
+				}, {
+					"name":	"Clear",
+					"return-type":	0,
+					"arguments":	[{
+							"name":	"Self",
+							"type":	67
+						}]
+				}]
 		}],
 	"switches":	[],
 	"game-version":	100,

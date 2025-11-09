@@ -219,6 +219,70 @@
 							"type":	[80, -1, 1, [74, -1, 0, null]]
 						}]
 				}]
+		}, {
+			"name":	"Delegate",
+			"functions":	[{
+					"name":	"Set",
+					"return-type":	[0, -1, 0, null],
+					"arguments":	[{
+							"name":	"Self",
+							"type":	[67, -1, 0, null]
+						}, {
+							"name":	"Func",
+							"type":	[95, -1, 0, null]
+						}]
+				}, {
+					"name":	"Add",
+					"return-type":	[0, -1, 0, null],
+					"arguments":	[{
+							"name":	"Self",
+							"type":	[67, -1, 0, null]
+						}, {
+							"name":	"Func",
+							"type":	[95, -1, 0, null]
+						}]
+				}, {
+					"name":	"Numof",
+					"return-type":	[10, -1, 0, null],
+					"arguments":	[{
+							"name":	"Self",
+							"type":	[67, -1, 0, null]
+						}]
+				}, {
+					"name":	"Empty",
+					"return-type":	[47, -1, 0, null],
+					"arguments":	[{
+							"name":	"Self",
+							"type":	[67, -1, 0, null]
+						}]
+				}, {
+					"name":	"IsExist",
+					"return-type":	[47, -1, 0, null],
+					"arguments":	[{
+							"name":	"Self",
+							"type":	[67, -1, 0, null]
+						}, {
+							"name":	"Func",
+							"type":	[95, -1, 0, null]
+						}]
+				}, {
+					"name":	"Erase",
+					"return-type":	[0, -1, 0, null],
+					"arguments":	[{
+							"name":	"Self",
+							"type":	[67, -1, 0, null]
+						}, {
+							"name":	"Func",
+							"type":	[95, -1, 0, null]
+						}]
+				}, {
+					"name":	"Clear",
+					"return-type":	[0, -1, 0, null],
+					"arguments":	[{
+							"name":	"Self",
+							"type":	[67, -1, 0, null]
+						}]
+				}]
 		}],
 	"switches":	[],
 	"game-version":	100,

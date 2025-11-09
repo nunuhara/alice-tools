@@ -82,6 +82,7 @@ static void write_argument(struct compiler_state *state, uint32_t arg)
 	buffer_write_int32(&state->out, arg);
 }
 
+static void write_CALLHLL(struct compiler_state *state, const char *lib, const char *fun, int type);
 static void write_instruction1(struct compiler_state *state, uint16_t opcode, uint32_t arg0);
 static void write_instruction2(struct compiler_state *state, uint16_t opcode, uint32_t arg0,
 		uint32_t arg1);
@@ -90,20 +91,30 @@ static void write_instruction0(struct compiler_state *state, uint16_t opcode)
 {
 	if (AIN_VERSION_GTE(state->ain, 14, 0)) {
 		switch (opcode) {
-		case REF:      write_instruction1(state, X_REF, 1); break;
-		case REFREF:   write_instruction1(state, X_REF, 2); break;
-		case DUP:      write_instruction1(state, X_DUP, 1); break;
-		case DUP2:     write_instruction1(state, X_DUP, 2); break;
-		case ASSIGN:   write_instruction1(state, X_ASSIGN, 1); break;
-		case R_ASSIGN: write_instruction1(state, X_ASSIGN, 2); break;
-		case SWAP:     write_instruction2(state, X_MOV, 2, 1); break;
+		case REF:      write_instruction1(state, X_REF, 1); return;
+		case REFREF:   write_instruction1(state, X_REF, 2); return;
+		case DUP:      write_instruction1(state, X_DUP, 1); return;
+		case DUP2:     write_instruction1(state, X_DUP, 2); return;
+		case ASSIGN:   write_instruction1(state, X_ASSIGN, 1); return;
+		case R_ASSIGN: write_instruction1(state, X_ASSIGN, 2); return;
+		case SWAP:     write_instruction2(state, X_MOV, 2, 1); return;
 		case DUP_U2:   write_instruction1(state, X_DUP, 2);
-			       write_instruction0(state, POP); break;
-		default:       write_opcode(state, opcode); break;
+			       write_instruction0(state, POP); return;
+		default:       break;
 		}
-	} else {
-		write_opcode(state, opcode);
 	}
+	if (AIN_VERSION_GTE(state->ain, 12, 0)) {
+		switch (opcode) {
+		case DG_SET:   write_CALLHLL(state, "Delegate", "Set", -1); return;
+		case DG_ADD:   write_CALLHLL(state, "Delegate", "Add", -1); return;
+		case DG_NUMOF: write_CALLHLL(state, "Delegate", "Numof", -1); return;
+		case DG_EXIST: write_CALLHLL(state, "Delegate", "Exist", -1); return;
+		case DG_ERASE: write_CALLHLL(state, "Delegate", "Erase", -1); return;
+		case DG_CLEAR: write_CALLHLL(state, "Delegate", "Clear", -1); return;
+		}
+	}
+
+	write_opcode(state, opcode);
 }
 
 static void write_instruction1(struct compiler_state *state, uint16_t opcode, uint32_t arg0)
@@ -909,7 +920,10 @@ static void compile_dereference(struct compiler_state *state, struct ain_type *t
 	case AIN_DELEGATE:
 	case AIN_REF_DELEGATE:
 		write_instruction0(state, REF);
-		write_instruction0(state, DG_COPY);
+		if (AIN_VERSION_GTE(state->ain, 11, 0))
+			write_instruction0(state, A_REF);
+		else
+			write_instruction0(state, DG_COPY);
 		break;
 	case AIN_OPTION:
 		write_instruction0(state, REFREF);
@@ -996,7 +1010,10 @@ static void compile_pop(struct compiler_state *state, enum ain_data_type type)
 		write_instruction0(state, SR_POP);
 		break;
 	case AIN_DELEGATE:
-		write_instruction0(state, DG_POP);
+		if (AIN_VERSION_GTE(state->ain, 11, 0))
+			write_instruction0(state, DELETE);
+		else
+			write_instruction0(state, DG_POP);
 		break;
 	case AIN_IFACE:
 	case AIN_OPTION:

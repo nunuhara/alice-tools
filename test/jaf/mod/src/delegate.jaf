@@ -1,0 +1,112 @@
+delegate int DG_TEST_dg(int a);
+
+struct DG_TEST_obj {
+	int method1(int a);
+	int method2(int a);
+	int m;
+};
+
+int DG_TEST_obj::method1(int a)
+{
+	this.m += 100;
+}
+
+int DG_TEST_obj::method2(int a)
+{
+	this.m += a;
+}
+
+int non_method(int a)
+{
+	return a + 1;
+}
+
+void test_dg_set()
+{
+	DG_TEST_obj o;
+	DG_TEST_dg d;
+	d = o.method1;
+	d = o.method2;
+	d(42);
+	assert(o.m == 42);
+}
+
+void test_dg_add()
+{
+	DG_TEST_obj o;
+	DG_TEST_dg d;
+	d += o.method1;
+	d += o.method2;
+	d(42);
+	assert(o.m == 142);
+}
+
+void test_dg_plusa()
+{
+	DG_TEST_obj o;
+	DG_TEST_dg d1;
+	DG_TEST_dg d2;
+	d1 = o.method1;
+	d2 = o.method2;
+	d1 += d2;
+	d1(42);
+	assert(o.m == 142);
+}
+
+void test_dg_minusa()
+{
+	DG_TEST_obj o;
+	DG_TEST_dg d1;
+	DG_TEST_dg d2;
+	d1 += o.method1;
+	d1 += o.method2;
+	d2 += o.method1;
+	d1 -= d2;
+	d1(42);
+	assert(o.m == 42);
+}
+
+void test_dg_numof()
+{
+	DG_TEST_obj o;
+	DG_TEST_dg d;
+	int i = 0;
+	d += o.method1;
+	i += d.Numof();
+	d += o.method2;
+	i += d.Numof();
+	assert(i == 3);
+}
+
+void test_dg_clear()
+{
+	DG_TEST_obj o;
+	DG_TEST_dg d;
+	d += o.method1;
+	d += o.method2;
+	assert(d.Numof() == 2);
+	d.Clear();
+	assert(d.Numof() == 0);
+}
+
+void test_dg_func()
+{
+	DG_TEST_dg d;
+	d = &non_method;
+	assert(d(42) == 43);
+}
+
+int test_delegate(void)
+{
+	test_dg_set();
+	test_dg_func();
+	test_dg_add();
+	test_dg_plusa();
+	test_dg_minusa();
+	test_dg_numof();
+	test_dg_exist();
+	// test_dg_erase();
+	test_dg_clear();
+
+	return 0;
+}

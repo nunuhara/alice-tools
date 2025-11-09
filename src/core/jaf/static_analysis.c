@@ -71,11 +71,21 @@ static struct jaf_expression *jaf_analyze_expr(struct jaf_expression *expr, stru
 	return jaf_simplify(expr);
 }
 
-static int add_library_function(struct ain_library *lib)
+static struct ain_hll_function *add_library_function(struct ain_library *lib, const char *name,
+		int *fun_no_out)
 {
 	lib->functions = xrealloc_array(lib->functions, lib->nr_functions, lib->nr_functions+1,
 			sizeof(struct ain_hll_function));
-	return lib->nr_functions++;
+	struct ain_hll_function *f = &lib->functions[lib->nr_functions];
+	f->name = xstrdup(name);
+	*fun_no_out = lib->nr_functions++;
+	return f;
+}
+
+static void library_function_set_nr_arguments(struct ain_hll_function *f, int nr_args)
+{
+	f->nr_arguments = nr_args;
+	f->arguments = xcalloc(nr_args, sizeof(struct ain_hll_argument));
 }
 
 #define HLL_ARG(str, t) \
@@ -95,30 +105,50 @@ static void init_array_self_param(struct ain *ain, struct ain_hll_argument *arg)
 	}
 }
 
+static struct ain_library *get_or_add_library(struct ain *ain, const char *name, int *lib_no_out)
+{
+	int lib_no = ain_get_library(ain, name);
+	if (lib_no < 0)
+		lib_no = ain_add_library(ain, name);
+	*lib_no_out = lib_no;
+	assert(lib_no >= 0 && lib_no < ain->nr_libraries);
+	return &ain->libraries[lib_no];
+}
+
+static void add_delegate_hll_fun(struct ain *ain, int lib_no, enum ain_data_type rtype,
+		const char *name, int nr_args)
+{
+	int fun_no = ain_get_library_function(ain, lib_no, name);
+	if (fun_no >= 0)
+		return;
+
+	struct ain_hll_function *f = add_library_function(&ain->libraries[lib_no], name, &fun_no);
+	f->return_type = (struct ain_type) { .data = rtype, .struc = -1 };
+	library_function_set_nr_arguments(f, nr_args);
+	f->arguments[0] = HLL_ARG("Self", AIN_REF_DELEGATE);
+	if (nr_args > 1)
+		f->arguments[1] = HLL_ARG("Func", AIN_HLL_FUNC);
+}
+
 static void jaf_check_builtin_hll(struct ain *ain)
 {
+	const struct ain_type void_type = { .data = AIN_VOID, .struc = -1 };
 	// ensure that Array.Alloc and Array.Free exist, because calls to them are
 	// generated implicitly
 	if (AIN_VERSION_GTE(ain, 11, 0)) {
-		int array_hll = ain_get_library(ain, "Array");
-		if (array_hll < 0)
-			array_hll = ain_add_library(ain, "Array");
-		assert(array_hll >= 0 && array_hll < ain->nr_libraries);
-		struct ain_library *lib = &ain->libraries[array_hll];
-		int alloc_fno = ain_get_library_function(ain, array_hll, "Alloc");
-		if (alloc_fno < 0) {
-			alloc_fno = add_library_function(lib);
-			struct ain_hll_function *f = &lib->functions[alloc_fno];
-			f->name = xstrdup("Alloc");
-			f->return_type = (struct ain_type) { .data = AIN_VOID, .struc = -1 };
+		// array builtins
+		int lib_no, fun_no;
+		struct ain_library *lib = get_or_add_library(ain, "Array", &lib_no);
+		fun_no = ain_get_library_function(ain, lib_no, "Alloc");
+		if (fun_no < 0) {
+			struct ain_hll_function *f = add_library_function(lib, "Alloc", &fun_no);
+			f->return_type = void_type;
 			if (AIN_VERSION_GTE(ain, 14, 0)) {
-				f->nr_arguments = 2;
-				f->arguments = xcalloc(2, sizeof(struct ain_hll_argument));
+				library_function_set_nr_arguments(f, 2);
 				init_array_self_param(ain, &f->arguments[0]);
 				f->arguments[1] = HLL_ARG("Numof", AIN_INT);
 			} else {
-				f->nr_arguments = 5;
-				f->arguments = xcalloc(5, sizeof(struct ain_hll_argument));
+				library_function_set_nr_arguments(f, 5);
 				init_array_self_param(ain, &f->arguments[0]);
 				f->arguments[1] = HLL_ARG("Numof", AIN_INT);
 				f->arguments[2] = HLL_ARG("Numof2", AIN_INT);
@@ -126,16 +156,27 @@ static void jaf_check_builtin_hll(struct ain *ain)
 				f->arguments[4] = HLL_ARG("Numof4", AIN_INT);
 			}
 		}
-		int free_fno = ain_get_library_function(ain, array_hll, "Free");
-		if (free_fno < 0) {
-			free_fno = add_library_function(lib);
-			struct ain_hll_function *f = &lib->functions[free_fno];
-			f->name = xstrdup("Free");
-			f->return_type = (struct ain_type) { .data = AIN_VOID, .struc = -1 };
+		fun_no = ain_get_library_function(ain, lib_no, "Free");
+		if (fun_no < 0) {
+			struct ain_hll_function *f = add_library_function(lib, "Free", &fun_no);
+			f->return_type = void_type;
 			f->nr_arguments = 1;
 			f->arguments = xcalloc(1, sizeof(struct ain_hll_argument));
 			init_array_self_param(ain, &f->arguments[0]);
 		}
+	}
+	if (AIN_VERSION_GTE(ain, 12, 0)) {
+		// delegate builtins
+		int lib_no;
+		get_or_add_library(ain, "Delegate", &lib_no);
+		const char *exist_name = AIN_VERSION_GTE(ain, 14, 0) ? "IsExist" : "Exist";
+		add_delegate_hll_fun(ain, lib_no, AIN_VOID, "Set", 2);
+		add_delegate_hll_fun(ain, lib_no, AIN_VOID, "Add", 2);
+		add_delegate_hll_fun(ain, lib_no, AIN_INT, "Numof", 1);
+		add_delegate_hll_fun(ain, lib_no, AIN_BOOL, "Empty", 1);
+		add_delegate_hll_fun(ain, lib_no, AIN_BOOL, exist_name, 2);
+		add_delegate_hll_fun(ain, lib_no, AIN_VOID, "Erase", 2);
+		add_delegate_hll_fun(ain, lib_no, AIN_VOID, "Clear", 1);
 	}
 }
 

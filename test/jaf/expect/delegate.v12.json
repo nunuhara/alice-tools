@@ -3,7 +3,7 @@
 	"keycode":	0,
 	"functions":	[{
 			"index":	0,
-			"address":	226,
+			"address":	466,
 			"name":	"NULL",
 			"return-type":	[0, -1, 0, null],
 			"crc":	0,
@@ -12,7 +12,7 @@
 		}, {
 			"index":	1,
 			"address":	6,
-			"name":	"preinc",
+			"name":	"obj@method1",
 			"return-type":	[10, -1, 0, null],
 			"crc":	0,
 			"arguments":	[{
@@ -24,8 +24,8 @@
 			"variables":	[]
 		}, {
 			"index":	2,
-			"address":	42,
-			"name":	"postinc",
+			"address":	26,
+			"name":	"obj@method2",
 			"return-type":	[10, -1, 0, null],
 			"crc":	0,
 			"arguments":	[{
@@ -37,8 +37,8 @@
 			"variables":	[]
 		}, {
 			"index":	3,
-			"address":	82,
-			"name":	"predec",
+			"address":	46,
+			"name":	"non_method",
 			"return-type":	[10, -1, 0, null],
 			"crc":	0,
 			"arguments":	[{
@@ -50,33 +50,25 @@
 			"variables":	[]
 		}, {
 			"index":	4,
-			"address":	118,
-			"name":	"postdec",
-			"return-type":	[10, -1, 0, null],
-			"crc":	0,
-			"arguments":	[{
-					"name":	"a",
-					"name2":	"",
-					"type":	[10, -1, 0, null],
-					"group-index":	0
-				}],
-			"variables":	[]
-		}, {
-			"index":	5,
-			"address":	158,
-			"name":	"localinc",
+			"address":	66,
+			"name":	"delegates",
 			"return-type":	[0, -1, 0, null],
 			"crc":	0,
-			"arguments":	[{
-					"name":	"a",
+			"arguments":	[],
+			"variables":	[{
+					"name":	"o",
 					"name2":	"",
-					"type":	[10, -1, 0, null],
+					"type":	[13, 0, 0, null],
 					"group-index":	0
-				}],
-			"variables":	[]
+				}, {
+					"name":	"d",
+					"name2":	"",
+					"type":	[63, 0, 0, null],
+					"group-index":	0
+				}]
 		}, {
-			"index":	6,
-			"address":	212,
+			"index":	5,
+			"address":	452,
 			"name":	"0",
 			"return-type":	[0, -1, 0, null],
 			"crc":	0,
@@ -84,7 +76,15 @@
 			"variables":	[]
 		}],
 	"globals":	[],
-	"structures":	[],
+	"structures":	[{
+			"name":	"obj",
+			"members":	[{
+					"name":	"m",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}]
+		}],
 	"main":	-1,
 	"msgf":	0,
 	"libraries":	[{
@@ -184,5 +184,16 @@
 	"switches":	[],
 	"game-version":	100,
 	"filenames":	[],
-	"ojmp":	0
+	"ojmp":	0,
+	"delegates":	[{
+			"name":	"dg",
+			"return-type":	[10, -1, 0, null],
+			"arguments":	[{
+					"name":	"a",
+					"name2":	"",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}]
 }

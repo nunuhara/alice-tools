@@ -1,0 +1,8 @@
+void test_dg_exist()
+{
+	DG_TEST_obj o;
+	DG_TEST_dg d;
+	assert(!d.Exist(o.method1));
+	d += o.method1;
+	assert(d.Exist(o.method1));
+}
