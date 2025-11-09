@@ -323,6 +323,7 @@ struct jaf_expression {
 			int func_no;
 			int lib_no;
 			int type_param;
+			enum ain_data_type array_data_type;
 		} call;
 		struct {
 			struct jaf_type_specifier *type;

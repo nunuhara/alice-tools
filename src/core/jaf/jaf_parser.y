@@ -441,6 +441,7 @@ type_specifier
 	| WRAP  '<' '?' '>'                              { $$ = jaf_wrap(jaf_type(JAF_VOID)); }
 	| OPTION '<' type_specifier '>'                  { $$ = jaf_option($3); }
 	| IDENTIFIER                                     { $$ = jaf_typedef($1); }
+	| SYM_REF type_specifier                         { $$ = $2; $$->qualifiers |= JAF_QUAL_REF; }
 	;
 
 interface_list
@@ -531,7 +532,6 @@ enumerator
 
 type_qualifier
 	: CONST    { $$ = JAF_QUAL_CONST; }
-	| SYM_REF  { $$ = JAF_QUAL_REF; }
 	| OVERRIDE { $$ = JAF_QUAL_OVERRIDE; }
 	;
 

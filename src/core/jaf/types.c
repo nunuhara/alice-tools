@@ -1166,12 +1166,12 @@ static int array_type_param(struct jaf_env *env, struct ain_type *type)
 	return type->data;
 }
 
-static void check_hll_argument(struct jaf_env *env, struct jaf_expression *arg, struct ain_type *type, struct ain_type *type_param)
+static void check_hll_argument(struct jaf_env *env, struct jaf_expression *arg, struct ain_type *type, struct ain_type *obj_type)
 {
 	if (type && (type->data == AIN_HLL_PARAM || type->data == AIN_REF_HLL_PARAM)) {
-		if (type_param->data != AIN_ARRAY && type_param->data != AIN_REF_ARRAY)
+		if (obj_type->data != AIN_ARRAY && obj_type->data != AIN_REF_ARRAY)
 			COMPILER_ERROR(arg, "Expected array as type param");
-		type_check(env, type_param->array_type, arg);
+		check_function_argument(env, obj_type->array_type, arg);
 	} else if (!AIN_VERSION_GTE(env->ain, 14, 0)
 			&& (type->data == AIN_STRUCT || type->data == AIN_REF_STRUCT)) {
 		// XXX: special case since hll types are data-only (until v14+)
@@ -1184,16 +1184,18 @@ static void check_hll_argument(struct jaf_env *env, struct jaf_expression *arg, 
 }
 
 static void type_check_hll_call(struct jaf_env *env, struct jaf_expression *expr,
-		struct ain_type *type)
+		struct ain_type *obj_type)
 {
 	expr->type = JAF_EXP_HLLCALL;
 	expr->call.lib_no = expr->call.fun->member.object_no;
 	expr->call.func_no = expr->call.fun->member.member_no;
-	if (type && (type->data == AIN_ARRAY || type->data == AIN_REF_ARRAY)) {
-		assert(type->array_type);
-		expr->call.type_param = array_type_param(env, type->array_type);
+	if (obj_type && (obj_type->data == AIN_ARRAY || obj_type->data == AIN_REF_ARRAY)) {
+		assert(obj_type->array_type);
+		expr->call.type_param = array_type_param(env, obj_type->array_type);
+		expr->call.array_data_type = obj_type->array_type->data;
 	} else {
 		expr->call.type_param = -1;
+		expr->call.array_data_type = AIN_VOID;
 	}
 
 	assert(expr->call.lib_no >= 0 && expr->call.lib_no < env->ain->nr_libraries);
@@ -1208,13 +1210,17 @@ static void type_check_hll_call(struct jaf_env *env, struct jaf_expression *expr
 		JAF_ERROR(expr, "Too many arguments to HLL function: %s.%s", obj_name, mbr_name);
 	// FIXME: multi-valued arguments?
 	for (unsigned i = 0; i < nr_args; i++) {
-		check_hll_argument(env, expr->call.args->items[i], &def->arguments[i].type, type);
+		check_hll_argument(env, expr->call.args->items[i], &def->arguments[i].type, obj_type);
 	}
 
 	if (def->return_type.data == AIN_HLL_PARAM) {
-		ain_copy_type(&expr->valuetype, type->array_type);
+		if (!obj_type || !obj_type->array_type)
+			JAF_ERROR(expr, "Unable to determine return type of HLL function");
+		ain_copy_type(&expr->valuetype, obj_type->array_type);
 	} else if (def->return_type.data == AIN_REF_HLL_PARAM) {
-		ain_copy_type(&expr->valuetype, type->array_type);
+		if (!obj_type || !obj_type->array_type)
+			JAF_ERROR(expr, "Unable to determine return type of HLL function");
+		ain_copy_type(&expr->valuetype, obj_type->array_type);
 		expr->valuetype.data = add_ref(&expr->valuetype);
 	} else if (def->return_type.data == AIN_ARRAY) {
 		if (!strcmp(obj_name, "String") && !strcmp(mbr_name, "Split")) {
@@ -1808,8 +1814,9 @@ static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 			expr->member.setter_no = setter;
 			expr->member.type = JAF_DOT_PROPERTY;
 		} else {
-			// FIXME: show struct name
-			JAF_ERROR(expr, "Invalid struct member name: %s", name);
+			JAF_ERROR(expr, "Invalid member name for struct %s: %s",
+					env->ain->structures[struct_type].name,
+					name);
 		}
 		break;
 	}
@@ -1963,9 +1970,8 @@ static void array_deref_type(struct jaf_env *env, struct ain_type *dst, struct a
 		assert(src->rank == 1);
 		dst->data = array_data_type(src);
 		dst->struc = src->struc;
-		if (dst->data == AIN_STRUCT && AIN_VERSION_GTE(env->ain, 11, 0)) {
+		if (AIN_VERSION_GTE(env->ain, 11, 0) && src->array_type)
 			dst->struc = src->array_type->struc;
-		}
 		dst->rank = 0;
 	}
 }

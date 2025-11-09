@@ -1488,9 +1488,16 @@ static void compile_syscall(struct compiler_state *state, struct jaf_expression 
 
 static void compile_hllcall(struct compiler_state *state, struct jaf_expression *expr)
 {
+	struct ain_library *lib = &state->ain->libraries[expr->call.lib_no];
 	for (unsigned i = 0; i < expr->call.args->nr_items; i++) {
-		struct ain_library *lib = &state->ain->libraries[expr->call.lib_no];
-		compile_argument(state, expr->call.args->items[i], lib->functions[expr->call.func_no].arguments[i].type.data);
+		struct ain_hll_function *fun = &lib->functions[expr->call.func_no];
+		enum ain_data_type arg_t = fun->arguments[i].type.data;
+		if (arg_t == AIN_HLL_PARAM) {
+			if (expr->call.array_data_type == AIN_VOID)
+				COMPILER_ERROR(expr, "compiling hll_param with void array data type");
+			arg_t = expr->call.array_data_type;
+		}
+		compile_argument(state, expr->call.args->items[i], arg_t);
 	}
 	if (AIN_VERSION_GTE(state->ain, 11, 0)) {
 		write_instruction3(state, CALLHLL, expr->call.lib_no, expr->call.func_no, expr->call.type_param);
