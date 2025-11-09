@@ -1413,12 +1413,12 @@ static void jaf_compile_delegate_call(struct compiler_state *state, struct jaf_e
 	for (size_t i = 0; i < expr->call.args->nr_items; i++) {
 		enum ain_data_type type = dg->variables[expr->call.args->var_nos[i]].type.data;
 		compile_argument(state, expr->call.args->items[i], type);
-		write_instruction1(state, DG_CALLBEGIN, expr->call.func_no);
-		size_t loop_addr = state->out.index;
-		write_instruction2(state, DG_CALL, expr->call.func_no, 0);
-		write_instruction1(state, JUMP, loop_addr);
-		buffer_write_int32_at(&state->out, loop_addr + 6, state->out.index);
 	}
+	write_instruction1(state, DG_CALLBEGIN, expr->call.func_no);
+	size_t loop_addr = state->out.index;
+	write_instruction2(state, DG_CALL, expr->call.func_no, 0);
+	write_instruction1(state, JUMP, loop_addr);
+	buffer_write_int32_at(&state->out, loop_addr + 6, state->out.index);
 }
 
 static void compile_funcall(struct compiler_state *state, struct jaf_expression *expr)
