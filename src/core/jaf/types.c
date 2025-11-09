@@ -498,6 +498,9 @@ static void check_delegate_compatible(struct jaf_env *env, struct ain_type *t, s
 			TYPE_ERROR(rhs, t->data);
 		break;
 	}
+	case AIN_NULLTYPE:
+		ain_copy_type(&rhs->valuetype, t);
+		break;
 	default:
 		TYPE_ERROR(rhs, t->data);
 	}

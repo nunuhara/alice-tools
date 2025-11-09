@@ -23,11 +23,18 @@ FUNC 3
 	RETURN
 ENDFUNC non_method
 
+; test_arg
+; ARG  0: d : dg
+; RETURN: void
+FUNC 4
+	RETURN
+ENDFUNC test_arg
+
 ; delegates
 ; VAR  0: o : obj
 ; VAR  1: d : dg
 ; RETURN: void
-FUNC 4
+FUNC 5
 	SH_LOCALDELETE o
 	SH_LOCALCREATE o obj
 	.LOCALREF d
@@ -64,17 +71,22 @@ FUNC 4
 	.LOCALREF d
 	PUSH 42
 	DG_CALLBEGIN dg
-0x116:
-	DG_CALL dg 0x126
-	JUMP 0x116
-0x126:
+0x124:
+	DG_CALL dg 0x134
+	JUMP 0x124
+0x134:
 	POP
+	.LOCALREF d
+	DG_COPY
+	CALLFUNC test_arg
+	DG_NEW
+	CALLFUNC test_arg
 	RETURN
 ENDFUNC delegates
 
 ; 0
 ; RETURN: void
-FUNC 5
+FUNC 6
 	RETURN
 ENDFUNC 0
 

@@ -8,6 +8,11 @@ struct obj {
 
 int non_method(int a) { }
 
+void test_arg(dg d)
+{
+
+}
+
 void delegates(void)
 {
 	obj o;
@@ -20,4 +25,6 @@ void delegates(void)
 	d.Clear();
 	d = &non_method;
 	d(42);
+	test_arg(d);
+	test_arg(NULL);
 }

@@ -1355,7 +1355,8 @@ static void compile_argument(struct compiler_state *state, struct jaf_expression
 		compile_reference_argument(state, arg);
 	} else if (type == AIN_DELEGATE) {
 		compile_expression(state, arg);
-		write_instruction0(state, DG_NEW_FROM_METHOD);
+		if (arg->valuetype.data == AIN_METHOD)
+			write_instruction0(state, DG_NEW_FROM_METHOD);
 	} else {
 		compile_expression(state, arg);
 	}

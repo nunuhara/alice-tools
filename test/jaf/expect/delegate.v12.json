@@ -3,7 +3,7 @@
 	"keycode":	0,
 	"functions":	[{
 			"index":	0,
-			"address":	466,
+			"address":	506,
 			"name":	"NULL",
 			"return-type":	[0, -1, 0, null],
 			"crc":	0,
@@ -51,6 +51,19 @@
 		}, {
 			"index":	4,
 			"address":	66,
+			"name":	"test_arg",
+			"return-type":	[0, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"d",
+					"name2":	"",
+					"type":	[63, 0, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	5,
+			"address":	80,
 			"name":	"delegates",
 			"return-type":	[0, -1, 0, null],
 			"crc":	0,
@@ -67,8 +80,8 @@
 					"group-index":	0
 				}]
 		}, {
-			"index":	5,
-			"address":	452,
+			"index":	6,
+			"address":	492,
 			"name":	"0",
 			"return-type":	[0, -1, 0, null],
 			"crc":	0,

@@ -96,6 +96,11 @@ void test_dg_func()
 	assert(d(42) == 43);
 }
 
+void test_dg_null(DG_TEST_dg d)
+{
+	d(42);
+}
+
 int test_delegate(void)
 {
 	test_dg_set();
@@ -107,6 +112,7 @@ int test_delegate(void)
 	test_dg_exist();
 	// test_dg_erase();
 	test_dg_clear();
+	test_dg_null(NULL);
 
 	return 0;
 }
