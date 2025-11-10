@@ -399,16 +399,27 @@ static void check_lvalue(struct jaf_expression *e)
 {
 	switch (e->type) {
 	case JAF_EXP_IDENTIFIER:
-	case JAF_EXP_MEMBER:
 		if (e->valuetype.data == AIN_FUNCTION)
-			JAF_ERROR(e, "Invalid expression as lvalue");
+			goto invalid;
+		break;
+	case JAF_EXP_MEMBER:
+		switch (e->member.type) {
+		case JAF_DOT_MEMBER:
+			break;
+		case JAF_DOT_METHOD:
+		case JAF_DOT_PROPERTY:
+			goto invalid;
+		}
 		break;
 	case JAF_EXP_SUBSCRIPT:
 	case JAF_EXP_NEW:
 		break;
 	default:
-		JAF_ERROR(e, "Invalid expression as lvalue");
+		goto invalid;
 	}
+	return;
+invalid:
+	JAF_ERROR(e, "Invalid expression as lvalue");
 }
 
 static void check_referenceable(struct jaf_expression *e)
@@ -798,20 +809,23 @@ static void check_function_argument(struct jaf_env *env, struct ain_type *t,
 static void type_check_property_assign(struct jaf_env *env, struct jaf_expression *expr)
 {
 	int setter_no = expr->lhs->member.setter_no;
-	assert(setter_no >= 0 && setter_no < env->ain->nr_functions);
+	if (setter_no <= 0)
+		JAF_ERROR(expr, "Assignment to read-only property");
+	assert(setter_no < env->ain->nr_functions);
 	struct ain_function *f = &env->ain->functions[setter_no];
 	check_function_argument(env, &f->vars[0].type, expr->rhs);
 }
 
 static void type_check_assign(struct jaf_env *env, struct jaf_expression *expr)
 {
+	if (expr->lhs->type == JAF_EXP_MEMBER && expr->lhs->member.type == JAF_DOT_PROPERTY) {
+		if (expr->op != JAF_ASSIGN)
+			JAF_ERROR(expr, "Invalid property assignment operator");
+		type_check_property_assign(env, expr);
+	}
 	check_lvalue(expr->lhs);
 	switch (expr->op) {
 	case JAF_ASSIGN:
-		if (expr->lhs->type == JAF_EXP_MEMBER && expr->lhs->member.type == JAF_DOT_PROPERTY) {
-			type_check_property_assign(env, expr);
-			break;
-		}
 		check_assign(env, &expr->lhs->valuetype, expr->rhs);
 		// if lhs is a string subscript access, change the operator to JAF_CHAR_ASSIGN
 		if (expr->lhs->type == JAF_EXP_SUBSCRIPT) {
@@ -1735,31 +1749,12 @@ static void jaf_check_types_hll_builtin(struct jaf_env *env, struct jaf_expressi
 	}
 }
 
-static int get_property(struct ain *ain, int struct_no, const char *_name,
+static bool get_property(struct ain *ain, int struct_no, const char *_name,
 		int *getter_out, int *setter_out)
 {
 	char *name = conv_output(_name);
 	size_t name_len = strlen(name);
 	struct ain_struct *s = &ain->structures[struct_no];
-
-	// "<Property>"
-	struct string *property_name = make_string("<", 1);
-	string_append_cstr(&property_name, name, name_len);
-	string_push_back(&property_name, '>');
-
-	// check that property exists
-	int property_no = -1;
-	for (int i = 0; i < s->nr_members; i++) {
-		if (!strcmp(s->members[i].name, property_name->text)) {
-			property_no = i;
-			break;
-		}
-	}
-	free_string(property_name);
-	if (property_no < 0) {
-		free(name);
-		return -1;
-	}
 
 	// "S@Property::get" / "S@Property::set"
 	struct string *getter_name = make_string(s->name, strlen(s->name));
@@ -1776,15 +1771,29 @@ static int get_property(struct ain *ain, int struct_no, const char *_name,
 	free_string(getter_name);
 	free_string(setter_name);
 	free(name);
-	if (getter_no < 0 || setter_no < 0) {
-		return -1;
+	if (getter_no < 0) {
+		return false;
 	}
 
-	// TODO: check function types
+	struct ain_function *getter = &ain->functions[getter_no];
+	if (getter->nr_args != 0 || getter->return_type.data == AIN_VOID) {
+		WARNING("Property::get function has unexpected signature");
+		return false;
+	}
+
+	if (setter_no > 0) {
+		// XXX: make propery read-only if setter has unexpected function signature
+		struct ain_function *setter = &ain->functions[setter_no];
+		if (setter->nr_args != 1 || setter->return_type.data != AIN_VOID
+				|| !type_identical(&getter->return_type, &setter->vars[0].type)) {
+			WARNING("Property::set function has unexpected signature");
+			setter_no = -1;
+		}
+	}
 
 	*getter_out = getter_no;
 	*setter_out = setter_no;
-	return property_no;
+	return true;
 }
 
 static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
@@ -1810,9 +1819,9 @@ static void type_check_member(struct jaf_env *env, struct jaf_expression *expr)
 			expr->valuetype.struc = no;
 			expr->member.member_no = no;
 			expr->member.type = JAF_DOT_METHOD;
-		} else if ((no = get_property(env->ain, struct_type, name, &getter, &setter)) >= 0) {
-			struct ain_variable *property = &env->ain->structures[struct_type].members[no];
-			ain_copy_type(&expr->valuetype, &property->type);
+		} else if (get_property(env->ain, struct_type, name, &getter, &setter)) {
+			struct ain_function *get_f = &env->ain->functions[getter];
+			ain_copy_type(&expr->valuetype, &get_f->return_type);
 			expr->member.getter_no = getter;
 			expr->member.setter_no = setter;
 			expr->member.type = JAF_DOT_PROPERTY;

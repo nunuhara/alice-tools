@@ -1213,6 +1213,8 @@ static void compile_argument(struct compiler_state *state, struct jaf_expression
 static void compile_property_assign(struct compiler_state *state, struct jaf_expression *expr)
 {
 	int setter_no = expr->lhs->member.setter_no;
+	if (setter_no <= 0)
+		COMPILER_ERROR(expr, "Assigmnent to read-only property");
 	struct ain_function *m = &state->ain->functions[setter_no];
 	compile_lvalue(state, expr->lhs->member.struc);
 	write_instruction1(state, PUSH, setter_no);
