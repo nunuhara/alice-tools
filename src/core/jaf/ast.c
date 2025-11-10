@@ -159,6 +159,7 @@ void jaf_name_init(struct jaf_name *name, struct string *str)
 	name->nr_parts = 1;
 	name->parts = xmalloc(sizeof(struct string*));
 	name->parts[0] = str;
+	name->struct_no = -1;
 }
 
 void jaf_name_append(struct jaf_name *name, struct string *str)
