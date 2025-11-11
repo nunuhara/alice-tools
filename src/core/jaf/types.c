@@ -1326,7 +1326,7 @@ struct builtin {
 
 static struct builtin builtins[] = {
 	[JAF_INT_STRING]        = { AIN_STRING, AIN_INT, "String",        0, 0 },
-	[JAF_FLOAT_STRING]      = { AIN_STRING, AIN_FLOAT, "String",      0, 0 },
+	[JAF_FLOAT_STRING]      = { AIN_STRING, AIN_FLOAT, "String",      0, 1 },
 	[JAF_STRING_INT]        = { AIN_INT,    AIN_STRING, "Int",        0, 0 },
 	[JAF_STRING_LENGTH]     = { AIN_INT,    AIN_STRING, "Length",     0, 0 },
 	[JAF_STRING_LENGTHBYTE] = { AIN_INT,    AIN_STRING, "LengthByte", 0, 0 },
@@ -1406,6 +1406,10 @@ static void type_check_builtin_call(struct jaf_env *env, struct jaf_expression *
 	}
 	struct jaf_argument_list *args = expr->call.args;
 	switch (builtin_no) {
+	case JAF_FLOAT_STRING:
+		if (args->nr_items > 0)
+			type_check(env, &int_type, args->items[0]);
+		break;
 	case JAF_STRING_FIND:
 		type_check(env, &string_type, args->items[0]);
 		break;
@@ -1483,7 +1487,6 @@ static void type_check_builtin_call(struct jaf_env *env, struct jaf_expression *
 		break;
 	}
 	case JAF_INT_STRING:
-	case JAF_FLOAT_STRING:
 	case JAF_STRING_INT:
 	case JAF_STRING_LENGTH:
 	case JAF_STRING_LENGTHBYTE:

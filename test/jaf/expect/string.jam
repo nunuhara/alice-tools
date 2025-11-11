@@ -147,9 +147,57 @@ FUNC 10
 	RETURN
 ENDFUNC s_plusa
 
+; stoi
+; ARG  0: a : string
+; RETURN: int
+FUNC 11
+	PUSHLOCALPAGE
+	PUSH 0
+	S_REF
+	STOI
+	RETURN
+	PUSH 0
+	RETURN
+ENDFUNC stoi
+
+; i_string
+; ARG  0: a : int
+; RETURN: string
+FUNC 12
+	.LOCALREF a
+	I_STRING
+	RETURN
+	S_PUSH ""
+	RETURN
+ENDFUNC i_string
+
+; ftos
+; ARG  0: a : float
+; RETURN: string
+FUNC 13
+	.LOCALREF a
+	PUSH -1
+	FTOS
+	RETURN
+	S_PUSH ""
+	RETURN
+ENDFUNC ftos
+
+; ftos_n
+; ARG  0: a : float
+; RETURN: string
+FUNC 14
+	.LOCALREF a
+	PUSH 2
+	FTOS
+	RETURN
+	S_PUSH ""
+	RETURN
+ENDFUNC ftos_n
+
 ; 0
 ; RETURN: void
-FUNC 11
+FUNC 15
 	RETURN
 ENDFUNC 0
 

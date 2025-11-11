@@ -3,7 +3,7 @@
 	"keycode":	0,
 	"functions":	[{
 			"index":	0,
-			"address":	416,
+			"address":	564,
 			"name":	"NULL",
 			"return-type":	[0, -1, 0, null],
 			"crc":	0,
@@ -156,6 +156,54 @@
 		}, {
 			"index":	11,
 			"address":	402,
+			"name":	"stoi",
+			"return-type":	[10, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[12, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	12,
+			"address":	436,
+			"name":	"i_string",
+			"return-type":	[12, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[10, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	13,
+			"address":	470,
+			"name":	"ftos",
+			"return-type":	[12, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[11, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	14,
+			"address":	510,
+			"name":	"ftos_n",
+			"return-type":	[12, -1, 0, null],
+			"crc":	0,
+			"arguments":	[{
+					"name":	"a",
+					"type":	[11, -1, 0, null],
+					"group-index":	0
+				}],
+			"variables":	[]
+		}, {
+			"index":	15,
+			"address":	550,
 			"name":	"0",
 			"return-type":	[0, -1, 0, null],
 			"crc":	0,

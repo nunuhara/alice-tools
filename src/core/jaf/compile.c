@@ -1532,7 +1532,10 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 	case JAF_FLOAT_STRING:
 		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, REF);
-		write_instruction1(state, PUSH, -1);
+		if (expr->call.args->nr_items > 0)
+			compile_expression(state, expr->call.args->items[0]);
+		else
+			write_instruction1(state, PUSH, -1);
 		write_instruction0(state, FTOS);
 		break;
 	case JAF_STRING_INT:

@@ -8,3 +8,7 @@ int s_lte(string a, string b) { return a <= b; }
 int s_gte(string a, string b) { return a >= b; }
 void s_assign(string a) { a = "42"; }
 void s_plusa(string a) { a += "42"; }
+int stoi(string a) { return a.Int(); }
+string i_string(int a) { return a.String(); }
+string ftos(float a) { return a.String(); }
+string ftos_n(float a) { return a.String(2); }
