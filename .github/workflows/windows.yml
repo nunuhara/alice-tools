@@ -23,6 +23,7 @@ jobs:
           install: >-
             flex
             bison
+            diffutils
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-meson
             mingw-w64-x86_64-libpng
@@ -47,6 +48,13 @@ jobs:
           mkdir build
           meson build -Dbuildtype=release
           ninja -C build
+
+      - name: Test
+        run: |
+          export ALICE=$(realpath build/src/alice)
+          test/jaf/expect/run-tests.sh
+          test/ar/run-tests.sh
+          test/rtt-ex.sh test/ex/test.ex
 
       - name: Deploy Qt Dependencies (for galice)
         run: |

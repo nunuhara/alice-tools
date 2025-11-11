@@ -3,7 +3,7 @@
 cd $(dirname "$0")
 
 function test_alicepack {
-    local FILES=$(tail -n +3 alicepack.manifest)
+    local FILES=("src/テスト1.x" "src/テスト2.x" "src/sub/テスト3.x")
 
     if ! ${ALICE:-alice} ar pack alicepack.manifest; then
         echo alicepack: pack failed
@@ -16,7 +16,7 @@ function test_alicepack {
         return 1
     fi
 
-    for f in $FILES; do
+    for f in ${FILES[@]}; do
         if [ -f "out/$f" ]; then
             if ! diff "out/$f" "$f"; then
                 echo alicepack: contents of file $f differ
