@@ -600,6 +600,15 @@ static void check_assign(struct jaf_env *env, struct ain_type *t, struct jaf_exp
 		else
 			type_check(env, t, rhs);
 		break;
+	case AIN_HLL_FUNC:
+		if (rhs->valuetype.data == AIN_METHOD) {
+			// nothing
+		} else if (rhs->valuetype.data == AIN_FUNCTION) {
+			cast_to_method(rhs);
+		} else {
+			TYPE_ERROR(rhs, t->data);
+		}
+		break;
 	default:
 		type_check(env, t, rhs);
 		break;
@@ -1301,11 +1310,11 @@ static void type_check_super_call(struct jaf_env *env, struct jaf_expression *ex
 static const char *_builtin_type_name(enum ain_data_type type)
 {
 	switch (type) {
-	case AIN_INT: return "Int";
-	case AIN_FLOAT: return "Float";
-	case AIN_STRING: return "String";
-	case AIN_ARRAY: return "Array";
-	case AIN_DELEGATE: return "Delegate";
+	case AIN_INT: case AIN_REF_INT: return "Int";
+	case AIN_FLOAT: case AIN_REF_FLOAT: return "Float";
+	case AIN_STRING: case AIN_REF_STRING: return "String";
+	case AIN_ARRAY: case AIN_REF_ARRAY: return "Array";
+	case AIN_DELEGATE: case AIN_REF_DELEGATE: return "Delegate";
 	default: _COMPILER_ERROR(NULL, -1, "Invalid type for builtin");
 	}
 }
