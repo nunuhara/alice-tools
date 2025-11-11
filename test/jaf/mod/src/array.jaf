@@ -1,0 +1,80 @@
+// XXX: array<struct> doesn't seem to behave correctly.
+//      The following bytecode pattern exists in Rance 10:
+//
+//          .GLOBALREF array_var
+//          .LOCALREF struct_var
+//          A_REF
+//          CALLHLL Array PushBack 13
+//
+//      However, when alice-tools generates this same pattern, the destructor
+//      for the struct that's added to the array is called immediately, and
+//      accessing it raises an error.
+/*
+struct TEST_ARRAY_COPY {
+	int m;
+	~TEST_ARRAY_COPY() { CrayfishLogViewer.AddText("Destructor called\n"); }
+};
+
+array<TEST_ARRAY_COPY> g_TEST_ARRAY_COPY;
+
+void test_struct_array(void)
+{
+	TEST_ARRAY_COPY s;
+	s.m = 42;
+	g_TEST_ARRAY_COPY.PushBack(s);
+	assert(g_TEST_ARRAY_COPY[0].m == 42); // XXX: error
+}
+*/
+
+int g_test_array;
+
+struct TEST_ARRAY {
+	int m;
+	~TEST_ARRAY() { g_test_array = -1; }
+};
+
+array<ref TEST_ARRAY> make_array(int n)
+{
+	TEST_ARRAY s;
+	s.m = n;
+	array<ref TEST_ARRAY> a;
+	a.PushBack(s);
+	return a;
+}
+
+void array_pushback(ref array<ref TEST_ARRAY> a, int n)
+{
+	TEST_ARRAY s;
+	s.m = n;
+	a.PushBack(s);
+}
+
+void check_array_val(ref array<ref TEST_ARRAY> a, int i, int n)
+{
+	assert(a[i].m == n);
+}
+
+bool find_fun(ref TEST_ARRAY s)
+{
+	return s.m == 2;
+}
+
+void test_array(void)
+{
+	g_test_array = 0;
+	{
+		array<ref TEST_ARRAY> a = make_array(1);
+		assert(g_test_array == 0);
+		array_pushback(a, 2);
+		array_pushback(a, 3);
+		assert(a.Numof() == 3);
+		check_array_val(a, 0, 1);
+		check_array_val(a, 1, 2);
+		check_array_val(a, 2, 3);
+		assert(a.Find#2(&find_fun) == 1);
+		assert(g_test_array == 0);
+	}
+	assert(g_test_array == -1);
+
+	//test_struct_array();
+}

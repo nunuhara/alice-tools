@@ -157,5 +157,6 @@ override int main(void)
 	test_option();
 	test_enum();
 	test_delegate();
+	test_array();
 	return super();
 }

@@ -144,5 +144,6 @@ override int main(void)
 	test_option();
 	test_enum();
 	//test_delegate(); // FIXME
+	//test_array(); // FIXME
 	return super();
 }
