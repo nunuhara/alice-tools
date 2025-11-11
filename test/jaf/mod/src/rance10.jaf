@@ -75,7 +75,11 @@ enum NewEnum {
 };
 
 extend enum QuestEventType {
-	NewVal = 3,
+	NewVal,
+};
+
+extend enum QuestEventType {
+	AnotherNewVal,
 };
 
 void test_enum(void)
@@ -120,25 +124,30 @@ void test_enum(void)
 	assert(QuestEventType::Parse#1(1).Value(QuestEventType::Adv) == QuestEventType::Battle);
 	assert(QuestEventType::Parse#1(2).Value(QuestEventType::Adv) == QuestEventType::Movie);
 	assert(QuestEventType::Parse#1(3).Value(QuestEventType::Adv) == QuestEventType::NewVal);
+	assert(QuestEventType::Parse#1(4).Value(QuestEventType::Adv) == QuestEventType::AnotherNewVal);
 	assert(QuestEventType::Parse("Adv").Value(QuestEventType::Battle) == QuestEventType::Adv);
 	assert(QuestEventType::Parse("Battle").Value(QuestEventType::Adv) == QuestEventType::Battle);
 	assert(QuestEventType::Parse("Movie").Value(QuestEventType::Adv) == QuestEventType::Movie);
 	assert(QuestEventType::Parse("NewVal").Value(QuestEventType::Adv) == QuestEventType::NewVal);
+	assert(QuestEventType::Parse("AnotherNewVal").Value(QuestEventType::Adv) == QuestEventType::AnotherNewVal);
 	assert((string)QuestEventType::Adv == "Adv");
 	assert((string)QuestEventType::Battle == "Battle");
 	assert((string)QuestEventType::Movie == "Movie");
 	assert((string)QuestEventType::NewVal == "NewVal");
+	assert((string)QuestEventType::AnotherNewVal == "AnotherNewVal");
 	assert((int)QuestEventType::Adv == 0);
 	assert((int)QuestEventType::Battle == 1);
 	assert((int)QuestEventType::Movie == 2);
 	assert((int)QuestEventType::NewVal == 3);
+	assert((int)QuestEventType::AnotherNewVal == 4);
 	array<QuestEventType> a2 = QuestEventType::GetList();
-	assert(a2.Numof() == 4);
+	assert(a2.Numof() == 5);
 	assert(a2[0] == QuestEventType::Adv);
 	assert(a2[1] == QuestEventType::Battle);
 	assert(a2[2] == QuestEventType::Movie);
 	assert(a2[3] == QuestEventType::NewVal);
-	assert(QuestEventType::Numof() == 4);
+	assert(a2[4] == QuestEventType::AnotherNewVal);
+	assert(QuestEventType::Numof() == 5);
 }
 
 override int main(void)

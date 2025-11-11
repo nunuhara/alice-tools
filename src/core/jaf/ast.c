@@ -709,14 +709,6 @@ struct jaf_block_item *jaf_enum(struct string *name, jaf_enum_value_list values)
 	struct jaf_block_item *item = block_item(JAF_DECL_ENUM);
 	item->enume.name = name;
 	item->enume.values = values;
-
-	int next_v = 0;
-	struct jaf_enum_value *p;
-	kv_foreach_p(p, item->enume.values) {
-		if (!p->explicit_value)
-			p->value = next_v;
-		next_v = p->value + 1;
-	}
 	return item;
 }
 

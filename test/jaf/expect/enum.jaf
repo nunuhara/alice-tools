@@ -12,6 +12,10 @@ enum ImplicitEnum {
 	Eleven,
 };
 
+extend enum NewEnum {
+	ValC,
+};
+
 NewEnum ret_enum(NewEnum e)
 {
 	if (e == NewEnum::None)

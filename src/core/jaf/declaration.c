@@ -19,6 +19,7 @@
 #include <assert.h>
 #include "system4.h"
 #include "system4/string.h"
+#include "khash.h"
 #include "alice.h"
 #include "alice/jaf.h"
 
@@ -1269,16 +1270,82 @@ static struct jaf_block_item *gen_enum_num_of(struct ain *ain, struct jaf_enumde
 	return fun;
 }
 
-static void jaf_process_enumdef(struct ain *ain, struct jaf_block_item *item,
+void _jaf_process_enumdef(struct ain *ain, struct jaf_enumdecl *e,
 		struct jaf_block *block)
 {
-	struct jaf_enumdecl *e = &item->enume;
 	jaf_block_append(block, gen_enum_to_string(ain, e));
 	jaf_block_append(block, gen_enum_parse_string(ain, e));
 	jaf_block_append(block, gen_enum_parse_int(ain, e));
 	jaf_block_append(block, gen_enum_get_list(ain, e));
 	jaf_block_append(block, gen_enum_is_exist(ain, e));
 	jaf_block_append(block, gen_enum_num_of(ain, e));
+}
+
+typedef kvec_t(struct jaf_enumdecl*) enum_decl_list;
+KHASH_MAP_INIT_INT(enum_table, enum_decl_list*);
+static khash_t(enum_table) *enum_table;
+
+static void jaf_process_enumdef(struct ain *ain, enum_decl_list *decl_list,
+		struct jaf_block *block)
+{
+	// simple case: one declaration
+	if (kv_size(*decl_list) == 1) {
+		_jaf_process_enumdef(ain, kv_A(*decl_list, 0), block);
+		goto end;
+	}
+
+	// combine values for all enums into one declaration
+	// XXX: Value of `extends` member on first declaration is used here. This is valid
+	//      because if an enum is defined normally in .jaf and then extended, the
+	//      combined enum should not be considered extended (it's just a definition that's
+	//      been spread out over multiple declarations).
+	assert(kv_size(*decl_list) > 0);
+	struct jaf_enumdecl e = *kv_A(*decl_list, 0);
+	kv_init(e.values);
+
+	struct jaf_enumdecl *p;
+	kv_foreach(p, *decl_list) {
+		struct jaf_enum_value *v;
+		kv_foreach_p(v, p->values) {
+			kv_push(struct jaf_enum_value, e.values, *v);
+		}
+	}
+
+	_jaf_process_enumdef(ain, &e, block);
+	kv_destroy(e.values);
+end:
+	kv_destroy(*decl_list);
+	free(decl_list);
+}
+
+static void jaf_process_enumdefs(struct ain *ain, struct jaf_block *block)
+{
+	// merge enums defs before generating enum functions
+	enum_table = kh_init(enum_table);
+	for (size_t i = 0; i < block->nr_items; i++) {
+		if (block->items[i]->kind != JAF_DECL_ENUM)
+			continue;
+		struct jaf_enumdecl *decl = &block->items[i]->enume;
+		int ret;
+		khiter_t k = kh_put(enum_table, enum_table, decl->enum_no, &ret);
+		if (!ret) {
+			// add to list
+			enum_decl_list *list = kh_value(enum_table, k);
+			kv_push(struct jaf_enumdecl*, *list, decl);
+		} else if (ret == 1) {
+			// create list
+			enum_decl_list *list = xmalloc(sizeof(enum_decl_list));
+			kv_init(*list);
+			kv_push(struct jaf_enumdecl*, *list, decl);
+			kh_value(enum_table, k) = list;
+		} else {
+			WARNING("Failed to insert enum into enum table (%d)", ret);
+		}
+	}
+
+	enum_decl_list *list;
+	kh_foreach_value(enum_table, list, jaf_process_enumdef(ain, list, block));
+	kh_destroy(enum_table, enum_table);
 }
 
 static void jaf_process_global_allocs(struct ain *ain, struct jaf_block *block)
@@ -1367,10 +1434,7 @@ void jaf_process_declarations(struct ain *ain, struct jaf_block *block)
 	}
 
 	jaf_process_global_allocs(ain, block);
-	for (size_t i = 0; i < block->nr_items; i++) {
-		if (block->items[i]->kind == JAF_DECL_ENUM)
-			jaf_process_enumdef(ain, block->items[i], block);
-	}
+	jaf_process_enumdefs(ain, block);
 }
 
 static void _jaf_process_hll_declaration(struct ain *ain, struct jaf_fundecl *decl, struct ain_hll_function *f)

@@ -63,6 +63,14 @@ void jaf_define_enum(struct ain *ain, struct jaf_block_item *def)
 		JAF_ERROR(def, "Redefining enums not supported");
 	}
 
+	int next_v = 0;
+	struct jaf_enum_value *p;
+	kv_foreach_p(p, def->enume.values) {
+		if (!p->explicit_value)
+			p->value = next_v;
+		next_v = p->value + 1;
+	}
+
 	def->enume.enum_no = ain_add_enum(ain, name);
 	struct ain_enum *e = &ain->enums[def->enume.enum_no];
 	e->nr_values = kv_size(def->enume.values);
@@ -88,6 +96,15 @@ void jaf_extend_enum(struct ain *ain, struct jaf_block_item *def)
 	if ((def->enume.enum_no = ain_get_enum(ain, name)) < 0)
 		JAF_ERROR(def, "enum cannot be extended because it doesn't exist");
 
+	// intial value of extended enum is largest existing value + 1
+	int next_v = 0;
+	struct ain_enum *ain_e = &ain->enums[def->enume.enum_no];
+	for (int i = 0; i < ain_e->nr_values; i++) {
+		if (ain_e->values[i].value >= next_v) {
+			next_v = ain_e->values[i].value + 1;
+		}
+	}
+
 	def->enume.extends = true;
 	struct ain_enum *e = &ain->enums[def->enume.enum_no];
 	int new_nr_values = e->nr_values + kv_size(def->enume.values);
@@ -98,8 +115,13 @@ void jaf_extend_enum(struct ain *ain, struct jaf_block_item *def)
 		struct ain_enum_value *ain_v = &e->values[e->nr_values+i];
 		char *tmp = conv_output(jaf_v->symbol->text);
 		ain_v->symbol = make_string(tmp, strlen(tmp));
-		ain_v->value = jaf_v->value;
 		free(tmp);
+
+		if (!jaf_v->explicit_value)
+			ain_v->value = jaf_v->value = next_v;
+		else
+			ain_v->value = jaf_v->value;
+		next_v = ain_v->value + 1;
 	}
 	e->nr_values += kv_size(def->enume.values);
 

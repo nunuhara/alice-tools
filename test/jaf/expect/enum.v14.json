@@ -3,7 +3,7 @@
 	"keycode":	0,
 	"functions":	[{
 			"index":	0,
-			"address":	2574,
+			"address":	2792,
 			"name":	"NULL",
 			"return-type":	[0, -1, 0, null],
 			"crc":	0,
@@ -55,7 +55,7 @@
 			"variables":	[]
 		}, {
 			"index":	4,
-			"address":	450,
+			"address":	492,
 			"name":	"NewEnum::Parse",
 			"return-type":	[86, -1, 1, [92, 0, 0, null]],
 			"crc":	0,
@@ -68,7 +68,7 @@
 			"variables":	[]
 		}, {
 			"index":	5,
-			"address":	640,
+			"address":	732,
 			"name":	"NewEnum::Parse",
 			"return-type":	[86, -1, 1, [92, 0, 0, null]],
 			"crc":	0,
@@ -81,7 +81,7 @@
 			"variables":	[]
 		}, {
 			"index":	6,
-			"address":	824,
+			"address":	964,
 			"name":	"NewEnum::GetList",
 			"return-type":	[79, -1, 1, [92, 0, 0, null]],
 			"crc":	0,
@@ -94,7 +94,7 @@
 				}]
 		}, {
 			"index":	7,
-			"address":	1034,
+			"address":	1208,
 			"name":	"NewEnum::IsExist",
 			"return-type":	[47, -1, 0, null],
 			"crc":	0,
@@ -107,7 +107,7 @@
 			"variables":	[]
 		}, {
 			"index":	8,
-			"address":	1196,
+			"address":	1414,
 			"name":	"NewEnum::Numof",
 			"return-type":	[10, -1, 0, null],
 			"crc":	0,
@@ -115,7 +115,7 @@
 			"variables":	[]
 		}, {
 			"index":	9,
-			"address":	1224,
+			"address":	1442,
 			"name":	"ImplicitEnum::ToString",
 			"return-type":	[12, -1, 0, null],
 			"crc":	0,
@@ -128,7 +128,7 @@
 			"variables":	[]
 		}, {
 			"index":	10,
-			"address":	1462,
+			"address":	1680,
 			"name":	"ImplicitEnum::Parse",
 			"return-type":	[86, -1, 1, [92, 1, 0, null]],
 			"crc":	0,
@@ -141,7 +141,7 @@
 			"variables":	[]
 		}, {
 			"index":	11,
-			"address":	1752,
+			"address":	1970,
 			"name":	"ImplicitEnum::Parse",
 			"return-type":	[86, -1, 1, [92, 1, 0, null]],
 			"crc":	0,
@@ -154,7 +154,7 @@
 			"variables":	[]
 		}, {
 			"index":	12,
-			"address":	2032,
+			"address":	2250,
 			"name":	"ImplicitEnum::GetList",
 			"return-type":	[79, -1, 1, [92, 1, 0, null]],
 			"crc":	0,
@@ -167,7 +167,7 @@
 				}]
 		}, {
 			"index":	13,
-			"address":	2310,
+			"address":	2528,
 			"name":	"ImplicitEnum::IsExist",
 			"return-type":	[47, -1, 0, null],
 			"crc":	0,
@@ -180,7 +180,7 @@
 			"variables":	[]
 		}, {
 			"index":	14,
-			"address":	2580,
+			"address":	2798,
 			"name":	"ImplicitEnum::Numof",
 			"return-type":	[10, -1, 0, null],
 			"crc":	0,
@@ -188,7 +188,7 @@
 			"variables":	[]
 		}, {
 			"index":	15,
-			"address":	2560,
+			"address":	2778,
 			"name":	"0",
 			"return-type":	[0, -1, 0, null],
 			"crc":	0,
@@ -290,7 +290,7 @@
 	"ojmp":	0,
 	"enums":	[{
 			"name":	"NewEnum",
-			"values":	[["None", -1], ["ValA", 0], ["ValB", 1]]
+			"values":	[["None", -1], ["ValA", 0], ["ValB", 1], ["ValC", 2]]
 		}, {
 			"name":	"ImplicitEnum",
 			"values":	[["Zero", 0], ["One", 1], ["Two", 2], ["Ten", 10], ["Eleven", 11]]

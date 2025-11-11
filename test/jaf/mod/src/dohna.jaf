@@ -63,7 +63,11 @@ enum NewEnum {
 };
 
 extend enum SkillType {
-	NewVal = 3,
+	NewVal,
+};
+
+extend enum SkillType {
+	AnotherNewVal,
 };
 
 void test_enum(void)
@@ -108,25 +112,30 @@ void test_enum(void)
 	assert(SkillType::Parse#1(1).Value(SkillType::Attack) == SkillType::Buffer);
 	assert(SkillType::Parse#1(2).Value(SkillType::Attack) == SkillType::Debuf);
 	assert(SkillType::Parse#1(3).Value(SkillType::Attack) == SkillType::NewVal);
+	assert(SkillType::Parse#1(4).Value(SkillType::Attack) == SkillType::AnotherNewVal);
 	assert(SkillType::Parse("Attack").Value(SkillType::Buffer) == SkillType::Attack);
 	assert(SkillType::Parse("Buffer").Value(SkillType::Attack) == SkillType::Buffer);
 	assert(SkillType::Parse("Debuf").Value(SkillType::Attack) == SkillType::Debuf);
 	assert(SkillType::Parse("NewVal").Value(SkillType::Attack) == SkillType::NewVal);
+	assert(SkillType::Parse("AnotherNewVal").Value(SkillType::Attack) == SkillType::AnotherNewVal);
 	assert((string)SkillType::Attack == "Attack");
 	assert((string)SkillType::Buffer == "Buffer");
 	assert((string)SkillType::Debuf == "Debuf");
 	assert((string)SkillType::NewVal == "NewVal");
+	assert((string)SkillType::AnotherNewVal == "AnotherNewVal");
 	assert((int)SkillType::Attack == 0);
 	assert((int)SkillType::Buffer == 1);
 	assert((int)SkillType::Debuf == 2);
 	assert((int)SkillType::NewVal == 3);
+	assert((int)SkillType::AnotherNewVal == 4);
 	array<SkillType> a2 = SkillType::GetList();
-	assert(a2.Numof() == 4);
+	assert(a2.Numof() == 5);
 	assert(a2[0] == SkillType::Attack);
 	assert(a2[1] == SkillType::Buffer);
 	assert(a2[2] == SkillType::Debuf);
 	assert(a2[3] == SkillType::NewVal);
-	assert(SkillType::Numof() == 4);
+	assert(a2[4] == SkillType::AnotherNewVal);
+	assert(SkillType::Numof() == 5);
 }
 
 override int main(void)
