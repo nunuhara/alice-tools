@@ -60,7 +60,7 @@ struct stat;
 char *escape_string(const char *str);
 char *escape_string_noconv(const char *str);
 FILE *checked_fopen(const char *filename, const char *mode);
-void checked_fwrite(void *ptr, size_t size, FILE *stream);
+void checked_fwrite(const void *ptr, size_t size, FILE *stream);
 void checked_fread(void *ptr, size_t size, FILE *stream);
 UDIR *checked_opendir(const char *path);
 void checked_stat(const char *path, ustat *s);

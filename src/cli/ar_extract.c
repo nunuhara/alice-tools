@@ -49,12 +49,83 @@ enum {
 	LOPT_IMAGE_FORMAT,
 	LOPT_IMAGES_ONLY,
 	LOPT_RAW,
+	LOPT_MANIFEST,
 };
+
+static bool raw = false;
+
+static struct conv_format {
+	const char *src;
+	const char *dst;
+	bool rev_conv_supported;
+	bool warned;
+} conv_formats[] = {
+	{ "qnt",    "png", true },
+	{ "ajp",    "png", false },
+	{ "pms",    "png", false },
+	{ "webp",   "png", false },
+	{ "dcf",    "png", false },
+	{ "pcf",    "png", false },
+	{ "rou",    "png", false },
+	{ "ex",     "x",   true },
+	{ "pactex", "x",   true },
+	{ "flat",   "x",   false },
+};
+
+static int is_conv_format(const char *ext)
+{
+	for (int i = 0; i < sizeof(conv_formats)/sizeof(*conv_formats); i++) {
+		if (!strcasecmp(ext, conv_formats[i].src))
+			return i;
+	}
+	return -1;
+}
+
+static struct string *append_extension(const char *name, const char *ext)
+{
+	struct string *s = make_string(name, strlen(name));
+	string_append_cstr(&s, ".", 1);
+	string_append_cstr(&s, ext, strlen(ext));
+	return s;
+}
+
+static void write_manifest_iter(struct archive_data *data, void *_f)
+{
+	FILE *f = _f;
+	char *name = conv_output(data->name);
+	size_t len;
+	for (len = 0; name[len]; len++) {
+		if (name[len] == '\\')
+			name[len] = '/';
+	}
+
+	int i;
+	const char *ext = file_extension(name);
+	if (!raw && (i = is_conv_format(ext)) >= 0) {
+		struct conv_format *fmt = &conv_formats[i];
+		struct string *conv_name = append_extension(name, fmt->dst);
+		checked_fwrite(conv_name->text, conv_name->size, f);
+		checked_fwrite(",", 1, f);
+		checked_fwrite(ext, strlen(ext), f);
+		// warn if the reverse conversion is not supported
+		if (!fmt->rev_conv_supported && !fmt->warned) {
+			WARNING("Conversion to .%s is not yet implemented", fmt->src);
+			fmt->warned = true;
+		}
+		free_string(conv_name);
+	} else {
+		checked_fwrite(name, len, f);
+
+	}
+	checked_fwrite("\n", 1, f);
+	free(name);
+}
 
 int command_ar_extract(int argc, char *argv[])
 {
 	char *output_file = NULL;
 	char *file_name = NULL;
+	char *manifest = NULL;
 	int file_index = -1;
 
 	uint32_t flags = 0;
@@ -94,7 +165,11 @@ int command_ar_extract(int argc, char *argv[])
 			flags |= AR_IMAGES_ONLY;
 			break;
 		case LOPT_RAW:
+			raw = true;
 			flags |= AR_RAW;
+			break;
+		case LOPT_MANIFEST:
+			manifest = optarg;
 			break;
 		}
 	}
@@ -125,6 +200,15 @@ int command_ar_extract(int argc, char *argv[])
 		ar_extract_all(ar, output_file, flags);
 	}
 
+	if (manifest) {
+		FILE *f = checked_fopen(manifest, "wb");
+		checked_fwrite("#ALICEPACK\n", 11, f);
+		checked_fwrite(argv[0], strlen(argv[0]), f);
+		checked_fwrite("\n", 1, f);
+		archive_for_each(ar, write_manifest_iter, f);
+		fclose(f);
+	}
+
 	archive_free(ar);
 	return 0;
 }
@@ -143,6 +227,7 @@ struct command cmd_ar_extract = {
 		{ "image-format", 0,   "Image output format (png or webp)", required_argument, LOPT_IMAGE_FORMAT },
 		{ "images-only",  0,   "Only extract images",               no_argument,       LOPT_IMAGES_ONLY },
 		{ "raw",          0,   "Don't convert image files",         no_argument,       LOPT_RAW },
+		{ "manifest",     0,   "Write ALICEPACK manifest",          required_argument, LOPT_MANIFEST },
 		{ 0 }
 	}
 };

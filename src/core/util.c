@@ -102,7 +102,7 @@ FILE *checked_fopen(const char *filename, const char *mode)
 	return f;
 }
 
-void checked_fwrite(void *ptr, size_t size, FILE *stream)
+void checked_fwrite(const void *ptr, size_t size, FILE *stream)
 {
 	if (fwrite(ptr, size, 1, stream) != 1)
 		ALICE_ERROR("fwrite: %s", strerror(errno));
