@@ -69,6 +69,8 @@ enum ar_filetype {
 // ...
 struct alicepack_line {
 	struct string *filename;
+	enum ar_filetype src_fmt;
+	enum ar_filetype dst_fmt;
 };
 
 // Custom manifest format (batch conversion)
@@ -143,7 +145,7 @@ struct ar_file_spec {
 	struct string *name;
 };
 
-enum ar_filetype ar_parse_filetype(struct string *str);
+enum ar_filetype ar_parse_filetype(const char *str);
 void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_files, int version);
 
 // extract.c

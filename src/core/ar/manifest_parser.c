@@ -19,6 +19,7 @@
 #include <errno.h>
 #include "system4.h"
 #include "system4/cg.h"
+#include "system4/file.h"
 #include "system4/string.h"
 #include "alice.h"
 #include "alice/ar.h"
@@ -36,25 +37,25 @@ static enum cg_type ar_parse_image_format(struct string *str)
 	return ALCG_UNKNOWN;
 }
 
-enum ar_filetype ar_parse_filetype(struct string *str)
+enum ar_filetype ar_parse_filetype(const char *str)
 {
-	if (!strcasecmp(str->text, "PNG"))
+	if (!strcasecmp(str, "PNG"))
 		return AR_FT_PNG;
-	if (!strcasecmp(str->text, "PMS"))
+	if (!strcasecmp(str, "PMS"))
 		return AR_FT_PMS;
-	if (!strcasecmp(str->text, "QNT"))
+	if (!strcasecmp(str, "QNT"))
 		return AR_FT_QNT;
-	if (!strcasecmp(str->text, "WEBP"))
+	if (!strcasecmp(str, "WEBP"))
 		return AR_FT_WEBP;
-	if (!strcasecmp(str->text, "X"))
+	if (!strcasecmp(str, "X"))
 		return AR_FT_X;
-	if (!strcasecmp(str->text, "TXTEX"))
+	if (!strcasecmp(str, "TXTEX"))
 		return AR_FT_TXTEX;
-	if (!strcasecmp(str->text, "EX"))
+	if (!strcasecmp(str, "EX"))
 		return AR_FT_EX;
-	if (!strcasecmp(str->text, "PACTEX"))
+	if (!strcasecmp(str, "PACTEX"))
 		return AR_FT_PACTEX;
-	if (!strcasecmp(str->text, "FLAT"))
+	if (!strcasecmp(str, "FLAT"))
 		return AR_FT_FLAT;
 	return AR_FT_UNKNOWN;
 }
@@ -74,14 +75,30 @@ static enum ar_manifest_type ar_parse_manifest_type(struct string *str)
 	return AR_MF_INVALID;
 }
 
+static enum ar_filetype get_filetype_from_name(const char *name)
+{
+	return ar_parse_filetype(file_extension(name));
+}
+
 static void make_alicepack_manifest(struct ar_manifest *dst, ar_row_list *rows)
 {
 	dst->type = AR_MF_ALICEPACK;
 	dst->alicepack = xcalloc(dst->nr_rows, sizeof(struct alicepack_line));
 	for (size_t i = 0; i < dst->nr_rows; i++) {
 		ar_string_list *row = kv_A(*rows, i);
-		if (kv_size(*row) != 1)
+		if (kv_size(*row) == 2) {
+			dst->alicepack[i].src_fmt = get_filetype_from_name(kv_A(*row, 0)->text);
+			if (dst->alicepack[i].src_fmt == AR_FT_UNKNOWN)
+				ALICE_ERROR("Unrecognized src file format for conversion: %s",
+						kv_A(*row, 0)->text);
+			dst->alicepack[i].dst_fmt = ar_parse_filetype(kv_A(*row, 1)->text);
+			if (dst->alicepack[i].dst_fmt == AR_FT_UNKNOWN)
+				ALICE_ERROR("Unrecognized dst file format for conversion: %s",
+						kv_A(*row, 1)->text);
+			free_string(kv_A(*row, 1));
+		} else if (kv_size(*row) != 1) {
 			ALICE_ERROR("line %d: Too many columns", (int)i+2);
+		}
 		dst->alicepack[i].filename = kv_A(*row, 0);
 		kv_destroy(*row);
 		free(row);
@@ -98,9 +115,9 @@ static void make_batchpack_manifest(struct ar_manifest *dst, ar_row_list *rows)
 			ALICE_ERROR("line %d: wrong number of columns", (int)i+2);
 		}
 		dst->batchpack[i].src = kv_A(*row, 0);
-		dst->batchpack[i].src_fmt = ar_parse_filetype(kv_A(*row, 1));
+		dst->batchpack[i].src_fmt = ar_parse_filetype(kv_A(*row, 1)->text);
 		dst->batchpack[i].dst = kv_A(*row, 2);
-		dst->batchpack[i].dst_fmt = ar_parse_filetype(kv_A(*row, 3));
+		dst->batchpack[i].dst_fmt = ar_parse_filetype(kv_A(*row, 3)->text);
 
 		free_string(kv_A(*row, 1));
 		free_string(kv_A(*row, 3));

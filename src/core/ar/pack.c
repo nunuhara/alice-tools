@@ -67,6 +67,39 @@ static enum cg_type ar_filetype_to_cg_type(enum ar_filetype type)
 	}
 }
 
+static uint8_t *convert_file_mem(struct string *src, enum ar_filetype src_fmt,
+		enum ar_filetype dst_fmt, size_t *size_out)
+{
+	switch (src_fmt) {
+	case AR_FT_PNG:
+	case AR_FT_QNT: {
+		struct cg *cg = cg_load_file(src->text);
+		if (!cg)
+			ALICE_ERROR("Failed to load CG: %s", src->text);
+		uint8_t *data = cg_write_mem(cg, ar_filetype_to_cg_type(dst_fmt), size_out);
+		if (!data)
+			ALICE_ERROR("Failed to encode CG: %s", src->text);
+		cg_free(cg);
+		return data;
+	}
+	case AR_FT_X:
+	case AR_FT_TXTEX: {
+		if (dst_fmt != AR_FT_EX && dst_fmt != AR_FT_PACTEX)
+			ALICE_ERROR("Invalid output format for .txtex files");
+		struct ex *ex = ex_parse_file(src->text);
+		if (!ex)
+			ALICE_ERROR("Failed to parse .txtex file: %s", src->text);
+		uint8_t *data = ex_write_mem(ex, size_out);
+		if (!data)
+			ALICE_ERROR("Failed to encode .txtex file: %s", src->text);
+		ex_free(ex);
+		return data;
+	}
+	default:
+		ALICE_ERROR("Filetype not supported as source format");
+	}
+}
+
 static struct ar_file_spec **alicepack_to_file_list(struct ar_manifest *mf, size_t *size_out)
 {
 	struct ar_file_spec **files = xcalloc(mf->nr_rows, sizeof(struct ar_file_spec*));
@@ -74,15 +107,26 @@ static struct ar_file_spec **alicepack_to_file_list(struct ar_manifest *mf, size
 
 	for (size_t i = 0; i < mf->nr_rows; i++) {
 		files[i] = xmalloc(sizeof(struct ar_file_spec));
-		files[i]->type = AR_FILE_SPEC_DISK;
-		files[i]->disk.path = string_ref(mf->alicepack[i].filename);
-		files[i]->name = string_dup(mf->alicepack[i].filename);
+		if (mf->alicepack[i].dst_fmt != AR_FT_UNKNOWN) {
+			files[i]->type = AR_FILE_SPEC_MEM;
+			files[i]->mem.data = convert_file_mem(mf->alicepack[i].filename,
+					mf->alicepack[i].src_fmt,
+					mf->alicepack[i].dst_fmt,
+					&files[i]->mem.size);
+			files[i]->name = replace_extension(mf->alicepack[i].filename->text,
+					ar_ft_extensions[mf->alicepack[i].dst_fmt]);
+		} else {
+			files[i]->type = AR_FILE_SPEC_DISK;
+			files[i]->disk.path = string_ref(mf->alicepack[i].filename);
+			files[i]->name = string_dup(mf->alicepack[i].filename);
+		}
 	}
 
 	return files;
 }
 
-static void convert_file(struct string *src, enum ar_filetype src_fmt, struct string *dst, enum ar_filetype dst_fmt)
+static void convert_file(struct string *src, enum ar_filetype src_fmt, struct string *dst,
+		enum ar_filetype dst_fmt)
 {
 	// ensure directory exists for dst
 	mkdir_for_file(dst->text);
@@ -508,6 +552,7 @@ void ar_pack(const char *manifest, int afa_version)
 
 	ar_pack_manifest(mf, afa_version);
 	free_manifest(mf);
-	chdir(old_cwd);
+	if (chdir(old_cwd))
+		ERROR("chdir(%s): %s", old_cwd, strerror(errno));
 	free(old_cwd);
 }

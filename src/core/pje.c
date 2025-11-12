@@ -345,9 +345,9 @@ static void pje_read_archive(struct batchpack_list *dst, struct string_list *src
 {
 	for (unsigned i = 0; i < src->n; i += 4) {
 		struct string *src_dir = string_path_join(dir, src->items[i]->text);
-		enum ar_filetype src_fmt = ar_parse_filetype(src->items[i+1]);
+		enum ar_filetype src_fmt = ar_parse_filetype(src->items[i+1]->text);
 		struct string *dst_dir = string_path_join(dir, src->items[i+2]->text);
-		enum ar_filetype dst_fmt = ar_parse_filetype(src->items[i+3]);
+		enum ar_filetype dst_fmt = ar_parse_filetype(src->items[i+3]->text);
 		batchpack_list_append(dst, src_dir, src_fmt, dst_dir, dst_fmt);
 	}
 }

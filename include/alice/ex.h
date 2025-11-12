@@ -26,6 +26,7 @@ struct ex_table;
 struct ex_list;
 struct ex_tree;
 struct port;
+struct string;
 
 struct ex *ex_parse_file(const char *path);
 void ex_write(FILE *out, struct ex *ex);
