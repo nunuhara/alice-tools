@@ -22,10 +22,12 @@
 #include "system4/archive.h"
 #include "system4/ex.h"
 #include "system4/flat.h"
+#include "system4/string.h"
 #include "system4/utfsjis.h"
 #include "alice.h"
 #include "alice/ar.h"
 #include "alice/ex.h"
+#include "alice/flat.h"
 #include "alice/port.h"
 
 enum filetype {
@@ -186,26 +188,29 @@ struct extract_all_iter_data {
 static void extract_flat(struct archive_data *data, char *output_dir, uint32_t flags)
 {
 	int error;
-	struct archive *ar = (struct archive*)flat_open(data->data, data->size, &error);
-	if (!ar) {
+	struct flat_archive *flat = flat_open(data->data, data->size, &error);
+	if (!flat) {
 		WARNING("Error opening FLAT archive: %s", archive_strerror(error));
 		return;
 	}
 
-	// generate filename prefix
-	char *uname = conv_output(data->name);
-	size_t dir_len = strlen(output_dir);
-	size_t name_len = strlen(uname);
-	char *prefix = xmalloc(dir_len + name_len + 2);
-	strcpy(prefix, output_dir);
-	strcpy(prefix+dir_len, uname);
-	strcpy(prefix+dir_len+name_len, ".");
+	struct string *outfile = make_string(output_dir, strlen(output_dir));
+	struct string *uname = string_conv_output(data->name, strlen(data->name));
+	string_append(&outfile, uname);
 
-	struct extract_all_iter_data iter_data = { .prefix = prefix, .flags = flags };
-	archive_for_each(ar, extract_all_iter, &iter_data);
-	archive_free(ar);
-	free(prefix);
-	free(uname);
+	if (flags & AR_IMAGES_ONLY) {
+		string_push_back(&outfile, '.');
+		struct extract_all_iter_data iter_data = { .prefix = outfile->text, .flags = flags };
+		archive_for_each(&flat->ar, extract_all_iter, &iter_data);
+	} else {
+		mkdir_for_file(outfile->text);
+		string_append_cstr(&outfile, ".x", 2);
+		flat_extract(flat, outfile->text);
+	}
+
+	archive_free(&flat->ar);
+	free_string(outfile);
+	free_string(uname);
 }
 
 static void extract_all_iter(struct archive_data *data, void *_iter_data)
