@@ -84,16 +84,27 @@ static uint8_t *convert_file_mem(struct string *src, enum ar_filetype src_fmt,
 	}
 	case AR_FT_X:
 	case AR_FT_TXTEX: {
-		if (dst_fmt != AR_FT_EX && dst_fmt != AR_FT_PACTEX)
+		if (dst_fmt == AR_FT_FLAT) {
+			struct flat_archive *flat = flat_build(src->text, NULL);
+			if (!flat)
+				ALICE_ERROR("Error packing .flat file: %s", src->text);
+			uint8_t *data = xmalloc(flat->data_size);
+			memcpy(data, flat->data, flat->data_size);
+			*size_out = flat->data_size;
+			archive_free(&flat->ar);
+			return data;
+		} else if (dst_fmt == AR_FT_EX || dst_fmt == AR_FT_PACTEX) {
+			struct ex *ex = ex_parse_file(src->text);
+			if (!ex)
+				ALICE_ERROR("Failed to parse .txtex file: %s", src->text);
+			uint8_t *data = ex_write_mem(ex, size_out);
+			if (!data)
+				ALICE_ERROR("Failed to encode .txtex file: %s", src->text);
+			ex_free(ex);
+			return data;
+		} else {
 			ALICE_ERROR("Invalid output format for .txtex files");
-		struct ex *ex = ex_parse_file(src->text);
-		if (!ex)
-			ALICE_ERROR("Failed to parse .txtex file: %s", src->text);
-		uint8_t *data = ex_write_mem(ex, size_out);
-		if (!data)
-			ALICE_ERROR("Failed to encode .txtex file: %s", src->text);
-		ex_free(ex);
-		return data;
+		}
 	}
 	default:
 		ALICE_ERROR("Filetype not supported as source format");
@@ -147,13 +158,15 @@ static void convert_file(struct string *src, enum ar_filetype src_fmt, struct st
 	}
 	case AR_FT_X:
 	case AR_FT_TXTEX: {
-		if (dst_fmt != AR_FT_EX && dst_fmt != AR_FT_PACTEX)
+		if (dst_fmt == AR_FT_EX || dst_fmt == AR_FT_PACTEX) {
+			struct ex *ex = ex_parse_file(src->text);
+			if (!ex)
+				ALICE_ERROR("Failed to parse .txtex file: %s", src->text);
+			ex_write_file(dst->text, ex);
+			ex_free(ex);
+		} else {
 			ALICE_ERROR("Invalid output format for .txtex files");
-		struct ex *ex = ex_parse_file(src->text);
-		if (!ex)
-			ALICE_ERROR("Failed to parse .txtex file: %s", src->text);
-		ex_write_file(dst->text, ex);
-		ex_free(ex);
+		}
 		break;
 	}
 	default:

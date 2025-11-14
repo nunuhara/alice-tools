@@ -69,7 +69,7 @@ static struct conv_format {
 	{ "rou",    "png", false },
 	{ "ex",     "x",   true },
 	{ "pactex", "x",   true },
-	{ "flat",   "x",   false },
+	{ "flat",   "x",   true },
 };
 
 static int is_conv_format(const char *ext)
