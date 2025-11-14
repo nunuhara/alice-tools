@@ -24,6 +24,7 @@ jobs:
             flex
             bison
             diffutils
+            zip
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-meson
             mingw-w64-x86_64-libpng
@@ -79,10 +80,38 @@ jobs:
         run: |
           cp build/src/alice.exe LICENSE *.md dist/
           cp -r /mingw64/share/licenses dist/
+          mv dist alice-tools
+          zip -r -9 alice-tools-windows-x86_64-nightly.zip alice-tools
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with: 
           name: alice-tools
-          path: dist
-          compression-level: 9
+          path: alice-tools-windows-x86_64-nightly.zip
+
+  nightly:
+    name: Update nightly release
+    needs: build
+    if: ${{ github.repository == 'nunuhara/alice-tools' && github.ref == 'refs/heads/master' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: alice-tools
+
+      - name: Update nightly tag
+        uses: richardsimko/update-tag@v1
+        with:
+          tag_name: nightly
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release nightly
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          name: nightly
+          tag_name: nightly
+          files: alice-tools-windows-x86_64-nightly.zip
+          fail_on_unmatched_files: true
