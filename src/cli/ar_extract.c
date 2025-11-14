@@ -206,7 +206,13 @@ int command_ar_extract(int argc, char *argv[])
 
 	if (manifest) {
 		FILE *f = checked_fopen(manifest, "wb");
-		checked_fwrite("#ALICEPACK\n", 11, f);
+		if (output_file) {
+			checked_fwrite("#ALICEPACK --src-dir=", 21, f);
+			checked_fwrite(output_file, strlen(output_file), f);
+			checked_fwrite("\n", 1, f);
+		} else {
+			checked_fwrite("#ALICEPACK\n", 11, f);
+		}
 		checked_fwrite(argv[0], strlen(argv[0]), f);
 		checked_fwrite("\n", 1, f);
 		archive_for_each(ar, write_manifest_iter, f);

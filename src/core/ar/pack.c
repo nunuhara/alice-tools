@@ -38,16 +38,25 @@ void ar_set_path_separator(char c)
 	path_separator = c;
 }
 
-const char * const ar_ft_extensions[] = {
+static const char * const ar_ft_extensions[] = {
 	[AR_FT_UNKNOWN] = "dat",
 	[AR_FT_PNG] = "png",
+	[AR_FT_PMS] = "pms",
 	[AR_FT_QNT] = "qnt",
+	[AR_FT_WEBP] = "webp",
 	[AR_FT_X] = "x",
 	[AR_FT_TXTEX] = "txtex",
 	[AR_FT_EX] = "ex",
 	[AR_FT_PACTEX] = "pactex",
 	[AR_FT_FLAT] = "flat",
 };
+
+const char *ar_ft_extension(enum ar_filetype ft)
+{
+	if (ft >= 0 && ft < sizeof(ar_ft_extensions)/sizeof(*ar_ft_extensions))
+		return ar_ft_extensions[ft];
+	return "dat";
+}
 
 static enum ar_filetype cg_type_to_ar_filetype(enum cg_type type)
 {
@@ -120,16 +129,15 @@ static struct ar_file_spec **alicepack_to_file_list(struct ar_manifest *mf, size
 		files[i] = xmalloc(sizeof(struct ar_file_spec));
 		if (mf->alicepack[i].dst_fmt != AR_FT_UNKNOWN) {
 			files[i]->type = AR_FILE_SPEC_MEM;
-			files[i]->mem.data = convert_file_mem(mf->alicepack[i].filename,
+			files[i]->mem.data = convert_file_mem(mf->alicepack[i].src,
 					mf->alicepack[i].src_fmt,
 					mf->alicepack[i].dst_fmt,
 					&files[i]->mem.size);
-			files[i]->name = replace_extension(mf->alicepack[i].filename->text,
-					ar_ft_extensions[mf->alicepack[i].dst_fmt]);
+			files[i]->name = string_ref(mf->alicepack[i].dst);
 		} else {
 			files[i]->type = AR_FILE_SPEC_DISK;
-			files[i]->disk.path = string_ref(mf->alicepack[i].filename);
-			files[i]->name = string_dup(mf->alicepack[i].filename);
+			files[i]->disk.path = string_ref(mf->alicepack[i].src);
+			files[i]->name = string_ref(mf->alicepack[i].dst);
 		}
 	}
 
@@ -187,7 +195,7 @@ static void convert_flat(struct string *src, enum ar_filetype src_fmt,
 	// XXX: we only show the "wrong file extension" message for
 	//      unexpected extensions (to reduce console spam)
 	const char *ext = file_extension(name);
-	if (strcasecmp(ext, ar_ft_extensions[src_fmt])) {
+	if (strcasecmp(ext, ar_ft_extension(src_fmt))) {
 		if (!strcasecmp(ext, "z"))
 			return;
 		if (!strcasecmp(ext, "head"))
@@ -248,7 +256,7 @@ static void convert_dir(struct string *src_dir, enum ar_filetype src_fmt,
 		ustat src_s;
 		struct string *src_path = string_path_join(src_dir, d_name);
 		struct string *dst_base = string_path_join(dst_dir, d_name);
-		struct string *dst_path = replace_extension(dst_base->text, ar_ft_extensions[dst_fmt]);
+		struct string *dst_path = replace_extension(dst_base->text, ar_ft_extension(dst_fmt));
 		checked_stat(src_path->text, &src_s);
 
 		if (S_ISDIR(src_s.st_mode)) {
@@ -265,7 +273,7 @@ static void convert_dir(struct string *src_dir, enum ar_filetype src_fmt,
 			goto loop_next;
 		}
 
-		if (strcasecmp(file_extension(d_name), ar_ft_extensions[src_fmt])) {
+		if (strcasecmp(file_extension(d_name), ar_ft_extension(src_fmt))) {
 			NOTICE("Skipping \"%s\": wrong file extension", src_path->text);
 			goto loop_next;
 		}
@@ -330,7 +338,7 @@ static void dir_to_file_list(struct string *dst, struct string *base_name, ar_fi
 			free_string(name);
 			goto loop_next;
 		}
-		if (fmt && strcasecmp(file_extension(d_name), ar_ft_extensions[fmt])) {
+		if (fmt && strcasecmp(file_extension(d_name), ar_ft_extension(fmt))) {
 			NOTICE("Skipping \"%s\": wrong file extension", path->text);
 			free_string(path);
 			free_string(name);
@@ -486,7 +494,8 @@ static void free_manifest(struct ar_manifest *mf)
 	switch (mf->type) {
 	case AR_MF_ALICEPACK:
 		for (size_t i = 0; i < mf->nr_rows; i++) {
-			free_string(mf->alicepack[i].filename);
+			free_string(mf->alicepack[i].src);
+			free_string(mf->alicepack[i].dst);
 		}
 		free(mf->alicepack);
 		break;
@@ -510,6 +519,8 @@ static void free_manifest(struct ar_manifest *mf)
 	default:
 		ALICE_ERROR("Invalid manifest type");
 	}
+	if (mf->src_dir)
+		free_string(mf->src_dir);
 	free_string(mf->output_path);
 	free(mf);
 }

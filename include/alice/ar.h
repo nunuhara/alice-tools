@@ -69,7 +69,8 @@ enum ar_filetype {
 // filename[, dst_fmt[, fmt_opts...]] ; allows optional transcode
 // ...
 struct alicepack_line {
-	struct string *filename;
+	struct string *src;
+	struct string *dst;
 	enum ar_filetype src_fmt;
 	enum ar_filetype dst_fmt;
 };
@@ -114,6 +115,7 @@ struct ar_manifest {
 	enum ar_manifest_type type;
 	int afa_version;
 	bool backslash;
+	struct string *src_dir; // ALICEPACK only
 	struct string *output_path;
 	size_t nr_rows;
 	union {
@@ -147,6 +149,7 @@ struct ar_file_spec {
 };
 
 enum ar_filetype ar_parse_filetype(const char *str);
+const char *ar_ft_extension(enum ar_filetype ft);
 void write_afa(struct string *filename, struct ar_file_spec **files, size_t nr_files, int version);
 
 // extract.c

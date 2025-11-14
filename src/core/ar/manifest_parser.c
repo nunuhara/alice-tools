@@ -82,24 +82,35 @@ static enum ar_filetype get_filetype_from_name(const char *name)
 
 static void make_alicepack_manifest(struct ar_manifest *dst, ar_row_list *rows)
 {
-	dst->type = AR_MF_ALICEPACK;
 	dst->alicepack = xcalloc(dst->nr_rows, sizeof(struct alicepack_line));
 	for (size_t i = 0; i < dst->nr_rows; i++) {
 		ar_string_list *row = kv_A(*rows, i);
+		struct alicepack_line *line = &dst->alicepack[i];
 		if (kv_size(*row) == 2) {
-			dst->alicepack[i].src_fmt = get_filetype_from_name(kv_A(*row, 0)->text);
-			if (dst->alicepack[i].src_fmt == AR_FT_UNKNOWN)
+			line->src_fmt = get_filetype_from_name(kv_A(*row, 0)->text);
+			if (line->src_fmt == AR_FT_UNKNOWN)
 				ALICE_ERROR("Unrecognized src file format for conversion: %s",
 						kv_A(*row, 0)->text);
-			dst->alicepack[i].dst_fmt = ar_parse_filetype(kv_A(*row, 1)->text);
-			if (dst->alicepack[i].dst_fmt == AR_FT_UNKNOWN)
+			line->dst_fmt = ar_parse_filetype(kv_A(*row, 1)->text);
+			if (line->dst_fmt == AR_FT_UNKNOWN)
 				ALICE_ERROR("Unrecognized dst file format for conversion: %s",
 						kv_A(*row, 1)->text);
 			free_string(kv_A(*row, 1));
 		} else if (kv_size(*row) != 1) {
 			ALICE_ERROR("line %d: Too many columns", (int)i+2);
 		}
-		dst->alicepack[i].filename = kv_A(*row, 0);
+		if (dst->src_dir) {
+			line->src = path_join_string(dst->src_dir, kv_A(*row, 0));
+			line->dst = kv_A(*row, 0);
+		} else {
+			line->src = kv_A(*row, 0);
+			line->dst = string_ref(dst->alicepack[i].src);
+		}
+		if (line->dst_fmt != AR_FT_UNKNOWN) {
+			struct string *tmp = line->dst;
+			line->dst = replace_extension(tmp->text, ar_ft_extension(line->dst_fmt));
+			free_string(tmp);
+		}
 		kv_destroy(*row);
 		free(row);
 	}
@@ -107,7 +118,6 @@ static void make_alicepack_manifest(struct ar_manifest *dst, ar_row_list *rows)
 
 static void make_batchpack_manifest(struct ar_manifest *dst, ar_row_list *rows)
 {
-	dst->type = AR_MF_BATCHPACK;
 	dst->batchpack = xcalloc(dst->nr_rows, sizeof(struct batchpack_line));
 	for (size_t i = 0; i < dst->nr_rows; i++) {
 		ar_string_list *row = kv_A(*rows, i);
@@ -128,7 +138,6 @@ static void make_batchpack_manifest(struct ar_manifest *dst, ar_row_list *rows)
 
 static void make_alicecg2_manifest(struct ar_manifest *dst, ar_row_list *rows)
 {
-	dst->type = AR_MF_ALICECG2;
 	dst->alicecg2 = xcalloc(dst->nr_rows, sizeof(struct alicecg2_line));
 	for (size_t i = 0; i < dst->nr_rows; i++) {
 		ar_string_list *row = kv_A(*rows, i);
@@ -163,6 +172,12 @@ static void parse_manifest_options(struct ar_manifest *mf, ar_string_list *optio
 				WARNING("Ignoring invalid afa version: '%s'", opt->text + 14);
 			else
 				mf->afa_version = version;
+		} else if (!strncmp(opt->text, "--src-dir=", 10)) {
+			if (mf->type != AR_MF_ALICEPACK) {
+				WARNING("Ignoring --src-dir option (only valid for ALICEPACK archives)");
+			} else {
+				mf->src_dir = make_string(opt->text+10, strlen(opt->text)-10);
+			}
 		} else {
 			WARNING("Unrecognized manifest option: '%s'", opt->text);
 		}
@@ -177,11 +192,12 @@ static void parse_manifest_options(struct ar_manifest *mf, ar_string_list *optio
 struct ar_manifest *ar_make_manifest(struct string *magic, ar_string_list *options, struct string *output_path, ar_row_list *rows)
 {
 	struct ar_manifest *mf = xcalloc(1, sizeof(struct ar_manifest));
-	parse_manifest_options(mf, options);
+	mf->type = ar_parse_manifest_type(magic);
 	mf->output_path = output_path;
 	mf->nr_rows = kv_size(*rows);
+	parse_manifest_options(mf, options);
 
-	switch (ar_parse_manifest_type(magic)) {
+	switch (mf->type) {
 	case AR_MF_ALICEPACK:
 		make_alicepack_manifest(mf, rows);
 		break;
