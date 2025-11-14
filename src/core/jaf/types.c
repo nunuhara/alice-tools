@@ -498,12 +498,13 @@ static void check_delegate_compatible(struct jaf_env *env, struct ain_type *t, s
 			TYPE_ERROR(rhs, t->data);
 		break;
 	}
-	case AIN_FUNCTION:
+	case AIN_FUNCTION: {
 		struct ain_function_type f = get_function(env, rhs->valuetype.struc);
 		if (!functype_compatible(dg, &f))
 			TYPE_ERROR(rhs, t->data);
 		cast_to_method(rhs);
 		break;
+	}
 	case AIN_DELEGATE: {
 		if (rhs->valuetype.struc != t->struc)
 			TYPE_ERROR(rhs, t->data);

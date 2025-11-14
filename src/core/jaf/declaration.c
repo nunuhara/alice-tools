@@ -112,6 +112,7 @@ static jaf_var_set var_set_diff(const jaf_var_set *a, const jaf_var_set *b)
 		// p is not in set b
 		kv_push(struct jaf_vardecl*, diff, p);
 skip:
+		;
 	}
 	return diff;
 }
