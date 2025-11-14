@@ -43,6 +43,27 @@ jobs:
         test/ar/run-tests.sh
         test/rtt-ex.sh test/ex/test.ex
 
+  flatpak-build:
+    name: Flatpak
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
+      options: --privileged
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+      with:
+        bundle: alice-tools-cli-linux-x86_64-nightly.flatpak
+        manifest-path: technology.haniwa.alice.yml
+        cache-key: flatpak-builder-alice-${{ github.sha }}
+    - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+      with:
+        bundle: alice-tools-gui-linux-x86_64-nightly.flatpak
+        manifest-path: technology.haniwa.galice.yml
+        cache-key: flatpak-builder-galice-${{ github.sha }}
+
   windows-build:
     runs-on: windows-latest
     name: Windows
@@ -132,14 +153,14 @@ jobs:
 
   nightly:
     name: Update nightly release
-    needs: [linux-build, windows-build]
+    needs: [windows-build, flatpak-build]
     if: ${{ github.repository == 'nunuhara/alice-tools' && github.ref == 'refs/heads/master' }}
     runs-on: ubuntu-latest
     steps:
       - name: Download release artifact
         uses: actions/download-artifact@v5
         with:
-          name: alice-tools
+          merge-multiple: true
 
       - name: Update nightly tag
         uses: richardsimko/update-tag@v1
@@ -154,5 +175,8 @@ jobs:
           prerelease: true
           name: nightly
           tag_name: nightly
-          files: alice-tools-windows-x86_64-nightly.zip
+          files: |
+            alice-tools-windows-x86_64-nightly.zip
+            alice-tools-cli-linux-x86_64-nightly.flatpak
+            alice-tools-gui-linux-x86_64-nightly.flatpak
           fail_on_unmatched_files: true
