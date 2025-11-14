@@ -1,10 +1,51 @@
-name: Windows Build
+name: Build
 
 on: [push, pull_request]
 
 jobs:
-  build:
+  linux-build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        build-type: ["debug", "release"]
+
+    name: Linux ${{ matrix.build-type }}
+    steps:
+    - name: Checkout Source
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install Dependencies
+      run: |
+        sudo apt update
+        sudo apt install \
+          flex \
+          bison \
+          meson \
+          libpng-dev \
+          libturbojpeg0-dev \
+          libwebp-dev \
+          zlib1g-dev \
+          qtbase5-dev
+
+    - name: Build
+      run: |
+        mkdir -p out/${{ matrix.build-type }}
+        meson -Dbuildtype=${{ matrix.build-type }} out/${{ matrix.build-type }}
+        ninja -C out/${{ matrix.build-type }}
+
+    - name: Test
+      run: |
+        export ALICE=$(realpath out/${{ matrix.build-type }}/src/alice)
+        test/jaf/expect/run-tests.sh
+        test/ar/run-tests.sh
+        test/rtt-ex.sh test/ex/test.ex
+
+  windows-build:
     runs-on: windows-latest
+    name: Windows
 
     defaults:
       run:
@@ -91,7 +132,7 @@ jobs:
 
   nightly:
     name: Update nightly release
-    needs: build
+    needs: [linux-build, windows-build]
     if: ${{ github.repository == 'nunuhara/alice-tools' && github.ref == 'refs/heads/master' }}
     runs-on: ubuntu-latest
     steps:
