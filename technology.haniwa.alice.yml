@@ -1,0 +1,14 @@
+id: technology.haniwa.alice
+runtime: org.freedesktop.Platform
+runtime-version: "25.08"
+sdk: org.freedesktop.Sdk
+command: alice
+finish-args:
+  # Filesystem access
+  - --filesystem=host
+modules:
+  - name: alice
+    buildsystem: meson
+    sources:
+      - type: git
+        url: https://github.com/nunuhara/alice-tools.git
