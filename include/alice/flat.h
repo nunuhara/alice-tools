@@ -17,10 +17,12 @@
 #ifndef ALICE_FLAT_H
 #define ALICE_FLAT_H
 
+#include <stdbool.h>
+
 struct flat_archive;
 struct string;
 
 struct flat_archive *flat_build(const char *xpath, struct string **output_path);
-void flat_extract(struct flat_archive *flat, const char *output_file);
+void flat_extract(struct flat_archive *flat, const char *output_file, bool png);
 
 #endif /* ALICE_FLAT_H */

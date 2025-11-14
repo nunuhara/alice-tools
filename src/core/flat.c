@@ -285,24 +285,46 @@ static char *serialize_bytes(const uint8_t *b, size_t size)
 	return out;
 }
 
-static void write_file(const char *path, void *data, size_t size, possibly_unused enum flat_data_type type)
+static void _write_file(const char *path, void *data, size_t size)
 {
-	FILE *f = checked_fopen(path, "wb");
+	if (!file_write(path, data, size))
+		ALICE_ERROR("file_write(\"%s\"): %s", path, strerror(errno));
+}
+
+static void write_file(const char *path, void *data, size_t size, enum flat_data_type type,
+		bool png)
+{
 	if (type == FLAT_CG) {
-		// TODO: convert to PNG
-		checked_fwrite(data, size, f);
+		enum cg_type cg_type = cg_check_format(data);
+		if (cg_type == ALCG_UNKNOWN) {
+			WARNING("Unknown CG format for %s", path);
+			_write_file(path, data, size);
+		} else if (!png || cg_type == ALCG_PNG) {
+			_write_file(path, data, size);
+		} else {
+			// convert to PNG
+			struct cg *cg = cg_load_buffer(data, size);
+			if (!cg) {
+				WARNING("Failed to decode cg for %s", path);
+				_write_file(path, data, size);
+			} else {
+				FILE *f = checked_fopen(path, "wb");
+				cg_write(cg, ALCG_PNG, f);
+				fclose(f);
+			}
+			cg_free(cg);
+		}
 	} else {
-		checked_fwrite(data, size, f);
+		_write_file(path, data, size);
 	}
-	fclose(f);
 }
 
 static void write_section(const char *path, struct flat_archive *flat, struct flat_section *section)
 {
-	write_file(path, flat->data + section->off, section->size + 8, 0);
+	_write_file(path, flat->data + section->off, section->size + 8);
 }
 
-void flat_extract(struct flat_archive *flat, const char *output_file)
+void flat_extract(struct flat_archive *flat, const char *output_file, bool png)
 {
 	FILE *out = checked_fopen(output_file, "wb");
 	char *prefix = escape_string_noconv(path_basename(output_file));
@@ -333,7 +355,7 @@ void flat_extract(struct flat_archive *flat, const char *output_file)
 	fprintf(out, "\t{ string unknown, int type, int has_front, int front, string path },\n");
 	for (unsigned i = 0; i < flat->nr_libl_entries; i++) {
 		struct libl_entry *e = &flat->libl_entries[i];
-		const char *ext = libl_get_extension(flat, e);
+		const char *ext = (png && e->type == FLAT_CG) ? "png" : libl_get_extension(flat, e);
 		char *uk = serialize_bytes(flat->data + e->unknown_off, e->unknown_size);
 		fprintf(out, "\t{ \"%s\", %d, %d, %d, \"%s.libl.%d.%s\" },\n",
 			uk, e->type, e->has_front_pad, e->front_pad, prefix, i, ext);
@@ -341,7 +363,7 @@ void flat_extract(struct flat_archive *flat, const char *output_file)
 
 		// write file
 		snprintf(path_buf, PATH_MAX-1, "%s.libl.%d.%s", output_file, i, ext);
-		write_file(path_buf, flat->data + e->off, e->size, e->type);
+		write_file(path_buf, flat->data + e->off, e->size, e->type, png);
 	}
 	fprintf(out, "};\n");
 
@@ -351,7 +373,7 @@ void flat_extract(struct flat_archive *flat, const char *output_file)
 		fprintf(out, "\t{ string path, table meta { string uk1, int uk2, int uk3, int uk4, int uk5 }},\n");
 		for (unsigned i = 0; i < flat->nr_talt_entries; i++) {
 			struct talt_entry *e = &flat->talt_entries[i];
-			const char *ext = talt_get_extension(flat, e);
+			const char *ext = png ? "png" : talt_get_extension(flat, e);
 			fprintf(out, "\t{ \"%s.talt.%d.%s\", {\n", prefix, i, ext);
 			for (unsigned j = 0; j < e->nr_meta; j++) {
 				struct talt_metadata *m = &e->metadata[j];
@@ -364,7 +386,7 @@ void flat_extract(struct flat_archive *flat, const char *output_file)
 
 			// write file
 			snprintf(path_buf, PATH_MAX-1, "%s.talt.%d.%s", output_file, i, ext);
-			write_file(path_buf, flat->data + e->off, e->size, FLAT_CG);
+			write_file(path_buf, flat->data + e->off, e->size, FLAT_CG, png);
 		}
 		fprintf(out, "};\n");
 	}

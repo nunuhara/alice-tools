@@ -40,11 +40,13 @@ static char *get_output_path(const char *output_file, const char *input_file)
 
 enum {
 	LOPT_OUTPUT = 256,
+	LOPT_PNG,
 };
 
 int command_flat_extract(int argc, char *argv[])
 {
 	char *output_file = NULL;
+	bool png = false;
 
 	while (1) {
 		int c = alice_getopt(argc, argv, &cmd_flat_extract);
@@ -54,6 +56,9 @@ int command_flat_extract(int argc, char *argv[])
 		case 'o':
 		case LOPT_OUTPUT:
 			output_file = optarg;
+			break;
+		case LOPT_PNG:
+			png = true;
 			break;
 		}
 	}
@@ -76,7 +81,7 @@ int command_flat_extract(int argc, char *argv[])
 
 	// write manifest
 	output_file = get_output_path(output_file, argv[0]);
-	flat_extract(flat, output_file);
+	flat_extract(flat, output_file, png);
 
 	free(output_file);
 	archive_free(&flat->ar);
@@ -92,6 +97,7 @@ struct command cmd_flat_extract = {
 	.fun = command_flat_extract,
 	.options = {
 		{ "output", 'o', "Specify output file", required_argument, LOPT_OUTPUT },
+		{ "png",    0,   "Output images as .png format", no_argument, LOPT_PNG },
 		{ 0 }
 	}
 };

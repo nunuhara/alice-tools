@@ -50,6 +50,7 @@ enum {
 	LOPT_IMAGES_ONLY,
 	LOPT_RAW,
 	LOPT_MANIFEST,
+	LOPT_FLAT_PNG,
 };
 
 static bool raw = false;
@@ -171,6 +172,9 @@ int command_ar_extract(int argc, char *argv[])
 		case LOPT_MANIFEST:
 			manifest = optarg;
 			break;
+		case LOPT_FLAT_PNG:
+			flags |= AR_FLAT_PNG;
+			break;
 		}
 	}
 
@@ -220,14 +224,15 @@ struct command cmd_ar_extract = {
 	.parent = &cmd_ar,
 	.fun = command_ar_extract,
 	.options = {
-		{ "output",       'o', "Specify output file/directory",     required_argument, LOPT_OUTPUT },
-		{ "index",        'i', "Specify file index",                required_argument, LOPT_INDEX },
-		{ "name",         'n', "Specify file name",                 required_argument, LOPT_NAME },
-		{ "force",        'f', "Allow overwriting existing files",  no_argument,       LOPT_FORCE },
-		{ "image-format", 0,   "Image output format (png or webp)", required_argument, LOPT_IMAGE_FORMAT },
-		{ "images-only",  0,   "Only extract images",               no_argument,       LOPT_IMAGES_ONLY },
-		{ "raw",          0,   "Don't convert image files",         no_argument,       LOPT_RAW },
-		{ "manifest",     0,   "Write ALICEPACK manifest",          required_argument, LOPT_MANIFEST },
+		{ "output",       'o', "Specify output file/directory",        required_argument, LOPT_OUTPUT },
+		{ "index",        'i', "Specify file index",                   required_argument, LOPT_INDEX },
+		{ "name",         'n', "Specify file name",                    required_argument, LOPT_NAME },
+		{ "force",        'f', "Allow overwriting existing files",     no_argument,       LOPT_FORCE },
+		{ "image-format", 0,   "Image output format (png or webp)",    required_argument, LOPT_IMAGE_FORMAT },
+		{ "images-only",  0,   "Only extract images",                  no_argument,       LOPT_IMAGES_ONLY },
+		{ "raw",          0,   "Don't convert image files",            no_argument,       LOPT_RAW },
+		{ "manifest",     0,   "Write ALICEPACK manifest",             required_argument, LOPT_MANIFEST },
+		{ "flat-png",     0,   "Extract images in .flat files as png", no_argument, LOPT_FLAT_PNG },
 		{ 0 }
 	}
 };

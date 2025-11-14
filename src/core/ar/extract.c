@@ -199,13 +199,15 @@ static void extract_flat(struct archive_data *data, char *output_dir, uint32_t f
 	string_append(&outfile, uname);
 
 	if (flags & AR_IMAGES_ONLY) {
+		NOTICE("Extracting %s...", uname->text);
 		string_push_back(&outfile, '.');
 		struct extract_all_iter_data iter_data = { .prefix = outfile->text, .flags = flags };
 		archive_for_each(&flat->ar, extract_all_iter, &iter_data);
 	} else {
+		NOTICE("%s", outfile->text);
 		mkdir_for_file(outfile->text);
 		string_append_cstr(&outfile, ".x", 2);
-		flat_extract(flat, outfile->text);
+		flat_extract(flat, outfile->text, flags & AR_FLAT_PNG);
 	}
 
 	archive_free(&flat->ar);
@@ -227,9 +229,6 @@ static void extract_all_iter(struct archive_data *data, void *_iter_data)
 	enum filetype ft = get_filetype(data);
 
 	if (!(iter_data->flags & AR_RAW) && ft == FT_FLAT) {
-		char *u = conv_output(data->name);
-		NOTICE("Extracting %s...", u);
-		free(u);
 		extract_flat(data, iter_data->prefix, iter_data->flags);
 		return;
 	}
