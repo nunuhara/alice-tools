@@ -18,7 +18,8 @@
   
   <categories>
     <category>Development</category>
-    <category>Building</category>
+    <category>FileTools</category>
+    <category>Qt</category>
   </categories>
   
   <provides>

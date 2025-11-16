@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=GAlice
+Comment=alice-tools GUI
+Exec=galice
+Type=Application
+Icon=technology.haniwa.galice
+Categories=Development;FileTools;Qt
