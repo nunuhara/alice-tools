@@ -141,6 +141,11 @@ if qt5_dep.found()
     generated_files = qt5.preprocess(moc_headers : gui_moc,
                                      dependencies : [qt5_dep])
 
+    if host_machine.system() == 'windows'
+        windows = import('windows')
+        gui_sources += windows.compile_resources('../windows/icon.rc')
+    endif
+
     # NOTE: static linking of Qt not supported by meson per
     #       https://github.com/mesonbuild/meson/pull/7733
     executable('galice', gui_sources, generated_files,
