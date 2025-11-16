@@ -11,9 +11,22 @@ finish-args:
   - --socket=wayland
   # Filesystem access
   - --filesystem=host
+cleanup:
+  - /lib/libsys4.a
+  - /bin/alice
 modules:
   - name: galice
     buildsystem: meson
+    config-opts:
+      - -Dbuildtype=release
     sources:
       - type: git
         url: https://github.com/nunuhara/alice-tools.git
+  - name: metadata
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/share/metainfo
+      - install -D technology.haniwa.galice.metainfo.xml /app/share/metainfo/
+    sources:
+      - type: file
+        path: technology.haniwa.galice.metainfo.xml

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="console-application">
+  <id>technology.haniwa.alice</id>
+  
+  <name>alice-tools CLI</name>
+  <summary>Command line tools for extracting/editing files from AliceSoft games.</summary>
+  
+  <metadata_license>MIT</metadata_license>
+  <project_license>GPL-2.0-or-later</project_license>
+  
+  <description>
+    <p>
+      Command line tools for extracting/editing files from AliceSoft games.
+    </p>
+  </description>
+
+  <icon type="stock">utilities-terminal</icon>
+  
+  <categories>
+    <category>Development</category>
+    <category>Building</category>
+  </categories>
+  
+  <provides>
+    <binary>alice</binary>
+  </provides>
+
+  <url type="homepage">https://github.com/nunuhara/alice-tools</url>
+
+  <developer id="technology.haniwa">
+    <name>Nunuhara Cabbage</name>
+  </developer>
+
+</component>
