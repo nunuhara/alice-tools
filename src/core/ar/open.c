@@ -91,6 +91,9 @@ struct archive *open_archive(const char *path, enum archive_type *type, int *err
 	} else if (!strcasecmp(ext, ".afa")) {
 		*type = AR_AFA;
 		return (struct archive*)afa_open(path, ARCHIVE_MMAP, error);
+	} else if (!strcasecmp(ext, ".aar")) {
+		*type = AR_AAR;
+		return (struct archive*)aar_open(path, ARCHIVE_MMAP, error);
 	} else if (!strcasecmp(ext, "flat")) {
 		*type = AR_FLAT;
 		return (struct archive*)flat_open_file(path, 0, error);
@@ -107,6 +110,7 @@ struct archive *open_archive(const char *path, enum archive_type *type, int *err
 	// TODO: try to use file magic
 
 err:
+	*error = ARCHIVE_FILE_ERROR;
 	WARNING("Couldn't determine archive type for '%s'", path);
 	return NULL;
 }
