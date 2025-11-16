@@ -227,10 +227,10 @@ static int command_project_init(int argc, char *argv[])
 	"ModAin = \"src.ain\"\n"
 	"\n"
 	"Archives = {\n"
-	"//    \"%sModCG.manifest\",\n"
-	"//    \"%sModFlat.manifest\",\n"
-	"//    \"%sModSound.manifest\",\n"
-	"//    \"%sPact.manifest\",\n"
+	"//    \"%sModCG.batchpack\",\n"
+	"//    \"%sModFlat.batchpack\",\n"
+	"//    \"%sModSound.batchpack\",\n"
+	"//    \"%sPact.batchpack\",\n"
 	"}\n";
 	static const char *mod_pje_ex_fmt =
 	"\n"
@@ -253,7 +253,7 @@ static int command_project_init(int argc, char *argv[])
 		char manifest_name[PATH_MAX];
 		memcpy(manifest_name, project_name, len);
 
-		memcpy(manifest_name+len, "ModCG.manifest", strlen("ModCG.manifest")+1);
+		memcpy(manifest_name+len, "ModCG.batchpack", strlen("ModCG.batchpack")+1);
 		out = port_open_checked(manifest_name);
 		port_printf(&out,
 			"#BATCHPACK\n"
@@ -262,7 +262,7 @@ static int command_project_init(int argc, char *argv[])
 			project_name);
 		port_close(&out);
 
-		memcpy(manifest_name+len, "ModFlat.manifest", strlen("ModFlat.manifest")+1);
+		memcpy(manifest_name+len, "ModFlat.batchpack", strlen("ModFlat.batchpack")+1);
 		out = port_open_checked(manifest_name);
 		port_printf(&out,
 			"#BATCHPACK\n"
@@ -271,7 +271,7 @@ static int command_project_init(int argc, char *argv[])
 			project_name);
 		port_close(&out);
 
-		memcpy(manifest_name+len, "ModSound.manifest", strlen("ModSound.manifest")+1);
+		memcpy(manifest_name+len, "ModSound.batchpack", strlen("ModSound.batchpack")+1);
 		out = port_open_checked(manifest_name);
 		port_printf(&out,
 			"#BATCHPACK\n"
@@ -281,7 +281,7 @@ static int command_project_init(int argc, char *argv[])
 			project_name);
 		port_close(&out);
 
-		memcpy(manifest_name+len, "Pact.manifest", strlen("Pact.manifest")+1);
+		memcpy(manifest_name+len, "Pact.batchpack", strlen("Pact.batchpack")+1);
 		out = port_open_checked(manifest_name);
 		port_printf(&out,
 			"#BATCHPACK\n"
