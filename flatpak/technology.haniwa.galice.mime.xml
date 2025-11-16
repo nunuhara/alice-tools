@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x.alice-ain">
+    <comment>AliceSoft script file</comment>
+    <glob pattern="*.ain"/>
+  </mime-type>
+  <mime-type type="application/x.alice-ald">
+    <comment>AliceSoft ALD archive file</comment>
+    <glob pattern="*.ald"/>
+  </mime-type>
+  <mime-type type="application/x.alice-afa">
+    <comment>AliceSoft AFA archive file</comment>
+    <glob pattern="*.afa"/>
+  </mime-type>
+  <mime-type type="application/x.alice-aar">
+    <comment>AliceSoft AAR archive file</comment>
+    <glob pattern="*.aar"/>
+  </mime-type>
+  <mime-type type="application/x.alice-alk">
+    <comment>AliceSoft ALK archive file</comment>
+    <glob pattern="*.alk"/>
+  </mime-type>
+  <mime-type type="application/x.alice-dlf">
+    <comment>AliceSoft DLF archive file</comment>
+    <glob pattern="*.dlf"/>
+  </mime-type>
+  <mime-type type="application/x.alice-acx">
+    <comment>AliceSoft static data file</comment>
+    <glob pattern="*.acx"/>
+  </mime-type>
+  <mime-type type="application/x.alice-ex">
+    <comment>AliceSoft static data file</comment>
+    <glob pattern="*.ex"/>
+  </mime-type>
+  <mime-type type="application/x.alice-ajp">
+    <comment>AliceSoft AJP image file</comment>
+    <glob pattern="*.ajp"/>
+  </mime-type>
+  <mime-type type="application/x.alice-dcf">
+    <comment>AliceSoft DCF image file</comment>
+    <glob pattern="*.dcf"/>
+  </mime-type>
+  <mime-type type="application/x.alice-pcf">
+    <comment>AliceSoft PCF image file</comment>
+    <glob pattern="*.pcf"/>
+  </mime-type>
+  <mime-type type="application/x.alice-pms">
+    <comment>AliceSoft PMS image file</comment>
+    <glob pattern="*.pms"/>
+  </mime-type>
+  <mime-type type="application/x.alice-qnt">
+    <comment>AliceSoft QNT image file</comment>
+    <glob pattern="*.qnt"/>
+  </mime-type>
+  <mime-type type="application/x.alice-rou">
+    <comment>AliceSoft ROU image file</comment>
+    <glob pattern="*.rou"/>
+  </mime-type>
+  <mime-type type="application/x.alice-flat">
+    <comment>AliceSoft animation file</comment>
+    <glob pattern="*.flat"/>
+  </mime-type>
+</mime-info>
