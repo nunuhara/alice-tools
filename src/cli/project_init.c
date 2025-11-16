@@ -185,13 +185,15 @@ static int command_project_init(int argc, char *argv[])
 		snprintf(version, 16, "%d", ain->version);
 
 	mkdir_p_checked("out");
-	mkdir_p_checked("src/hll");
-	dump_hll(ain);
 
 	if (is_mod) {
+		mkdir_p("src");
 		NOTICE("cp \"%s\" src.ain", argv[0]);
 		file_copy(argv[0], "src.ain");
 		have_ex = dump_ex(ain, dir, project_name, ex_name);
+	} else {
+		mkdir_p_checked("src/hll");
+		dump_hll(ain);
 	}
 
 	// TODO: copy game files if option given
@@ -260,7 +262,7 @@ static int command_project_init(int argc, char *argv[])
 			project_name);
 		port_close(&out);
 
-		memcpy(manifest_name+len, "ModFlat.manifest", strlen("ModCG.manifest")+1);
+		memcpy(manifest_name+len, "ModFlat.manifest", strlen("ModFlat.manifest")+1);
 		out = port_open_checked(manifest_name);
 		port_printf(&out,
 			"#BATCHPACK\n"
@@ -289,16 +291,19 @@ static int command_project_init(int argc, char *argv[])
 		port_close(&out);
 	}
 
-	static const char *src_inc =
+	static const char *hll_src_inc =
 	"SystemSource = {\n"
 	"    \"hll/hll.inc\",\n"
-	"}\n"
-	"\n"
+	"}\n";
+	static const char *src_inc =
 	"Source = {\n"
 	"    \"main.jaf\",\n"
 	"}\n";
 	out = port_open_checked("src/src.inc");
-	port_printf(&out, "%s", src_inc);
+	if (is_mod)
+		port_printf(&out, "%s", src_inc);
+	else
+		port_printf(&out, "%s\n%s", hll_src_inc, src_inc);
 	port_close(&out);
 
 	static const char *basic_main_jaf =
@@ -328,8 +333,8 @@ static int command_project_init(int argc, char *argv[])
 	"override void game_main(void)\n"
 	"{\n"
 	"    //AFL_AFA_CG_Add(\"%sModCG\");\n"
-	"    //AFL_AFA_Flat_Add(\"%sModCG\");\n"
-	"    //AFL_AFA_Sound_Add(\"%sModCG\");\n"
+	"    //AFL_AFA_Flat_Add(\"%sModFlat\");\n"
+	"    //AFL_AFA_Sound_Add(\"%sModSound\");\n"
 	"    super();\n"
 	"}\n";
 	// XXX: in Rance 10, we hook a different function so that the mod's AFA files
@@ -339,8 +344,8 @@ static int command_project_init(int argc, char *argv[])
 	"{\n"
 	"    super();\n"
 	"    //AFL_AFA_CG_Add(\"%sModCG\");\n"
-	"    //AFL_AFA_Flat_Add(\"%sModCG\");\n"
-	"    //AFL_AFA_Sound_Add(\"%sModCG\");\n"
+	"    //AFL_AFA_Flat_Add(\"%sModFlat\");\n"
+	"    //AFL_AFA_Sound_Add(\"%sModSound\");\n"
 	"}\n";
 
 	out = port_open_checked("src/main.jaf");
