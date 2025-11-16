@@ -90,14 +90,40 @@ static struct string *append_extension(const char *name, const char *ext)
 	return s;
 }
 
+static void write_manifest_filename(const char *name, size_t len, bool need_quotes, FILE *f)
+{
+	if (need_quotes) {
+		char *escaped = escape_string_noconv(name);
+		checked_fwrite("\"", 1, f);
+		checked_fwrite(escaped, strlen(escaped), f);
+		checked_fwrite("\"", 1, f);
+		free(escaped);
+	} else {
+		checked_fwrite(name, len, f);
+	}
+}
+
 static void write_manifest_iter(struct archive_data *data, void *_f)
 {
 	FILE *f = _f;
 	char *name = conv_output(data->name);
+	bool need_quotes = false;
 	size_t len;
 	for (len = 0; name[len]; len++) {
-		if (name[len] == '\\')
+		switch (name[len]) {
+		case '\\':
 			name[len] = '/';
+			break;
+		case ',':
+		case ' ':
+		case '\n':
+		case '\t':
+		case '\r':
+		case '\b':
+		case '\f':
+			need_quotes = true;
+			break;
+		}
 	}
 
 	int i;
@@ -105,7 +131,7 @@ static void write_manifest_iter(struct archive_data *data, void *_f)
 	if (!raw && (i = is_conv_format(ext)) >= 0) {
 		struct conv_format *fmt = &conv_formats[i];
 		struct string *conv_name = append_extension(name, fmt->dst);
-		checked_fwrite(conv_name->text, conv_name->size, f);
+		write_manifest_filename(conv_name->text, conv_name->size, need_quotes, f);
 		checked_fwrite(",", 1, f);
 		checked_fwrite(ext, strlen(ext), f);
 		// warn if the reverse conversion is not supported
@@ -115,8 +141,7 @@ static void write_manifest_iter(struct archive_data *data, void *_f)
 		}
 		free_string(conv_name);
 	} else {
-		checked_fwrite(name, len, f);
-
+		write_manifest_filename(name, len, need_quotes, f);
 	}
 	checked_fwrite("\n", 1, f);
 	free(name);
