@@ -2,6 +2,9 @@ name: Build
 
 on: [push, pull_request]
 
+env:
+  RELEASE_NAME: ${{ github.ref_type == 'tag' && github.ref_name || 'nightly' }}
+
 jobs:
   linux-build:
     runs-on: ubuntu-latest
@@ -55,12 +58,12 @@ jobs:
         submodules: recursive
     - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
       with:
-        bundle: alice-tools-cli-linux-x86_64-nightly.flatpak
+        bundle: alice-tools-cli-linux-x86_64-${{ env.RELEASE_NAME }}.flatpak
         manifest-path: flatpak/technology.haniwa.alice.yml
         cache-key: flatpak-builder-alice-${{ github.sha }}
     - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
       with:
-        bundle: alice-tools-gui-linux-x86_64-nightly.flatpak
+        bundle: alice-tools-gui-linux-x86_64-${{ env.RELEASE_NAME }}.flatpak
         manifest-path: flatpak/technology.haniwa.galice.yml
         cache-key: flatpak-builder-galice-${{ github.sha }}
 
@@ -143,13 +146,21 @@ jobs:
           cp build/src/alice.exe LICENSE *.md dist/
           cp -r /mingw64/share/licenses dist/
           mv dist alice-tools
-          zip -r -9 alice-tools-windows-x86_64-nightly.zip alice-tools
+          zip -r -9 alice-tools-windows-x86_64-${{ env.RELEASE_NAME }}.zip alice-tools
+
+      - name: Build Inno Setup Installer
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        with:
+          path: windows/setup.iss
+          options: /O. /DApplicationVersion=${{ env.RELEASE_NAME }}
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with: 
           name: alice-tools
-          path: alice-tools-windows-x86_64-nightly.zip
+          path: |
+            alice-tools-windows-x86_64-${{ env.RELEASE_NAME }}.zip
+            alice-tools-windows-x86_64-${{ env.RELEASE_NAME }}.exe
 
   nightly:
     name: Update nightly release
@@ -176,7 +187,8 @@ jobs:
           name: nightly
           tag_name: nightly
           files: |
-            alice-tools-windows-x86_64-nightly.zip
-            alice-tools-cli-linux-x86_64-nightly.flatpak
-            alice-tools-gui-linux-x86_64-nightly.flatpak
+            alice-tools-windows-x86_64-${{ env.RELEASE_NAME }}.zip
+            alice-tools-windows-x86_64-${{ env.RELEASE_NAME }}.exe
+            alice-tools-cli-linux-x86_64-${{ env.RELEASE_NAME }}.flatpak
+            alice-tools-gui-linux-x86_64-${{ env.RELEASE_NAME }}.flatpak
           fail_on_unmatched_files: true
