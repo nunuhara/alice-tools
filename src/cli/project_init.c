@@ -34,6 +34,7 @@
 
 enum {
 	LOPT_MOD = 256,
+	LOPT_OUTPUT,
 };
 
 static void mkdir_p_checked(const char *dir)
@@ -57,6 +58,24 @@ static struct port port_open_checked(const char *path)
 	if (!port_file_open(&port, path))
 		ALICE_ERROR("fopen(\"%s\"): %s", path, strerror(errno));
 	return port;
+}
+
+static void cp_checked(const char *src, const char *dst)
+{
+	NOTICE("cp \"%s\" \"%s\"", src, dst);
+	if (!file_copy(src, dst))
+		ALICE_ERROR("file_copy(\"%s\", \"%s\")", src, dst);
+}
+
+static void copy_file(const char *src, const char *outdir, const char *name)
+{
+	if (!outdir) {
+		cp_checked(src, name);
+		return;
+	}
+	char *out = path_join(outdir, name);
+	cp_checked(src, out);
+	free(out);
 }
 
 static void dump_hll(struct ain *ain)
@@ -90,14 +109,8 @@ static void dump_hll(struct ain *ain)
 	chdir_checked("../..");
 }
 
-static bool dump_ex(struct ain *ain, const char *dir_name, const char *project_name,
-		const char *ex_name)
+static void dump_ex(const char *project_name, const char *ex_name)
 {
-	if (!file_exists(ex_name)) {
-		NOTICE("[Couldn't find %s; skipping]", ex_name);
-		return false;
-	}
-
 	struct ex *ex = ex_read_file(ex_name);
 	if (!ex)
 		ALICE_ERROR("ex_read_file(\"%s\") failed", ex_name);
@@ -111,7 +124,6 @@ static bool dump_ex(struct ain *ain, const char *dir_name, const char *project_n
 	FILE *out = alice_open_output_file(out_name);
 	ex_dump_split(out, ex, "ex");
 	ex_free(ex);
-	return true;
 }
 
 static char *get_project_name(const char *base_name)
@@ -141,6 +153,7 @@ static char *get_pje_name(const char *project_name)
 
 static int command_project_init(int argc, char *argv[])
 {
+	const char *outdir = NULL;
 	bool is_mod = false;
 	while (1) {
 		int c = alice_getopt(argc, argv, &cmd_project_init);
@@ -148,6 +161,10 @@ static int command_project_init(int argc, char *argv[])
 		case 'm':
 		case LOPT_MOD:
 			is_mod = true;
+			break;
+		case 'o':
+		case LOPT_OUTPUT:
+			outdir = optarg;
 			break;
 		}
 		if (c == -1)
@@ -175,7 +192,6 @@ static int command_project_init(int argc, char *argv[])
 	// e.g. Rance10
 	char *project_name = get_project_name(base);
 	char *pje_name = get_pje_name(project_name);
-	char *ex_name = is_mod ? get_ex_name(dir, project_name) : NULL;
 	bool have_ex = false;
 
 	char version[16];
@@ -184,13 +200,36 @@ static int command_project_init(int argc, char *argv[])
 	else
 		snprintf(version, 16, "%d", ain->version);
 
+	if (outdir)
+		mkdir_p_checked(outdir);
+
+	// copy source files to project directory
+	if (is_mod) {
+		NOTICE("cp \"%s\" src.ain", argv[0]);
+		copy_file(argv[0], outdir, "src.ain");
+		char *ex_name = get_ex_name(dir, project_name);
+		if (file_exists(ex_name)) {
+			NOTICE("cp \"%s\" src.ex", ex_name);
+			copy_file(ex_name, outdir, "src.ex");
+			have_ex = true;
+		} else {
+			NOTICE("[Couldn't find %s; skipping]", ex_name);
+			have_ex = false;
+		}
+		free(ex_name);
+	}
+
+	// from now on, we are working from inside the project directory
+	if (outdir)
+		chdir_checked(outdir);
+
+	// create directories
 	mkdir_p_checked("out");
 
 	if (is_mod) {
 		mkdir_p("src");
-		NOTICE("cp \"%s\" src.ain", argv[0]);
-		file_copy(argv[0], "src.ain");
-		have_ex = dump_ex(ain, dir, project_name, ex_name);
+		if (have_ex)
+			dump_ex(project_name, "src.ex");
 	} else {
 		mkdir_p_checked("src/hll");
 		dump_hll(ain);
@@ -398,7 +437,6 @@ static int command_project_init(int argc, char *argv[])
 	chmod("xrun.sh", mode);
 #endif
 
-	free(ex_name);
 	free(pje_name);
 	free(project_name);
 	free(dir);
@@ -415,6 +453,7 @@ struct command cmd_project_init = {
 	.fun = command_project_init,
 	.options = {
 		{ "mod", 'm', "Initialize a mod project", no_argument, LOPT_MOD },
+		{ "output", 'o', "Specify the output directory", required_argument, LOPT_OUTPUT },
 		{ 0 }
 	}
 };
