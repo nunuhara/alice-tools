@@ -1,7 +1,0 @@
-<?xml version="1.0"?>
-<mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
-    <mime-type type="image/x.alice-rou">
-        <comment>AliceSoft ROU image</comment>
-        <glob pattern="*.rou"/>
-    </mime-type>
-</mime-info>

@@ -31,7 +31,7 @@ modules:
       - mkdir -p /app/share/applications
       - install -D technology.haniwa.galice.metainfo.xml /app/share/metainfo/
       - install -D technology.haniwa.galice.svg /app/share/icons/hicolor/scalable/apps/
-      - install -D technology.haniwa.galice.mime.xml /app/share/mime/packages/
+      - install -D alicetools-mime.xml /app/share/mime/packages/technology.haniwa.galice-mime.xml
       - update-mime-database /app/share/mime
       - desktop-file-install --rebuild-mime-info-cache --dir=/app/share/applications technology.haniwa.galice.desktop
     sources:
@@ -42,4 +42,4 @@ modules:
       - type: file
         path: technology.haniwa.galice.desktop
       - type: file
-        path: technology.haniwa.galice.mime.xml
+        path: alicetools-mime.xml

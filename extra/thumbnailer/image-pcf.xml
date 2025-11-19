@@ -1,7 +1,0 @@
-<?xml version="1.0"?>
-<mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
-    <mime-type type="image/x.alice-pcf">
-        <comment>AliceSoft PCF image</comment>
-        <glob pattern="*.pcf"/>
-    </mime-type>
-</mime-info>

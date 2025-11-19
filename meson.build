@@ -12,6 +12,7 @@ libm = meson.get_compiler('c').find_library('m', required: false)
 
 flex = find_program('flex')
 bison = find_program('bison')
+update_mime = find_program('update-mime-database', required: false)
 
 libsys4_proj = subproject('libsys4')
 libsys4_dep = libsys4_proj.get_variable('libsys4_dep')
@@ -34,3 +35,11 @@ bisongen = generator(bison,
                      arguments : ['--verbose', '--debug', '@INPUT@', '--defines=@OUTPUT1@', '--output=@OUTPUT0@'])
 
 subdir('src')
+
+install_data('linux/alicetools.thumbnailer', install_dir : get_option('datadir') / 'thumbnailers')
+if update_mime.found()
+    install_data('linux/alicetools-mime.xml', install_dir : get_option('datadir') / 'mime' / 'packages')
+    meson.add_install_script('sh', '-c', ' '.join([
+        update_mime.path(), '-V', '${MESON_INSTALL_DESTDIR_PREFIX}' / get_option('datadir') / 'mime',
+    ]))
+endif
