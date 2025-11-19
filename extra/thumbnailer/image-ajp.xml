@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
-    <mime-type type="image/ajp">
+    <mime-type type="image/x.alice-ajp">
         <comment>AliceSoft AJP image</comment>
         <glob pattern="*.ajp"/>
     </mime-type>

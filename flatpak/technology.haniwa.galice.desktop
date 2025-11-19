@@ -5,4 +5,4 @@ Exec=galice
 Type=Application
 Icon=technology.haniwa.galice
 Categories=Development;FileTools;Qt
-MimeType=application/x.alice-ain;application/x.alice-ald;application/x.alice-afa;application/x.alice-aar;application/x.alice-alk;application/x.alice-dlf;application/x.alice-acx;application/x.alice-ex;application/x.alice-ajp;application/x.alice-dcf;application/x.alice-pcf;application/x.alice-pms;application/x.alice-qnt;application/x.alice-rou;application/x.alice-flat
+MimeType=application/x.alice-ain;application/x.alice-ald;application/x.alice-afa;application/x.alice-aar;application/x.alice-alk;application/x.alice-dlf;application/x.alice-acx;application/x.alice-ex;image/x.alice-ajp;image/x.alice-dcf;image/x.alice-pcf;image/x.alice-pms;image/x.alice-qnt;image/x.alice-rou;application/x.alice-flat
