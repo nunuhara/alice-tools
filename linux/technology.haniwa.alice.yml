@@ -16,6 +16,7 @@ modules:
     sources:
       - type: git
         url: https://github.com/nunuhara/alice-tools.git
+        branch: ci
   - name: metadata
     buildsystem: simple
     build-commands:

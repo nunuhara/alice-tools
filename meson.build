@@ -10,9 +10,14 @@ endif
 zlib = dependency('zlib', static : static_libs)
 libm = meson.get_compiler('c').find_library('m', required: false)
 
+qt5 = import('qt5')
+qt5_dep = dependency('qt5', modules : ['Core', 'Gui', 'Widgets'],
+                     required : false)
+
 flex = find_program('flex')
 bison = find_program('bison')
 update_mime = find_program('update-mime-database', required: false)
+install_desktop = find_program('desktop-file-install', required: false)
 
 libsys4_proj = subproject('libsys4')
 libsys4_dep = libsys4_proj.get_variable('libsys4_dep')
@@ -36,10 +41,26 @@ bisongen = generator(bison,
 
 subdir('src')
 
-install_data('linux/alicetools.thumbnailer', install_dir : get_option('datadir') / 'thumbnailers')
+# install mime types so that file associations can be established
 if update_mime.found()
-    install_data('linux/alicetools-mime.xml', install_dir : get_option('datadir') / 'mime' / 'packages')
+    install_data('linux/technology.haniwa.galice-mime.xml',
+        install_dir : get_option('datadir') / 'mime' / 'packages')
     meson.add_install_script('sh', '-c', ' '.join([
-        update_mime.path(), '-V', '${MESON_INSTALL_DESTDIR_PREFIX}' / get_option('datadir') / 'mime',
+        update_mime.full_path(), '-V', '${MESON_INSTALL_DESTDIR_PREFIX}' / get_option('datadir') / 'mime',
     ]))
 endif
+
+# .desktop file and icon for galice
+if qt5_dep.found() and install_desktop.found()
+    install_data('linux/technology.haniwa.galice.svg',
+        install_dir : get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps')
+    meson.add_install_script('sh', '-c', ' '.join([
+        install_desktop.full_path(),
+        '--rebuild-mime-info-cache',
+        '--dir', '${MESON_INSTALL_DESTDIR_PREFIX}' / get_option('datadir') / 'applications',
+        '${MESON_SOURCE_ROOT}' / 'linux' / 'technology.haniwa.galice.desktop'
+    ]))
+endif
+
+# thumbnailer
+install_data('linux/alicetools.thumbnailer', install_dir : get_option('datadir') / 'thumbnailers')

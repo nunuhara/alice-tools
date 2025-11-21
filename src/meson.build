@@ -133,10 +133,6 @@ gui_moc = ['gui/acx_model.hpp',
            'gui/viewer.hpp',
 ]
 
-qt5 = import('qt5')
-qt5_dep = dependency('qt5', modules : ['Core', 'Gui', 'Widgets'],
-                     required : false)
-
 if qt5_dep.found()
     generated_files = qt5.preprocess(moc_headers : gui_moc,
                                      dependencies : [qt5_dep])
