@@ -50,10 +50,17 @@ if update_mime.found()
     ]))
 endif
 
-# .desktop file and icon for galice
+# icon
+install_data('linux/technology.haniwa.galice.svg',
+    install_dir : get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps')
+
+# Dolphin integration
+install_subdir('linux/servicemenus',
+    install_dir: get_option('datadir') / 'kio' / 'servicemenus',
+    strip_directory: true)
+
+# .desktop file for galice
 if qt5_dep.found() and install_desktop.found()
-    install_data('linux/technology.haniwa.galice.svg',
-        install_dir : get_option('datadir') / 'icons' / 'hicolor' / 'scalable' / 'apps')
     meson.add_install_script('sh', '-c', ' '.join([
         install_desktop.full_path(),
         '--rebuild-mime-info-cache',
@@ -61,6 +68,7 @@ if qt5_dep.found() and install_desktop.found()
         '${MESON_SOURCE_ROOT}' / 'linux' / 'technology.haniwa.galice.desktop'
     ]))
 endif
+
 
 # thumbnailer
 install_data('linux/alicetools.thumbnailer', install_dir : get_option('datadir') / 'thumbnailers')

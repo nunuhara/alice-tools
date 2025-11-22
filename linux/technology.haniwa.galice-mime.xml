@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x.alice-alicepack">
+    <comment>alice-tools ALICEPACK manifest</comment>
+    <glob pattern="*.alicepack"/>
+  </mime-type>
+  <mime-type type="application/x.alice-batchpack">
+    <comment>alice-tools ALICEPACK manifest</comment>
+    <glob pattern="*.batchpack"/>
+  </mime-type>
+  <mime-type type="application/x.alice-pje">
+    <comment>alice-tools project file</comment>
+    <glob pattern="*.pje"/>
+  </mime-type>
   <mime-type type="application/x.alice-ain">
     <comment>AliceSoft script file</comment>
     <glob pattern="*.ain"/>

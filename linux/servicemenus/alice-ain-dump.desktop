@@ -1,0 +1,20 @@
+[Desktop Entry]
+Type=Service
+MimeType=application/x.alice-ain
+Actions=dumpJam;dumpJson;dumpText
+X-KDE-Submenu=Dump
+
+[Desktop Action dumpJam]
+Name=Dump JAM
+Icon=technology.haniwa.galice
+Exec=sh -c 'alice ain dump -c -o "${1%.*}.jam" "$1"' dummy %f
+
+[Desktop Action dumpJson]
+Name=Dump JSON
+Icon=technology.haniwa.galice
+Exec=sh -c 'alice ain dump --json -o "${1%.*}.json" "$1"' dummy %f
+
+[Desktop Action dumpText]
+Name=Dump text
+Icon=technology.haniwa.galice
+Exec=sh -c 'alice ain dump -t -o "${1%.*}.txt" "$1"' dummy %f

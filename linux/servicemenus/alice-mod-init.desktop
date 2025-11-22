@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Service
+MimeType=application/x.alice-ain
+Actions=modInit
+
+[Desktop Action modInit]
+Name=Initialize mod project
+Icon=technology.haniwa.galice
+Exec=alice project init --mod -o mod %f

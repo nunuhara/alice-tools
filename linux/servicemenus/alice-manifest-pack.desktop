@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Service
+MimeType=application/x.alice-alicepack;application/x.alice-batchpack
+Actions=packArchive
+
+[Desktop Action packArchive]
+Name=Pack archive
+Icon=technology.haniwa.galice
+Exec=alice ar pack %f

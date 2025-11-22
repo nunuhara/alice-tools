@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Service
+MimeType=application/x.alice-pje
+Actions=buildProject
+
+[Desktop Action buildProject]
+Name=Build project
+Icon=technology.haniwa.galice
+Exec=alice project build %f

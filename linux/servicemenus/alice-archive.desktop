@@ -1,0 +1,25 @@
+[Desktop Entry]
+Type=Service
+MimeType=application/x.alice-ald;application/x.alice-afa;application/x.alice-aar;application/x.alice-alk;application/x.alice-dlf
+Actions=extract;extractRaw;extractWithManifest;extractRawWithManifest
+X-KDE-Submenu=Extract
+
+[Desktop Action extract]
+Name=Extract
+Icon=technology.haniwa.galice
+Exec=sh -c 'if command -v zenity; then alice ar extract -o "${1%.*}" --progress "$1" | zenity --progress --text="Extracting $1"; else alice ar extract -o "${1%.*}" "$1"; fi' dummy %f
+
+[Desktop Action extractRaw]
+Name=Extract (raw)
+Icon=technology.haniwa.galice
+Exec=sh -c 'if command -v zenity; then alice ar extract --raw -o "${1%.*}" --progress "$1" | zenity --progress --text="Extracting $1"; else alice ar extract --raw -o "${1%.*}" "$1"; fi' dummy %f
+
+[Desktop Action extractWithManifest]
+Name=Extract with manifest
+Icon=technology.haniwa.galice
+Exec=sh -c 'if command -v zenity; then alice ar extract --manifest "${1%.*}.alicepack" -o "${1%.*}" --progress "$1" | zenity --progress --text="Extracting $1"; else alice ar extract --manifest "${$1.*}.alicepack" -o "${1%.*}" "$1"; fi' dummy %f
+
+[Desktop Action extractRawWithManifest]
+Name=Extract (raw) with manifest
+Icon=technology.haniwa.galice
+Exec=sh -c 'if command -v zenity; then alice ar extract --raw --manifest "${1%.*}.alicepack" -o "${1%.*}" --progress "$1" | zenity --progress --text="Extracting $1"; else alice ar extract --raw --manifest "${$1.*}.alicepack" -o "${1%.*}" "$1"; fi' dummy %f

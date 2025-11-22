@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Service
+MimeType=application/x.alice-ex
+Actions=decompile
+
+[Desktop Action decompile]
+Name=Decompile
+Icon=technology.haniwa.galice
+Exec=sh -c 'alice ex dump -o "${1%.*}.x" "$1"' dummy %f

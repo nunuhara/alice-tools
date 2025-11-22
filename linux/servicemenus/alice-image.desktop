@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Service
+MimeType=image/x.alice-ajp;image/x.alice-dcf;image/x.alice-pcf;image/x.alice-pms;image/x.alice-qnt;image/x.alice-rou
+Actions=convertToPng
+
+[Desktop Action convertToPng]
+Name=Convert to PNG
+Icon=technology.haniwa.galice
+Exec=alice cg convert -t png %u

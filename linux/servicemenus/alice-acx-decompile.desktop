@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Service
+MimeType=application/x.alice-acx
+Actions=decompile
+
+[Desktop Action decompile]
+Name=Decompile
+Icon=technology.haniwa.galice
+Exec=sh -c 'alice acx dump -o "${1%.*}.csv" "$1"' dummy %f
