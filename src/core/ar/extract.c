@@ -181,6 +181,8 @@ static bool write_file(struct archive_data *data, const char *output_file, enum 
 struct extract_all_iter_data {
 	char *prefix;
 	uint32_t flags;
+	unsigned count;
+	unsigned total;
 };
 
 static void _extract_all_iter(struct archive_data *data, struct extract_all_iter_data *iter_data);
@@ -204,6 +206,7 @@ static void extract_flat_images(struct flat *flat, struct extract_all_iter_data 
 {
 	struct string *prefix = string_conv_input(iter_data->prefix, strlen(iter_data->prefix));
 
+
 	for (unsigned i = 0; i < flat->nr_libraries; i++) {
 		struct flat_library *lib = &flat->libraries[i];
 		if (lib->type != FLAT_LIB_CG)
@@ -217,6 +220,17 @@ static void extract_flat_images(struct flat *flat, struct extract_all_iter_data 
 	}
 
 	free_string(prefix);
+}
+
+static void display_filename(const char *name, struct extract_all_iter_data *iter_data)
+{
+	if (iter_data->flags & AR_PROGRESS) {
+		unsigned progress = ((float)iter_data->count / (float)iter_data->total) * 100;
+		NOTICE("%u", progress);
+		NOTICE("# %s", name);
+	} else {
+		NOTICE("%s", name);
+	}
 }
 
 static void extract_flat(struct archive_data *data, struct extract_all_iter_data *iter_data)
@@ -237,11 +251,13 @@ static void extract_flat(struct archive_data *data, struct extract_all_iter_data
 		string_push_back(&outfile, '.');
 		struct extract_all_iter_data flat_iter_data = {
 			.prefix = outfile->text,
-			.flags = iter_data->flags
+			.flags = iter_data->flags,
+			.count = iter_data->count,
+			.total = iter_data->total,
 		};
 		extract_flat_images(flat, &flat_iter_data);
 	} else {
-		NOTICE("%s", outfile->text);
+		display_filename(outfile->text, iter_data);
 		mkdir_for_file(outfile->text);
 		string_append_cstr(&outfile, ".x", 2);
 		flat_extract(flat, outfile->text, iter_data->flags & AR_FLAT_PNG);
@@ -274,7 +290,7 @@ static void _extract_all_iter(struct archive_data *data, struct extract_all_iter
 	mkdir_for_file(output_file);
 
 	if (write_file(data, output_file, ft, iter_data->flags))
-		NOTICE("%s", output_file);
+		display_filename(output_file, iter_data);
 	else
 		NOTICE("Skipping existing file: %s", output_file);
 }
@@ -291,6 +307,7 @@ static void extract_all_iter(struct archive_data *data, void *_iter_data)
 	}
 
 	_extract_all_iter(data, iter_data);
+	iter_data->count++;
 }
 
 static void check_flags(uint32_t *flags)
@@ -304,8 +321,17 @@ void ar_extract_all(struct archive *ar, const char *_output_file, uint32_t flags
 {
 	check_flags(&flags);
 	char *output_file = output_file_dir(_output_file);
-	struct extract_all_iter_data data = { .prefix = output_file, .flags = flags };
+	struct extract_all_iter_data data = {
+		.prefix = output_file,
+		.flags = flags,
+		.count = 1,
+		.total = archive_nr_files(ar),
+	};
+	if (data.total == 0)
+		data.total = 1;
 	archive_for_each(ar, extract_all_iter, &data);
+	if (flags & AR_PROGRESS)
+		NOTICE("# Finished extracting to %s", output_file);
 	free(output_file);
 }
 

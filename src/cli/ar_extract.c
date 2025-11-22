@@ -51,6 +51,7 @@ enum {
 	LOPT_RAW,
 	LOPT_MANIFEST,
 	LOPT_FLAT_PNG,
+	LOPT_PROGRESS,
 };
 
 static bool raw = false;
@@ -200,6 +201,9 @@ int command_ar_extract(int argc, char *argv[])
 		case LOPT_FLAT_PNG:
 			flags |= AR_FLAT_PNG;
 			break;
+		case LOPT_PROGRESS:
+			flags |= AR_PROGRESS;
+			break;
 		}
 	}
 
@@ -263,7 +267,8 @@ struct command cmd_ar_extract = {
 		{ "images-only",  0,   "Only extract images",                  no_argument,       LOPT_IMAGES_ONLY },
 		{ "raw",          0,   "Don't convert image files",            no_argument,       LOPT_RAW },
 		{ "manifest",     0,   "Write ALICEPACK manifest",             required_argument, LOPT_MANIFEST },
-		{ "flat-png",     0,   "Extract images in .flat files as png", no_argument, LOPT_FLAT_PNG },
+		{ "flat-png",     0,   "Extract images in .flat files as png", no_argument,       LOPT_FLAT_PNG },
+		{ "progress",     0,   "Display extraction progress",          no_argument,       LOPT_PROGRESS },
 		{ 0 }
 	}
 };

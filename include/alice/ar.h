@@ -26,6 +26,7 @@ enum {
 	AR_FORCE = 2,
 	AR_IMAGES_ONLY = 4,
 	AR_FLAT_PNG = 8,
+	AR_PROGRESS = 16,
 };
 
 #define AR_IMGENC(flags) ((flags & 0xFF000000UL) >> 24)
