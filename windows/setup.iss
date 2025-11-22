@@ -69,8 +69,8 @@ Root: HKA; Subkey: "Software\Classes\AliceFile.afa\shell\Extract"; ValueType: st
 Root: HKA; Subkey: "Software\Classes\AliceFile.afa\shell\Extract"; ValueType: string; ValueName: "subcommands"; ValueData: ""; Tasks: contextmenus
 Root: HKA; Subkey: "Software\Classes\AliceFile.afa\shell\Extract\shell\Extract\command"; ValueType: string; ValueName: ""; ValueData: """{app}\_alice-ar-extract.bat"" ""%1"""; Tasks: contextmenus
 Root: HKA; Subkey: "Software\Classes\AliceFile.afa\shell\Extract\shell\Extract (raw)\command"; ValueType: string; ValueName: ""; ValueData: """{app}\_alice-ar-extract.bat"" ""%1"" --raw"; Tasks: contextmenus
-Root: HKA; Subkey: "Software\Classes\AliceFile.afa\shell\Extract\shell\Extract with manifest\command"; ValueType: string; ValueName: ""; ValueData: """{app}\_alice-ar-extract.bat"" ""%1"" --manifest ""%1.batchpack"""; Tasks: contextmenus
-Root: HKA; Subkey: "Software\Classes\AliceFile.afa\shell\Extract\shell\Extract (raw) with manifest\command"; ValueType: string; ValueName: ""; ValueData: """{app}\_alice-ar-extract.bat"" ""%1"" --raw --manifest ""%1.batchpack"""; Tasks: contextmenus
+Root: HKA; Subkey: "Software\Classes\AliceFile.afa\shell\Extract\shell\Extract with manifest\command"; ValueType: string; ValueName: ""; ValueData: """{app}\_alice-ar-extract.bat"" ""%1"" --manifest ""%1.alicepack"""; Tasks: contextmenus
+Root: HKA; Subkey: "Software\Classes\AliceFile.afa\shell\Extract\shell\Extract (raw) with manifest\command"; ValueType: string; ValueName: ""; ValueData: """{app}\_alice-ar-extract.bat"" ""%1"" --raw --manifest ""%1.alicepack"""; Tasks: contextmenus
 ; .ALD
 Root: HKA; Subkey: "Software\Classes\.ald\OpenWithProgids"; ValueType: string; ValueName: "AliceFile.ald"; ValueData: ""; Flags: uninsdeletevalue; Tasks: associate_arc or contextmenus
 Root: HKA; Subkey: "Software\Classes\AliceFile.ald"; ValueType: string; ValueName: ""; ValueData: "AliceSoft ALD archive"; Flags: uninsdeletekey; Tasks: associate_arc or contextmenus
