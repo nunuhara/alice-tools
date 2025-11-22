@@ -132,7 +132,8 @@ void mkdir_for_file(const char *filename)
 {
 	char *tmp = xstrdup(filename);
 	char *dir = dirname(tmp);
-	mkdir_p(dir);
+	if (mkdir_p(dir) < 0)
+		ALICE_ERROR("mkdir_p(\"%s\"): %s", dir, strerror(errno));
 	free(tmp);
 }
 
