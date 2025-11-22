@@ -94,9 +94,6 @@ struct archive *open_archive(const char *path, enum archive_type *type, int *err
 	} else if (!strcasecmp(ext, ".aar")) {
 		*type = AR_AAR;
 		return (struct archive*)aar_open(path, ARCHIVE_MMAP, error);
-	} else if (!strcasecmp(ext, "flat")) {
-		*type = AR_FLAT;
-		return (struct archive*)flat_open_file(path, 0, error);
 	} else if (!strcasecmp(ext, ".dlf")) {
 		*type = AR_DLF;
 		return (struct archive*)dlf_open(path, ARCHIVE_MMAP, error);

@@ -72,19 +72,23 @@ int command_flat_extract(int argc, char *argv[])
 	}
 
 	// open .flat file
-	struct flat_archive *flat;
+	size_t size;
+	uint8_t *data = file_read(argv[0], &size);
+	if (!data)
+		ALICE_ERROR("file_read(\"%s\") failed: %s", argv[0], strerror(errno));
+
 	int error;
-	flat = flat_open_file(argv[0], 0, &error);
-	if (!flat) {
-		ALICE_ERROR("Opening archive: %s", archive_strerror(error));
-	}
+	struct flat *flat = flat_open(data, size, &error);
+	if (!flat)
+		ALICE_ERROR("Failed to read .flat file \"%s\"", argv[0]);
+	flat->needs_free = true;
 
 	// write manifest
 	output_file = get_output_path(output_file, argv[0]);
 	flat_extract(flat, output_file, png);
 
 	free(output_file);
-	archive_free(&flat->ar);
+	flat_free(flat);
 
 	return 0;
 }

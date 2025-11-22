@@ -54,26 +54,26 @@ static char *output_file_dir(const char *path)
 	return s;
 }
 
-static bool is_image_file(struct archive_data *data)
+static bool is_image_file(uint8_t *data)
 {
-	return cg_check_format(data->data) != ALCG_UNKNOWN;
+	return cg_check_format(data) != ALCG_UNKNOWN;
 }
 
-static bool is_ex_file(struct archive_data *data)
+static bool is_ex_file(uint8_t *data)
 {
-	return !memcmp(data->data, "HEAD", 4);
+	return !memcmp(data, "HEAD", 4);
 }
 
-static bool is_flat_file(struct archive_data *data)
+static bool is_flat_file(uint8_t *data)
 {
-	if (!memcmp(data->data, "ELNA", 4))
-		return !memcmp(data->data+8, "FLAT", 4);
-	return !memcmp(data->data, "FLAT", 4);
+	if (!memcmp(data, "ELNA", 4))
+		return !memcmp(data+8, "FLAT", 4);
+	return !memcmp(data, "FLAT", 4);
 }
 
-static enum filetype get_filetype(struct archive_data *data)
+static enum filetype get_filetype(uint8_t *data, size_t size)
 {
-	if (data->size < 4)
+	if (size < 4)
 		return FT_UNKNOWN;
 	if (is_image_file(data))
 		return FT_IMAGE;
@@ -87,7 +87,7 @@ static enum filetype get_filetype(struct archive_data *data)
 /*
  * Determine the default filename to use for an archived file.
  */
-static char *get_default_filename(struct archive_data *data, enum filetype ft, uint32_t flags)
+static char *get_default_filename(const char *name, enum filetype ft, uint32_t flags)
 {
 	// get conversion extension
 	const char *ext = NULL;
@@ -99,7 +99,7 @@ static char *get_default_filename(struct archive_data *data, enum filetype ft, u
 		}
 	}
 
-	char *u = conv_output(data->name);
+	char *u = conv_output(name);
 
 	if (ext) {
 		size_t ulen = strlen(u);
@@ -122,15 +122,15 @@ static char *get_default_filename(struct archive_data *data, enum filetype ft, u
 static bool write_file(struct archive_data *data, const char *output_file, enum filetype ft, uint32_t flags)
 {
 	FILE *f = NULL;
-	bool is_image = is_image_file(data);
+	bool is_image = is_image_file(data->data);
 	bool output_img = !(flags & AR_RAW) && is_image;
-	bool output_ex = !(flags & AR_RAW) && is_ex_file(data);
+	bool output_ex = !(flags & AR_RAW) && is_ex_file(data->data);
 
 	if ((flags & AR_IMAGES_ONLY) && !is_image)
 		return true;
 
 	if (!output_file) {
-		char *u = get_default_filename(data, ft, flags);
+		char *u = get_default_filename(data->name, ft, flags);
 		mkdir_for_file(u);
 		if (!(flags & AR_FORCE) && file_exists(u)) {
 			free(u);
@@ -178,63 +178,91 @@ static bool write_file(struct archive_data *data, const char *output_file, enum 
 	return true;
 }
 
-static void extract_all_iter(struct archive_data *data, void *_output_dir);
-
 struct extract_all_iter_data {
 	char *prefix;
 	uint32_t flags;
 };
 
-static void extract_flat(struct archive_data *data, char *output_dir, uint32_t flags)
+static void _extract_all_iter(struct archive_data *data, struct extract_all_iter_data *iter_data);
+
+static void extract_flat_image(uint8_t *data, size_t size, const char *section, unsigned i,
+		struct string *prefix, struct extract_all_iter_data *iter_data)
+{
+	const char *ext = cg_file_extension(cg_check_format(data));
+	char name[64];
+	snprintf(name, 64, "%s.%u.%s", section, i, ext);
+
+	struct archive_data dfile = {
+		.name = name,
+		.data = data,
+		.size = size,
+	};
+	_extract_all_iter(&dfile, iter_data);
+}
+
+static void extract_flat_images(struct flat *flat, struct extract_all_iter_data *iter_data)
+{
+	struct string *prefix = string_conv_input(iter_data->prefix, strlen(iter_data->prefix));
+
+	for (unsigned i = 0; i < flat->nr_libraries; i++) {
+		struct flat_library *lib = &flat->libraries[i];
+		if (lib->type != FLAT_LIB_CG)
+			continue;
+		extract_flat_image((uint8_t*)lib->cg.data, lib->cg.size, "libl", i, prefix, iter_data);
+	}
+
+	for (unsigned i = 0; i < flat->nr_talt_entries; i++) {
+		struct talt_entry *e = &flat->talt_entries[i];
+		extract_flat_image(flat->data + e->off, e->size, "talt", i, prefix, iter_data);
+	}
+
+	free_string(prefix);
+}
+
+static void extract_flat(struct archive_data *data, struct extract_all_iter_data *iter_data)
 {
 	int error;
-	struct flat_archive *flat = flat_open(data->data, data->size, &error);
+	struct flat *flat = flat_open(data->data, data->size, &error);
 	if (!flat) {
 		WARNING("Error opening FLAT archive: %s", archive_strerror(error));
 		return;
 	}
 
-	struct string *outfile = make_string(output_dir, strlen(output_dir));
+	struct string *outfile = make_string(iter_data->prefix, strlen(iter_data->prefix));
 	struct string *uname = string_conv_output(data->name, strlen(data->name));
 	string_append(&outfile, uname);
 
-	if (flags & AR_IMAGES_ONLY) {
+	if (iter_data->flags & AR_IMAGES_ONLY) {
 		NOTICE("Extracting %s...", uname->text);
 		string_push_back(&outfile, '.');
-		struct extract_all_iter_data iter_data = { .prefix = outfile->text, .flags = flags };
-		archive_for_each(&flat->ar, extract_all_iter, &iter_data);
+		struct extract_all_iter_data flat_iter_data = {
+			.prefix = outfile->text,
+			.flags = iter_data->flags
+		};
+		extract_flat_images(flat, &flat_iter_data);
 	} else {
 		NOTICE("%s", outfile->text);
 		mkdir_for_file(outfile->text);
 		string_append_cstr(&outfile, ".x", 2);
-		flat_extract(flat, outfile->text, flags & AR_FLAT_PNG);
+		flat_extract(flat, outfile->text, iter_data->flags & AR_FLAT_PNG);
 	}
 
-	archive_free(&flat->ar);
+	flat_free(flat);
 	free_string(outfile);
 	free_string(uname);
 }
 
-static void extract_all_iter(struct archive_data *data, void *_iter_data)
+static void _extract_all_iter(struct archive_data *data, struct extract_all_iter_data *iter_data)
 {
-	struct extract_all_iter_data *iter_data = _iter_data;
-
-	if (!archive_load_file(data)) {
-		char *u = conv_output(data->name);
-		WARNING("Error loading file: %s", u);
-		free(u);
-		return;
-	}
-
-	enum filetype ft = get_filetype(data);
+	enum filetype ft = get_filetype(data->data, data->size);
 
 	if (!(iter_data->flags & AR_RAW) && ft == FT_FLAT) {
-		extract_flat(data, iter_data->prefix, iter_data->flags);
+		extract_flat(data, iter_data);
 		return;
 	}
 
-	bool is_image = is_image_file(data);
-	char *file_name = get_default_filename(data, ft, iter_data->flags);
+	bool is_image = is_image_file(data->data);
+	char *file_name = get_default_filename(data->name, ft, iter_data->flags);
 	char output_file[PATH_MAX];
 	snprintf(output_file, PATH_MAX, "%s%s", iter_data->prefix, file_name);
 	free(file_name);
@@ -249,6 +277,20 @@ static void extract_all_iter(struct archive_data *data, void *_iter_data)
 		NOTICE("%s", output_file);
 	else
 		NOTICE("Skipping existing file: %s", output_file);
+}
+
+static void extract_all_iter(struct archive_data *data, void *_iter_data)
+{
+	struct extract_all_iter_data *iter_data = _iter_data;
+
+	if (!archive_load_file(data)) {
+		char *u = conv_output(data->name);
+		WARNING("Error loading file: %s", u);
+		free(u);
+		return;
+	}
+
+	_extract_all_iter(data, iter_data);
 }
 
 static void check_flags(uint32_t *flags)
@@ -274,7 +316,7 @@ void ar_extract_file(struct archive *ar, char *file_name, char *output_file, uin
 	struct archive_data *d = archive_get_by_name(ar, u);
 	if (!d)
 		ALICE_ERROR("No file with name \"%s\"", u);
-	write_file(d, output_file, get_filetype(d), flags);
+	write_file(d, output_file, get_filetype(d->data, d->size), flags);
 	archive_free_data(d);
 	free(u);
 }
@@ -285,6 +327,6 @@ void ar_extract_index(struct archive *ar, int file_index, char *output_file, uin
 	struct archive_data *d = archive_get(ar, file_index);
 	if (!d)
 		ALICE_ERROR("No file with index %d", file_index);
-	write_file(d, output_file, get_filetype(d), flags);
+	write_file(d, output_file, get_filetype(d->data, d->size), flags);
 	archive_free_data(d);
 }

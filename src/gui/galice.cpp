@@ -335,12 +335,6 @@ static std::shared_ptr<struct archive> openArchiveFile(const QString &path, File
 			ar = &dlf->ar;
 		break;
 	}
-	case FileFormat::FLAT: {
-		struct flat_archive *flat = flat_open_file(path.toUtf8(), 0, error);
-		if (flat)
-			ar = &flat->ar;
-		break;
-	}
 	default:
 		break;
 	}

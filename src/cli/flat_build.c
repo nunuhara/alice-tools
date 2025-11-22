@@ -57,7 +57,7 @@ int command_flat_build(int argc, char *argv[])
 	}
 
 	// build flat object from manifest
-	struct flat_archive *flat = flat_build(argv[0], &mf_output_file);
+	struct flat *flat = flat_build(argv[0], &mf_output_file);
 	if (!output_file) {
 		if (mf_output_file) {
 			struct string *dir = cstr_to_string(path_dirname(argv[0]));
@@ -73,7 +73,7 @@ int command_flat_build(int argc, char *argv[])
 	checked_fwrite(flat->data, flat->data_size, out);
 	fclose(out);
 
-	archive_free(&flat->ar);
+	flat_free(flat);
 	if (mf_output_file)
 		free_string(mf_output_file);
 	free_string(output_file);

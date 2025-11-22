@@ -25,6 +25,7 @@
 #include "system4/ex.h"
 #include "system4/file.h"
 #include "system4/flat.h"
+#include "system4/little_endian.h"
 #include "system4/string.h"
 #include "alice.h"
 #include "alice/ex.h"
@@ -77,8 +78,12 @@ static void deserialize_binary(struct buffer *b, struct string *s)
 		buffer_write_bytes(b, &n, 1);
 	}
 
-	buffer_write_int32_at(b, off, b->index - off - 4);
-	pad_align(b);
+	unsigned size = b->index - off - 4;
+	buffer_write_int32_at(b, off, size);
+	if (size & 3) {
+		int npad = 4 - (size & 3);
+		buffer_write_bytes(b, (const uint8_t*)"\0\0\0", npad);
+	}
 }
 
 static void write_libl_files(struct buffer *b, struct ex_table *libl, const struct string *dir)
@@ -100,11 +105,11 @@ static void write_libl_files(struct buffer *b, struct ex_table *libl, const stru
 	buffer_write_int32(b, libl->nr_rows);
 
 	for (unsigned i = 0; i < libl->nr_rows; i++) {
+		size_t off = b->index;
 		deserialize_binary(b, libl->rows[i][0].s);
 		buffer_write_int32(b, libl->rows[i][1].i);
 
 		struct string *path = get_path(dir, libl->rows[i][4].s->text);
-		//const char *path = libl->rows[i][4].s->text;
 		if (libl->rows[i][2].i) {
 			buffer_write_int32(b, file_size(path->text) + 4);
 			buffer_write_int32(b, libl->rows[i][3].i);
@@ -113,7 +118,11 @@ static void write_libl_files(struct buffer *b, struct ex_table *libl, const stru
 		}
 		buffer_write_file(b, path->text);
 		free_string(path);
-		pad_align(b);
+		unsigned size = b->index - off;
+		if (size & 3) {
+			int npad = 4 - (size & 3);
+			buffer_write_bytes(b, (const uint8_t*)"\0\0\0", npad);
+		}
 	}
 }
 
@@ -160,10 +169,10 @@ static void write_talt_files(struct buffer *b, struct ex_table *talt, const stru
 	}
 }
 
-static struct flat_archive *build_flat(struct ex *ex, const struct string *dir)
+static struct flat *build_flat(struct ex *ex, const struct string *dir)
 {
 	struct buffer b;
-	struct flat_archive *flat = flat_new();
+	struct flat *flat = xcalloc(1, sizeof(struct flat));
 	buffer_init(&b, NULL, 0);
 
 	if (ex_get_int(ex, "elna", 0)) {
@@ -229,7 +238,7 @@ static struct flat_archive *build_flat(struct ex *ex, const struct string *dir)
 	return flat;
 }
 
-struct flat_archive *flat_build(const char *xpath, struct string **output_path)
+struct flat *flat_build(const char *xpath, struct string **output_path)
 {
 	struct string *dir = cstr_to_string(path_dirname(xpath));
 	struct ex *ex = ex_parse_file(xpath);
@@ -248,31 +257,32 @@ struct flat_archive *flat_build(const char *xpath, struct string **output_path)
 		}
 	}
 
-	struct flat_archive *flat = build_flat(ex, dir);
+	struct flat *flat = build_flat(ex, dir);
 	free_string(dir);
 	ex_free(ex);
 	return flat;
 }
 
-static const char *get_extension(enum flat_data_type t, uint8_t *data)
+static const char *libl_get_extension(struct flat *flat, struct flat_library *lib)
 {
-	switch (t) {
-	case FLAT_CG:
-		return cg_file_extension(cg_check_format(data));
-	case FLAT_ZLIB:
-		return "z";
+	switch (lib->type) {
+	case FLAT_LIB_CG:
+		return cg_file_extension(cg_check_format(flat->data + lib->payload_off));
+	case FLAT_LIB_MEMORY:
+		return "mem";
+	case FLAT_LIB_TIMELINE:
+		return "tln";
+	case FLAT_LIB_STOP_MOTION:
+		return "smo";
+	case FLAT_LIB_EMITTER:
+		return "emi";
 	}
 	return "dat";
 }
 
-static const char *libl_get_extension(struct flat_archive *flat, struct libl_entry *e)
+static const char *talt_get_extension(struct flat *flat, struct talt_entry *e)
 {
-	return get_extension(e->type, flat->data + e->off);
-}
-
-static const char *talt_get_extension(struct flat_archive *flat, struct talt_entry *e)
-{
-	return get_extension(FLAT_CG, flat->data + e->off);
+	return cg_file_extension(cg_check_format(flat->data + e->off));
 }
 
 static char *serialize_bytes(const uint8_t *b, size_t size)
@@ -285,46 +295,41 @@ static char *serialize_bytes(const uint8_t *b, size_t size)
 	return out;
 }
 
-static void _write_file(const char *path, void *data, size_t size)
+static void write_file(const char *path, void *data, size_t size)
 {
 	if (!file_write(path, data, size))
 		ALICE_ERROR("file_write(\"%s\"): %s", path, strerror(errno));
 }
 
-static void write_file(const char *path, void *data, size_t size, enum flat_data_type type,
-		bool png)
+static void write_cg(const char *path, void *data, size_t size, bool png)
 {
-	if (type == FLAT_CG) {
-		enum cg_type cg_type = cg_check_format(data);
-		if (cg_type == ALCG_UNKNOWN) {
-			WARNING("Unknown CG format for %s", path);
-			_write_file(path, data, size);
-		} else if (!png || cg_type == ALCG_PNG) {
-			_write_file(path, data, size);
-		} else {
-			// convert to PNG
-			struct cg *cg = cg_load_buffer(data, size);
-			if (!cg) {
-				WARNING("Failed to decode cg for %s", path);
-				_write_file(path, data, size);
-			} else {
-				FILE *f = checked_fopen(path, "wb");
-				cg_write(cg, ALCG_PNG, f);
-				fclose(f);
-			}
-			cg_free(cg);
-		}
+	enum cg_type cg_type = cg_check_format(data);
+	if (cg_type == ALCG_UNKNOWN) {
+		WARNING("Unknown CG format for %s", path);
+		write_file(path, data, size);
+	} else if (!png || cg_type == ALCG_PNG) {
+		write_file(path, data, size);
 	} else {
-		_write_file(path, data, size);
+		// convert to PNG
+		struct cg *cg = cg_load_buffer(data, size);
+		if (!cg) {
+			WARNING("Failed to decode cg for %s", path);
+			write_file(path, data, size);
+		} else {
+			FILE *f = checked_fopen(path, "wb");
+			cg_write(cg, ALCG_PNG, f);
+			fclose(f);
+		}
+		cg_free(cg);
 	}
 }
 
-static void write_section(const char *path, struct flat_archive *flat, struct flat_section *section)
+static void write_section(const char *path, struct flat *flat, struct flat_section *section)
 {
-	_write_file(path, flat->data + section->off, section->size + 8);
+	write_file(path, flat->data + section->off, section->size + 8);
 }
 
-void flat_extract(struct flat_archive *flat, const char *output_file, bool png)
+void flat_extract(struct flat *flat, const char *output_file, bool png)
 {
 	FILE *out = checked_fopen(output_file, "wb");
 	char *prefix = escape_string_noconv(path_basename(output_file));
@@ -353,17 +358,25 @@ void flat_extract(struct flat_archive *flat, const char *output_file, bool png)
 	// LIBL section
 	fprintf(out, "table libl = {\n");
 	fprintf(out, "\t{ string unknown, int type, int has_front, int front, string path },\n");
-	for (unsigned i = 0; i < flat->nr_libl_entries; i++) {
-		struct libl_entry *e = &flat->libl_entries[i];
-		const char *ext = (png && e->type == FLAT_CG) ? "png" : libl_get_extension(flat, e);
-		char *uk = serialize_bytes(flat->data + e->unknown_off, e->unknown_size);
+	for (unsigned i = 0; i < flat->nr_libraries; i++) {
+		struct flat_library *lib = &flat->libraries[i];
+		const char *ext = (png && lib->type == FLAT_LIB_CG) ? "png" : libl_get_extension(flat, lib);
+		uint32_t name_size = LittleEndian_getDW(flat->data, lib->off);
+		char *name = serialize_bytes(flat->data + lib->off + 4, name_size);
+		bool have_uk_int = lib->type == FLAT_LIB_CG && flat->hdr.version > 0;
+		int32_t uk_int = have_uk_int ? lib->cg.uk_int : 0;
 		fprintf(out, "\t{ \"%s\", %d, %d, %d, \"%s.libl.%d.%s\" },\n",
-			uk, e->type, e->has_front_pad, e->front_pad, prefix, i, ext);
-		free(uk);
+			name, lib->type, have_uk_int, uk_int, prefix, i, ext);
+		free(name);
 
 		// write file
 		snprintf(path_buf, PATH_MAX-1, "%s.libl.%d.%s", output_file, i, ext);
-		write_file(path_buf, flat->data + e->off, e->size, e->type, png);
+		if (lib->type == FLAT_LIB_CG) {
+			write_cg(path_buf, flat->data + lib->payload_off, lib->size, png);
+		} else {
+			write_file(path_buf, flat->data + lib->payload_off, lib->size);
+		}
+
 	}
 	fprintf(out, "};\n");
 
@@ -386,7 +399,7 @@ void flat_extract(struct flat_archive *flat, const char *output_file, bool png)
 
 			// write file
 			snprintf(path_buf, PATH_MAX-1, "%s.talt.%d.%s", output_file, i, ext);
-			write_file(path_buf, flat->data + e->off, e->size, FLAT_CG, png);
+			write_cg(path_buf, flat->data + e->off, e->size, png);
 		}
 		fprintf(out, "};\n");
 	}

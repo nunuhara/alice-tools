@@ -94,13 +94,13 @@ static uint8_t *convert_file_mem(struct string *src, enum ar_filetype src_fmt,
 	case AR_FT_X:
 	case AR_FT_TXTEX: {
 		if (dst_fmt == AR_FT_FLAT) {
-			struct flat_archive *flat = flat_build(src->text, NULL);
+			struct flat *flat = flat_build(src->text, NULL);
 			if (!flat)
 				ALICE_ERROR("Error packing .flat file: %s", src->text);
 			uint8_t *data = xmalloc(flat->data_size);
 			memcpy(data, flat->data, flat->data_size);
 			*size_out = flat->data_size;
-			archive_free(&flat->ar);
+			flat_free(flat);
 			return data;
 		} else if (dst_fmt == AR_FT_EX || dst_fmt == AR_FT_PACTEX) {
 			struct ex *ex = ex_parse_file(src->text);
@@ -222,7 +222,7 @@ static void convert_flat(struct string *src, enum ar_filetype src_fmt,
 	//         * flat_load_manifest -> flat object
 	//       In between, we can stat the input files to check timestamps.
 	struct string *output_path = NULL;
-	struct flat_archive *flat = flat_build(src->text, &output_path);
+	struct flat *flat = flat_build(src->text, &output_path);
 	if (output_path) {
 		struct string *tmp = string_path_join(dst_dir, output_path->text);
 		free_string(output_path);
@@ -238,7 +238,7 @@ static void convert_flat(struct string *src, enum ar_filetype src_fmt,
 	checked_fwrite(flat->data, flat->data_size, out);
 	fclose(out);
 
-	archive_free(&flat->ar);
+	flat_free(flat);
 	free_string(output_path);
 }
 

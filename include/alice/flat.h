@@ -19,10 +19,10 @@
 
 #include <stdbool.h>
 
-struct flat_archive;
+struct flat;
 struct string;
 
-struct flat_archive *flat_build(const char *xpath, struct string **output_path);
-void flat_extract(struct flat_archive *flat, const char *output_file, bool png);
+struct flat *flat_build(const char *xpath, struct string **output_path);
+void flat_extract(struct flat *flat, const char *output_file, bool png);
 
 #endif /* ALICE_FLAT_H */
