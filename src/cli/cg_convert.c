@@ -20,6 +20,7 @@
 #include <errno.h>
 #include "system4.h"
 #include "system4/cg.h"
+#include "system4/dcf.h"
 #include "system4/file.h"
 #include "system4/string.h"
 #include "alice.h"
@@ -27,6 +28,7 @@
 
 enum {
 	LOPT_TO = 256,
+	LOPT_BASE,
 };
 
 static enum cg_type parse_cg_format(const char *fmt)
@@ -44,7 +46,7 @@ static enum cg_type parse_cg_format(const char *fmt)
 	if (!strcasecmp(fmt, "webp"))
 		return ALCG_WEBP;
 	if (!strcasecmp(fmt, "dcf"))
-		ALICE_ERROR(".dcf output not supported");
+		return ALCG_DCF;
 	ALICE_ERROR("Unknown CG format: %s", fmt);
 }
 
@@ -52,6 +54,7 @@ int command_cg_convert(int argc, char *argv[])
 {
 	enum cg_type output_format = ALCG_UNKNOWN;
 	struct string *output_file;
+	const char *base_cg_name = NULL;
 
 	while (1) {
 		int c = alice_getopt(argc, argv, &cmd_cg_convert);
@@ -61,6 +64,9 @@ int command_cg_convert(int argc, char *argv[])
 		case 't':
 		case LOPT_TO:
 			output_format = parse_cg_format(optarg);
+			break;
+		case LOPT_BASE:
+			base_cg_name = optarg;
 			break;
 		}
 	}
@@ -91,8 +97,29 @@ int command_cg_convert(int argc, char *argv[])
 
 	// encode/write output CG
 	FILE *out = checked_fopen(output_file->text, "wb");
-	if (!cg_write(in, output_format, out))
-		ALICE_ERROR("cg_write failed");
+
+	if (output_format == ALCG_DCF) {
+		if (!base_cg_name)
+			ALICE_ERROR("No base CG specified for DCF encoding");
+		// open base cg
+		struct cg *base = cg_load_file(base_cg_name);
+		if (!base)
+			ALICE_ERROR("Failed to read base CG: %s", base_cg_name);
+
+		size_t size;
+		char *base_sjis = conv_input(base_cg_name);
+		uint8_t *dcf = dcf_encode(base, in, base_sjis, &size);
+		free(base_sjis);
+
+		if (fwrite(dcf, size, 1, out) != 1)
+			ALICE_ERROR("fwrite(\"%s\"): %s", output_file->text, strerror(errno));
+
+		free(dcf);
+		cg_free(base);
+	} else {
+		if (!cg_write(in, output_format, out))
+			ALICE_ERROR("cg_write failed");
+	}
 
 	cg_free(in);
 	fclose(out);
@@ -108,8 +135,7 @@ struct command cmd_cg_convert = {
 	.fun = command_cg_convert,
 	.options = {
 		{ "to",   't', "Specify output format", required_argument, LOPT_TO },
+		{ "base", 0,   "Specify base CG for DCF encoding", required_argument, LOPT_BASE },
 		{ 0 }
 	}
 };
-
-
