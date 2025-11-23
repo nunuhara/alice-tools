@@ -20,20 +20,21 @@
 #include "system4/ex.h"
 #include "system4/file.h"
 #include "system4/string.h"
+#include "system4/vector.h"
 #include "alice.h"
 #include "ast.h"
 
 extern struct ex *ex_parse(FILE *in, const char *basepath);
 
-#define flatten_list(type, list, outvar)				\
-	do {								\
-		outvar = xcalloc(kv_size(*list), sizeof(type));		\
-		for (size_t _fl_i = 0; _fl_i < kv_size(*list); _fl_i++) { \
-			outvar[_fl_i] = *kv_A(*list, _fl_i);		\
-			free(kv_A(*list, _fl_i));			\
-		}							\
-		kv_destroy(*list);					\
-		free(list);						\
+#define flatten_list(type, list, outvar)					\
+	do {									\
+		outvar = xcalloc(vector_length(*list), sizeof(type));		\
+		for (size_t _fl_i = 0; _fl_i < vector_length(*list); _fl_i++) { \
+			outvar[_fl_i] = *vector_A(*list, _fl_i);		\
+			free(vector_A(*list, _fl_i));				\
+		}								\
+		vector_destroy(*list);						\
+		free(list);							\
 	} while (0)
 
 struct ex *ex_parse_file(const char *path)
@@ -102,7 +103,7 @@ struct ex_value *ast_make_tree_value(struct ex_tree *tree)
 struct ex *ast_make_ex(block_list *blocks)
 {
 	struct ex *ex = xmalloc(sizeof(struct ex));
-	ex->nr_blocks = kv_size(*blocks);
+	ex->nr_blocks = vector_length(*blocks);
 	flatten_list(struct ex_block, blocks, ex->blocks);
 	return ex;
 }
@@ -152,13 +153,13 @@ struct ex_block *ast_make_tree_block(struct string *name, struct ex_tree *tree)
 block_list *ast_make_block_list(struct ex_block *block)
 {
 	block_list *list = xmalloc(sizeof(block_list));
-	kv_init(*list);
+	vector_init(*list);
 	return ast_block_list_push(list, block);
 }
 
 block_list *ast_block_list_push(block_list *blocks, struct ex_block *block)
 {
-	kv_push(struct ex_block*, *blocks, block);
+	vector_push(struct ex_block*, *blocks, block);
 	return blocks;
 }
 
@@ -169,7 +170,7 @@ block_list *ast_block_list_push(block_list *blocks, struct ex_block *block)
 struct ex_table *ast_make_table(field_list *fields, row_list *rows)
 {
 	struct ex_table *table = xmalloc(sizeof(struct ex_table));
-	table->nr_fields = kv_size(*fields);
+	table->nr_fields = vector_length(*fields);
 	table->nr_columns = table->nr_fields;
 	flatten_list(struct ex_field, fields, table->fields);
 
@@ -179,17 +180,17 @@ struct ex_table *ast_make_table(field_list *fields, row_list *rows)
 		return table;
 	}
 
-	table->nr_rows = kv_size(*rows);
+	table->nr_rows = vector_length(*rows);
 
 	table->rows = xcalloc(table->nr_rows, sizeof(struct ex_value*));
 	for (size_t i = 0; i < table->nr_rows; i++) {
-		value_list *cells = kv_A(*rows, i);
-		if (kv_size(*cells) != table->nr_columns)
+		value_list *cells = vector_A(*rows, i);
+		if (vector_length(*cells) != table->nr_columns)
 			ERROR("Row has wrong number of columns");
 		flatten_list(struct ex_value, cells, table->rows[i]);
 	}
 
-	kv_destroy(*rows);
+	vector_destroy(*rows);
 	free(rows);
 	return table;
 }
@@ -207,17 +208,17 @@ struct ex_value *ast_make_subtable(row_list *rows)
 		return ast_make_table_value(table);
 	}
 
-	table->nr_columns = kv_size(*kv_A(*rows, 0));
-	table->nr_rows = kv_size(*rows);
+	table->nr_columns = vector_length(*vector_A(*rows, 0));
+	table->nr_rows = vector_length(*rows);
 	table->rows = xcalloc(table->nr_rows, sizeof(struct ex_value*));
 	for (size_t i = 0; i < table->nr_rows; i++) {
-		value_list *cells = kv_A(*rows, i);
-		if (kv_size(*cells) != table->nr_columns)
+		value_list *cells = vector_A(*rows, i);
+		if (vector_length(*cells) != table->nr_columns)
 			ERROR("Number of columns in sub-table is not constant");
 		flatten_list(struct ex_value, cells, table->rows[i]);
 	}
 
-	kv_destroy(*rows);
+	vector_destroy(*rows);
 	free(rows);
 	return ast_make_table_value(table);
 }
@@ -246,7 +247,7 @@ struct ex_field *ast_make_field_old(int type, struct string *name, int has_value
 		field->value.s = make_string("", 0);
 	}
 	if (subfields) {
-		field->nr_subfields = kv_size(*subfields);
+		field->nr_subfields = vector_length(*subfields);
 		flatten_list(struct ex_field, subfields, field->subfields);
 	}
 	return field;
@@ -270,7 +271,7 @@ struct ex_field *ast_make_field(int type, struct string *name, struct ex_value *
 		field->value = *value;
 	}
 	if (subfields) {
-		field->nr_subfields = kv_size(*subfields);
+		field->nr_subfields = vector_length(*subfields);
 		flatten_list(struct ex_field, subfields, field->subfields);
 	}
 	if (indexed && value && (int)value->type != EX_INT && (int)value->type != EX_STRING) {
@@ -283,13 +284,13 @@ struct ex_field *ast_make_field(int type, struct string *name, struct ex_value *
 field_list *ast_make_field_list(struct ex_field *field)
 {
 	field_list *list = xmalloc(sizeof(field_list));
-	kv_init(*list);
+	vector_init(*list);
 	return ast_field_list_push(list, field);
 }
 
 field_list *ast_field_list_push(field_list *fields, struct ex_field *field)
 {
-	kv_push(struct ex_field*, *fields, field);
+	vector_push(struct ex_field*, *fields, field);
 	return fields;
 }
 
@@ -300,13 +301,13 @@ field_list *ast_field_list_push(field_list *fields, struct ex_field *field)
 row_list *ast_make_row_list(value_list *row)
 {
 	row_list *list = xmalloc(sizeof(row_list));
-	kv_init(*list);
+	vector_init(*list);
 	return ast_row_list_push(list, row);
 }
 
 row_list *ast_row_list_push(row_list *rows, value_list *row)
 {
-	kv_push(value_list*, *rows, row);
+	vector_push(value_list*, *rows, row);
 	return rows;
 }
 
@@ -317,13 +318,13 @@ row_list *ast_row_list_push(row_list *rows, value_list *row)
 value_list *ast_make_value_list(struct ex_value *value)
 {
 	value_list *list = xmalloc(sizeof(value_list));
-	kv_init(*list);
+	vector_init(*list);
 	return ast_value_list_push(list, value);
 }
 
 value_list *ast_value_list_push(value_list *values, struct ex_value *value)
 {
-	kv_push(struct ex_value*, *values, value);
+	vector_push(struct ex_value*, *values, value);
 	return values;
 }
 
@@ -339,14 +340,14 @@ struct ex_list *ast_make_list(value_list *values)
 		list->items = NULL;
 		return list;
 	}
-	list->nr_items = kv_size(*values);
+	list->nr_items = vector_length(*values);
 	list->items = xcalloc(list->nr_items, sizeof(struct ex_list_item));
 	for (size_t i = 0; i < list->nr_items; i++) {
-		struct ex_value *v = kv_A(*values, i);
+		struct ex_value *v = vector_A(*values, i);
 		list->items[i].value = *v;
 		free(v);
 	}
-	kv_destroy(*values);
+	vector_destroy(*values);
 	free(values);
 	return list;
 }
@@ -366,7 +367,7 @@ struct ex_tree *ast_make_tree(node_list *nodes)
 		tree->_children = NULL;
 		return tree;
 	}
-	tree->nr_children = kv_size(*nodes);
+	tree->nr_children = vector_length(*nodes);
 	flatten_list(struct ex_tree, nodes, tree->children);
 	tree->_children = xcalloc(tree->nr_children, sizeof(struct ex_value));
 	for (uint32_t i = 0; i < tree->nr_children; i++) {
@@ -379,7 +380,7 @@ struct ex_tree *ast_make_tree(node_list *nodes)
 node_list *ast_empty_node_list(void)
 {
 	node_list *list = xmalloc(sizeof(node_list));
-	kv_init(*list);
+	vector_init(*list);
 	return list;
 }
 
@@ -390,7 +391,7 @@ node_list *ast_make_node_list(struct ex_tree *node)
 
 node_list *ast_node_list_push(node_list *nodes, struct ex_tree *node)
 {
-	kv_push(struct ex_tree*, *nodes, node);
+	vector_push(struct ex_tree*, *nodes, node);
 	return nodes;
 }
 

@@ -9,9 +9,9 @@
 }
 
 %code requires {
-    #include "kvec.h"
+    #include "system4/vector.h"
 
-    kv_decl(assignment_list, struct text_assignment*);
+    typedef vector_t(struct text_assignment*) assignment_list;
 
     struct text_assignment {
 	int type;
@@ -43,13 +43,13 @@ void text_error(const char *s)
 static assignment_list *make_program(void)
 {
     assignment_list *program = xmalloc(sizeof(assignment_list));
-    kv_init(*program);
+    vector_init(*program);
     return program;
 }
 
 static void push_statement(assignment_list *program, struct text_assignment *statement)
 {
-    kv_push(struct text_assignment*, *program, statement);
+    vector_push(struct text_assignment*, *program, statement);
 }
 
 static struct text_assignment *make_assignment(int type, int index, struct string *string)

@@ -21,13 +21,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "system4/ex.h"
-#include "kvec.h"
+#include "system4/vector.h"
 
-kv_decl(block_list, struct ex_block*);
-kv_decl(field_list, struct ex_field*);
-kv_decl(value_list, struct ex_value*);
-kv_decl(row_list,   value_list*);
-kv_decl(node_list,  struct ex_tree*);
+typedef vector_t(struct ex_block*) block_list;
+typedef vector_t(struct ex_field*) field_list;
+typedef vector_t(struct ex_value*) value_list;
+typedef vector_t(value_list*) row_list;
+typedef vector_t(struct ex_tree*) node_list;
 
 // ex_parser.y
 extern struct ex *ex_data;

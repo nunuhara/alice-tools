@@ -20,13 +20,13 @@
 #include "system4/instructions.h"
 #include "system4/string.h"
 #include "system4/utfsjis.h"
+#include "system4/vector.h"
 #include "alice.h"
 #include "alice/ain.h"
-#include "kvec.h"
 #include "little_endian.h"
 
 struct guesser_state {
-	kvec_t(struct ain_function*) functions;
+	vector_t(struct ain_function*) functions;
 	char *guess;
 };
 
@@ -77,13 +77,13 @@ static char *guess_from_function_name(char *name, size_t len)
 
 static char *guess(struct guesser_state *state, int n)
 {
-	if (kv_size(state->functions) == 0)
+	if (vector_length(state->functions) == 0)
 		return guess_itoa(state, n);
 
-	char *name = kv_A(state->functions, 0)->name;
+	char *name = vector_A(state->functions, 0)->name;
 	size_t prefix = strlen(name);
-	for (size_t i = 1; i < kv_size(state->functions); i++) {
-		prefix = min(prefix, get_prefix_length(name, kv_A(state->functions, i)->name));
+	for (size_t i = 1; i < vector_length(state->functions); i++) {
+		prefix = min(prefix, get_prefix_length(name, vector_A(state->functions, i)->name));
 	}
 	if (!prefix)
 		return guess_itoa(state, n);
@@ -99,7 +99,7 @@ static char *guess(struct guesser_state *state, int n)
 void ain_guess_filenames(struct ain *ain)
 {
 	struct guesser_state state = {0};
-	kv_init(state.functions);
+	vector_init(state.functions);
 
 	struct dasm_state dasm;
 	dasm_init(&dasm, NULL, ain, 0);
@@ -112,7 +112,7 @@ void ain_guess_filenames(struct ain *ain)
 				ERROR("Invalid function index: %d", n);
 			if (!strncmp(ain->functions[n].name, "<lambda", 7))
 				break;
-			kv_push(struct ain_function*, state.functions, &ain->functions[n]);
+			vector_push(struct ain_function*, state.functions, &ain->functions[n]);
 			break;
 		}
 		case _EOF: {
@@ -129,8 +129,8 @@ void ain_guess_filenames(struct ain *ain)
 			}
 			// TODO: ensure uniqueness of filenames
 			ain->filenames[n] = guess(&state, n);
-			kv_destroy(state.functions);
-			kv_init(state.functions);
+			vector_destroy(state.functions);
+			vector_init(state.functions);
 			break;
 		}
 		default:
@@ -138,5 +138,5 @@ void ain_guess_filenames(struct ain *ain)
 		}
 	}
 
-	kv_destroy(state.functions);
+	vector_destroy(state.functions);
 }

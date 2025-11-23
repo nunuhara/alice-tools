@@ -25,6 +25,7 @@
 #include "system4/buffer.h"
 #include "system4/instructions.h"
 #include "system4/string.h"
+#include "system4/vector.h"
 #include "alice.h"
 #include "alice/jaf.h"
 
@@ -2407,8 +2408,8 @@ static void compile_statement(struct compiler_state *state, struct jaf_block_ite
 		start_scope(state);
 	}
 
-	for (int i = (int)kv_size(item->delete_vars) - 1; i >= 0; i--) {
-		compile_delete_var(state, kv_A(item->delete_vars, i)->var);
+	for (int i = (int)vector_length(item->delete_vars) - 1; i >= 0; i--) {
+		compile_delete_var(state, vector_A(item->delete_vars, i)->var);
 	}
 
 	switch (item->kind) {

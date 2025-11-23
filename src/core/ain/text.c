@@ -22,6 +22,7 @@
 #include "system4/ain.h"
 #include "system4/file.h"
 #include "system4/string.h"
+#include "system4/vector.h"
 #include "text_parser.tab.h"
 
 extern FILE *text_in;
@@ -42,8 +43,8 @@ void ain_read_text(const char *filename, struct ain *ain)
 		ERROR("Opening input file '%s': %s", filename, strerror(errno));
 	text_parse();
 
-	for (size_t i = 0; i < kv_size(*statements); i++) {
-		struct text_assignment *assign = kv_A(*statements, i);
+	for (size_t i = 0; i < vector_length(*statements); i++) {
+		struct text_assignment *assign = vector_A(*statements, i);
 		if (assign->type == STRINGS) {
 			if (assign->index < 0 || assign->index >= ain->nr_strings)
 				ERROR("Invalid string index: %d", assign->index);
@@ -61,5 +62,5 @@ void ain_read_text(const char *filename, struct ain *ain)
 		free(assign);
 	}
 
-	kv_destroy(*statements);
+	vector_destroy(*statements);
 }

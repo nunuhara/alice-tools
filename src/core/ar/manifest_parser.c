@@ -21,6 +21,7 @@
 #include "system4/cg.h"
 #include "system4/file.h"
 #include "system4/string.h"
+#include "system4/vector.h"
 #include "alice.h"
 #include "alice/ar.h"
 
@@ -86,33 +87,33 @@ static void make_alicepack_manifest(struct ar_manifest *dst, ar_row_list *rows)
 {
 	dst->alicepack = xcalloc(dst->nr_rows, sizeof(struct alicepack_line));
 	for (size_t i = 0; i < dst->nr_rows; i++) {
-		ar_string_list *row = kv_A(*rows, i);
+		ar_string_list *row = vector_A(*rows, i);
 		struct alicepack_line *line = &dst->alicepack[i];
-		if (kv_size(*row) > 3)
+		if (vector_length(*row) > 3)
 			ALICE_ERROR("line %d: Too many columns", (int)i+2);
-		if (kv_size(*row) == 3) {
-			line->opt = kv_A(*row, 2);
+		if (vector_length(*row) == 3) {
+			line->opt = vector_A(*row, 2);
 		}
-		if (kv_size(*row) >= 2) {
-			line->src_fmt = get_filetype_from_name(kv_A(*row, 0)->text);
+		if (vector_length(*row) >= 2) {
+			line->src_fmt = get_filetype_from_name(vector_A(*row, 0)->text);
 			if (line->src_fmt == AR_FT_UNKNOWN)
 				ALICE_ERROR("Unrecognized src file format for conversion: %s",
-						kv_A(*row, 0)->text);
-			line->dst_fmt = ar_parse_filetype(kv_A(*row, 1)->text);
+						vector_A(*row, 0)->text);
+			line->dst_fmt = ar_parse_filetype(vector_A(*row, 1)->text);
 			if (line->dst_fmt == AR_FT_UNKNOWN)
 				ALICE_ERROR("Unrecognized dst file format for conversion: %s",
-						kv_A(*row, 1)->text);
-			free_string(kv_A(*row, 1));
+						vector_A(*row, 1)->text);
+			free_string(vector_A(*row, 1));
 		}
 		if (dst->src_dir) {
-			line->src = path_join_string(dst->src_dir, kv_A(*row, 0));
-			line->dst = kv_A(*row, 0);
+			line->src = path_join_string(dst->src_dir, vector_A(*row, 0));
+			line->dst = vector_A(*row, 0);
 		} else {
-			line->src = kv_A(*row, 0);
+			line->src = vector_A(*row, 0);
 			line->dst = string_ref(dst->alicepack[i].src);
 		}
 		if (dst->cache_dir) {
-			line->cache = path_join_string(dst->cache_dir, kv_A(*row, 0));
+			line->cache = path_join_string(dst->cache_dir, vector_A(*row, 0));
 			if (line->dst_fmt != AR_FT_UNKNOWN) {
 				struct string *tmp = line->cache;
 				line->cache = replace_extension(tmp->text, ar_ft_extension(line->dst_fmt));
@@ -124,7 +125,7 @@ static void make_alicepack_manifest(struct ar_manifest *dst, ar_row_list *rows)
 			line->dst = replace_extension(tmp->text, ar_ft_extension(line->dst_fmt));
 			free_string(tmp);
 		}
-		kv_destroy(*row);
+		vector_destroy(*row);
 		free(row);
 	}
 }
@@ -133,18 +134,18 @@ static void make_batchpack_manifest(struct ar_manifest *dst, ar_row_list *rows)
 {
 	dst->batchpack = xcalloc(dst->nr_rows, sizeof(struct batchpack_line));
 	for (size_t i = 0; i < dst->nr_rows; i++) {
-		ar_string_list *row = kv_A(*rows, i);
-		if (kv_size(*row) != 4) {
+		ar_string_list *row = vector_A(*rows, i);
+		if (vector_length(*row) != 4) {
 			ALICE_ERROR("line %d: wrong number of columns", (int)i+2);
 		}
-		dst->batchpack[i].src = kv_A(*row, 0);
-		dst->batchpack[i].src_fmt = ar_parse_filetype(kv_A(*row, 1)->text);
-		dst->batchpack[i].dst = kv_A(*row, 2);
-		dst->batchpack[i].dst_fmt = ar_parse_filetype(kv_A(*row, 3)->text);
+		dst->batchpack[i].src = vector_A(*row, 0);
+		dst->batchpack[i].src_fmt = ar_parse_filetype(vector_A(*row, 1)->text);
+		dst->batchpack[i].dst = vector_A(*row, 2);
+		dst->batchpack[i].dst_fmt = ar_parse_filetype(vector_A(*row, 3)->text);
 
-		free_string(kv_A(*row, 1));
-		free_string(kv_A(*row, 3));
-		kv_destroy(*row);
+		free_string(vector_A(*row, 1));
+		free_string(vector_A(*row, 3));
+		vector_destroy(*row);
 		free(row);
 	}
 }
@@ -153,20 +154,20 @@ static void make_alicecg2_manifest(struct ar_manifest *dst, ar_row_list *rows)
 {
 	dst->alicecg2 = xcalloc(dst->nr_rows, sizeof(struct alicecg2_line));
 	for (size_t i = 0; i < dst->nr_rows; i++) {
-		ar_string_list *row = kv_A(*rows, i);
-		if (kv_size(*row) != 5)
+		ar_string_list *row = vector_A(*rows, i);
+		if (vector_length(*row) != 5)
 			ALICE_ERROR("line %d: wrong number of columns", (int)i+2);
 		// TODO: parse file number (for ALD)
 		dst->alicecg2[i].file_no = 0;
-		dst->alicecg2[i].src = kv_A(*row, 1);
-		dst->alicecg2[i].src_fmt = ar_parse_image_format(kv_A(*row, 2));
-		dst->alicecg2[i].dst = kv_A(*row, 3);
-		dst->alicecg2[i].dst_fmt = ar_parse_image_format(kv_A(*row, 4));
+		dst->alicecg2[i].src = vector_A(*row, 1);
+		dst->alicecg2[i].src_fmt = ar_parse_image_format(vector_A(*row, 2));
+		dst->alicecg2[i].dst = vector_A(*row, 3);
+		dst->alicecg2[i].dst_fmt = ar_parse_image_format(vector_A(*row, 4));
 
-		free_string(kv_A(*row, 0));
-		free_string(kv_A(*row, 2));
-		free_string(kv_A(*row, 4));
-		kv_destroy(*row);
+		free_string(vector_A(*row, 0));
+		free_string(vector_A(*row, 2));
+		free_string(vector_A(*row, 4));
+		vector_destroy(*row);
 		free(row);
 	}
 }
@@ -175,8 +176,8 @@ static void parse_manifest_options(struct ar_manifest *mf, ar_string_list *optio
 {
 	mf->afa_version = -1;
 	mf->backslash = false;
-	for (size_t i = 0; i < kv_size(*options); i++) {
-		struct string *opt = kv_A(*options, i);
+	for (size_t i = 0; i < vector_length(*options); i++) {
+		struct string *opt = vector_A(*options, i);
 		if (!strcmp(opt->text, "--backslash")) {
 			mf->backslash = true;
 		} else if (!strncmp(opt->text, "--afa-version=", 14)) {
@@ -204,7 +205,7 @@ static void parse_manifest_options(struct ar_manifest *mf, ar_string_list *optio
 		free_string(opt);
 	}
 
-	kv_destroy(*options);
+	vector_destroy(*options);
 	free(options);
 }
 
@@ -213,7 +214,7 @@ struct ar_manifest *ar_make_manifest(struct string *magic, ar_string_list *optio
 	struct ar_manifest *mf = xcalloc(1, sizeof(struct ar_manifest));
 	mf->type = ar_parse_manifest_type(magic);
 	mf->output_path = output_path;
-	mf->nr_rows = kv_size(*rows);
+	mf->nr_rows = vector_length(*rows);
 	parse_manifest_options(mf, options);
 
 	switch (mf->type) {
@@ -235,7 +236,7 @@ struct ar_manifest *ar_make_manifest(struct string *magic, ar_string_list *optio
 		ALICE_ERROR("Invalid manifest type");
 	}
 
-	kv_destroy(*rows);
+	vector_destroy(*rows);
 	free(rows);
 	free_string(magic);
 	return mf;

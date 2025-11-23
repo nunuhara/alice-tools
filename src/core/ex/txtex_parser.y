@@ -20,7 +20,6 @@
 }
 
 %code requires {
-    #include "kvec.h"
     #include "system4/ex.h"
     #include "core/ex/ast.h"
 }

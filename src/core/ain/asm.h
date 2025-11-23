@@ -19,11 +19,11 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include "kvec.h"
 #include "khash.h"
 #include "system4.h"
 #include "system4/ain.h"
 #include "system4/instructions.h"
+#include "system4/vector.h"
 
 #define PSEUDO_OP_OFFSET 0xF000
 enum asm_pseudo_opcode {
@@ -68,9 +68,9 @@ enum asm_pseudo_opcode {
 
 extern struct instruction asm_pseudo_ops[NR_PSEUDO_OPS - PSEUDO_OP_OFFSET];
 
-kv_decl(parse_instruction_list, struct parse_instruction*);
-kv_decl(parse_argument_list, struct string*);
-kv_decl(pointer_list, uint32_t*);
+typedef vector_t(struct parse_instruction*) parse_instruction_list;
+typedef vector_t(struct string*) parse_argument_list;
+typedef vector_t(uint32_t*) pointer_list;
 
 struct parse_instruction {
 	uint16_t opcode;

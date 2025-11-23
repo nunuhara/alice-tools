@@ -24,12 +24,12 @@
 #include "system4.h"
 #include "system4/ain.h"
 #include "system4/instructions.h"
+#include "system4/vector.h"
 #include "alice.h"
 #include "alice/jaf.h"
 #include "alice/ain.h"
 #include "alice/project.h"
 #include "cli.h"
-#include "kvec.h"
 
 enum {
 	LOPT_PROJECT = 256,
@@ -73,7 +73,7 @@ static void push_input(enum input_type type, const char *filename)
 	};
 }
 
-typedef kvec_t(char*) hll_list;
+typedef vector_t(char*) hll_list;
 
 static void push_hll(hll_list *list, const char *file)
 {
@@ -83,8 +83,8 @@ static void push_hll(hll_list *list, const char *file)
 	if (ext)
 		*ext = '\0';
 
-	kv_push(char*, *list, filename);
-	kv_push(char*, *list, libname);
+	vector_push(char*, *list, filename);
+	vector_push(char*, *list, libname);
 }
 
 int command_ain_edit(int argc, char *argv[])
@@ -210,7 +210,8 @@ int command_ain_edit(int argc, char *argv[])
 			ain_append_jam(inputs[i].filename, ain, flags);
 			break;
 		case IN_JAF:
-			jaf_build(ain, &inputs[i].filename, 1, (const char**)kv_data(hlls), kv_size(hlls));
+			jaf_build(ain, &inputs[i].filename, 1, (const char**)vector_data(hlls),
+					vector_length(hlls));
 			break;
 		case IN_TEXT:
 			ain_read_text(inputs[i].filename, ain);
@@ -227,10 +228,10 @@ write_ain_file:
 	ain_free(ain);
 
 	char *p;
-	kv_foreach(p, hlls) {
+	vector_foreach(p, hlls) {
 		free(p);
 	}
-	kv_destroy(hlls);
+	vector_destroy(hlls);
 	return 0;
 }
 

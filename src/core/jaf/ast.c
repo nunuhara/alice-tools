@@ -22,6 +22,7 @@
 #include "system4/ain.h"
 #include "system4/instructions.h"
 #include "system4/string.h"
+#include "system4/vector.h"
 #include "alice/jaf.h"
 
 extern unsigned long jaf_line;
@@ -992,18 +993,18 @@ void jaf_free_block_item(struct jaf_block_item *item)
 		jaf_free_block(item->struc.members);
 		jaf_free_block(item->struc.methods);
 		struct string *p;
-		kv_foreach(p, item->struc.interfaces) {
+		vector_foreach(p, item->struc.interfaces) {
 			free_string(p);
 		}
-		kv_destroy(item->struc.interfaces);
+		vector_destroy(item->struc.interfaces);
 		break;
 	}
 	case JAF_DECL_ENUM: {
 		struct jaf_enum_value *p;
-		kv_foreach_p(p, item->enume.values) {
+		vector_foreach_p(p, item->enume.values) {
 			free_string(p->symbol);
 		}
-		kv_destroy(item->enume.values);
+		vector_destroy(item->enume.values);
 		free_string(item->enume.name);
 		break;
 	}
@@ -1066,7 +1067,7 @@ void jaf_free_block_item(struct jaf_block_item *item)
 		jaf_free_expr(item->assertion.file);
 		break;
 	}
-	kv_destroy(item->delete_vars);
+	vector_destroy(item->delete_vars);
 	free(item);
 }
 

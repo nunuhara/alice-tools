@@ -19,6 +19,7 @@
 #include <assert.h>
 #include "system4.h"
 #include "system4/string.h"
+#include "system4/vector.h"
 #include "khash.h"
 #include "alice.h"
 #include "alice/jaf.h"
@@ -104,13 +105,13 @@ static jaf_var_set var_set_diff(const jaf_var_set *a, const jaf_var_set *b)
 	// TODO? Using O(n^2) algorithm here, but not sure if it matters in practice
 	jaf_var_set diff = {0};
 	struct jaf_vardecl *p, *q;
-	kv_foreach(p, *a) {
-		kv_foreach(q, *b) {
+	vector_foreach(p, *a) {
+		vector_foreach(q, *b) {
 			if (p == q)
 				goto skip;
 		}
 		// p is not in set b
-		kv_push(struct jaf_vardecl*, diff, p);
+		vector_push(struct jaf_vardecl*, diff, p);
 skip:
 		;
 	}
@@ -128,15 +129,15 @@ struct jump {
 	jaf_var_set live_vars;
 };
 
-typedef kvec_t(struct jump) jump_list;
+typedef vector_t(struct jump) jump_list;
 
 static void jump_list_destroy(jump_list *list)
 {
 	struct jump *p;
-	kv_foreach_p(p, *list) {
-		kv_destroy(p->live_vars);
+	vector_foreach_p(p, *list) {
+		vector_destroy(p->live_vars);
 	}
-	kv_destroy(*list);
+	vector_destroy(*list);
 }
 
 struct scope {
@@ -156,9 +157,9 @@ static struct scope *scope_push(struct scope *scope)
 static struct scope *scope_pop(struct scope *scope)
 {
 	struct scope *head = scope->parent;
-	kv_destroy(scope->initial_vars);
-	assert(kv_size(scope->breaks) == 0);
-	assert(kv_size(scope->continues) == 0);
+	vector_destroy(scope->initial_vars);
+	assert(vector_length(scope->breaks) == 0);
+	assert(vector_length(scope->continues) == 0);
 	jump_list_destroy(&scope->breaks);
 	jump_list_destroy(&scope->continues);
 	free(scope);
@@ -169,7 +170,7 @@ struct label {
 	struct string *name;
 	bool resolved;
 	jaf_var_set live_vars;
-	kvec_t(unsigned) gotos;
+	vector_t(unsigned) gotos;
 };
 
 struct alloc_state {
@@ -178,7 +179,7 @@ struct alloc_state {
 	int nr_vars;
 	struct scope *scope;
 	jump_list gotos;
-	kvec_t(struct label) labels;
+	vector_t(struct label) labels;
 };
 
 static warn_unused int _init_variable(struct alloc_state *state, const char *name,
@@ -228,7 +229,7 @@ static void env_to_var_list(struct jaf_env *env, jaf_var_set *out)
 		struct jaf_env_local *local = &env->locals[i];
 		if (local->is_const)
 			continue;
-		kv_push(struct jaf_vardecl*, *out, local->decl);
+		vector_push(struct jaf_vardecl*, *out, local->decl);
 	}
 
 	if (env->parent)
@@ -244,38 +245,38 @@ static void start_scope(struct alloc_state *state, struct jaf_env *env)
 static void update_jumps(jump_list *jumps, struct scope *scope)
 {
 	struct jump *j;
-	kv_foreach_p(j, *jumps) {
+	vector_foreach_p(j, *jumps) {
 		j->stmt->delete_vars = var_set_diff(&j->live_vars, &scope->initial_vars);
-		kv_destroy(j->live_vars);
+		vector_destroy(j->live_vars);
 	}
-	kv_destroy(*jumps);
-	kv_init(*jumps);
+	vector_destroy(*jumps);
+	vector_init(*jumps);
 }
 
 static void carry_continues(struct scope *scope)
 {
-	if (!scope->parent && kv_size(scope->continues) > 0)
-		COMPILER_ERROR(kv_A(scope->continues, 0).stmt, "Unresolved continue statement");
+	if (!scope->parent && vector_length(scope->continues) > 0)
+		COMPILER_ERROR(vector_A(scope->continues, 0).stmt, "Unresolved continue statement");
 
 	struct jump *j;
-	kv_foreach_p(j, scope->continues) {
-		kv_push(struct jump, scope->parent->continues, *j);
+	vector_foreach_p(j, scope->continues) {
+		vector_push(struct jump, scope->parent->continues, *j);
 	}
-	kv_destroy(scope->continues);
-	kv_init(scope->continues);
+	vector_destroy(scope->continues);
+	vector_init(scope->continues);
 }
 
 static void carry_breaks(struct scope *scope)
 {
-	if (!scope->parent && kv_size(scope->breaks) > 0)
-		COMPILER_ERROR(kv_A(scope->breaks, 0).stmt, "Unresolved break statement");
+	if (!scope->parent && vector_length(scope->breaks) > 0)
+		COMPILER_ERROR(vector_A(scope->breaks, 0).stmt, "Unresolved break statement");
 
 	struct jump *j;
-	kv_foreach_p(j, scope->breaks) {
-		kv_push(struct jump, scope->parent->breaks, *j);
+	vector_foreach_p(j, scope->breaks) {
+		vector_push(struct jump, scope->parent->breaks, *j);
 	}
-	kv_destroy(scope->breaks);
-	kv_init(scope->breaks);
+	vector_destroy(scope->breaks);
+	vector_init(scope->breaks);
 }
 
 static void end_scope(struct alloc_state *state, enum scope_type type)
@@ -300,7 +301,7 @@ static void end_scope(struct alloc_state *state, enum scope_type type)
 static struct label *find_label(struct alloc_state *state, const char *name)
 {
 	struct label *p;
-	kv_foreach_p(p, state->labels) {
+	vector_foreach_p(p, state->labels) {
 		if (!strcmp(p->name->text, name))
 			return p;
 	}
@@ -319,37 +320,37 @@ static void add_label(struct alloc_state *state, struct jaf_env *env,
 		return;
 	}
 
-	p = kv_pushp(struct label, state->labels);
+	p = vector_pushp(struct label, state->labels);
 	p->name = string_dup(stmt->label.name);
 	p->resolved = true;
-	kv_init(p->gotos);
-	kv_init(p->live_vars);
+	vector_init(p->gotos);
+	vector_init(p->live_vars);
 	env_to_var_list(env, &p->live_vars);
 }
 
 static void jump_list_add(jump_list *list, struct jaf_env *env, struct jaf_block_item *stmt)
 {
-	struct jump *p = kv_pushp(struct jump, *list);
+	struct jump *p = vector_pushp(struct jump, *list);
 	p->stmt = stmt;
-	kv_init(p->live_vars);
+	vector_init(p->live_vars);
 	env_to_var_list(env, &p->live_vars);
 }
 
 static void add_goto(struct alloc_state *state, struct jaf_env *env,
 		struct jaf_block_item *stmt)
 {
-	unsigned no = kv_size(state->gotos);
+	unsigned no = vector_length(state->gotos);
 	jump_list_add(&state->gotos, env, stmt);
 
 	struct label *p = find_label(state, stmt->target->text);
 	if (!p) {
-		p = kv_pushp(struct label, state->labels);
+		p = vector_pushp(struct label, state->labels);
 		p->name = string_dup(stmt->target);
 		p->resolved = false;
-		kv_init(p->gotos);
-		kv_init(p->live_vars);
+		vector_init(p->gotos);
+		vector_init(p->live_vars);
 	}
-	kv_push(unsigned, p->gotos, no);
+	vector_push(unsigned, p->gotos, no);
 }
 
 static void stmt_get_vars_pre(struct jaf_block_item *stmt, struct jaf_visitor *visitor)
@@ -470,17 +471,17 @@ static struct jaf_expression *expr_get_vars(struct jaf_expression *expr, struct 
 static void resolve_gotos(struct alloc_state *state)
 {
 	struct label *p;
-	kv_foreach_p(p, state->labels) {
+	vector_foreach_p(p, state->labels) {
 		if (!p->resolved) {
-			assert(kv_size(p->gotos) > 0);
-			unsigned i = kv_A(p->gotos, 0);
-			assert(i < kv_size(state->gotos));
-			JAF_ERROR(kv_A(state->gotos, i).stmt, "Unresolved label");
+			assert(vector_length(p->gotos) > 0);
+			unsigned i = vector_A(p->gotos, 0);
+			assert(i < vector_length(state->gotos));
+			JAF_ERROR(vector_A(state->gotos, i).stmt, "Unresolved label");
 		}
 		unsigned i;
-		kv_foreach(i, p->gotos) {
-			assert(i < kv_size(state->gotos));
-			struct jump *j = &kv_A(state->gotos, i);
+		vector_foreach(i, p->gotos) {
+			assert(i < vector_length(state->gotos));
+			struct jump *j = &vector_A(state->gotos, i);
 			j->stmt->delete_vars = var_set_diff(&j->live_vars, &p->live_vars);
 		}
 	}
@@ -506,17 +507,17 @@ static struct ain_variable *function_get_vars(struct ain *ain, struct jaf_block 
 	resolve_gotos(&state);
 
 	struct label *p;
-	kv_foreach_p(p, state.labels) {
+	vector_foreach_p(p, state.labels) {
 		free_string(p->name);
-		kv_destroy(p->gotos);
+		vector_destroy(p->gotos);
 	}
-	kv_destroy(state.labels);
+	vector_destroy(state.labels);
 
 	struct jump *j;
-	kv_foreach_p(j, state.gotos) {
-		kv_destroy(j->live_vars);
+	vector_foreach_p(j, state.gotos) {
+		vector_destroy(j->live_vars);
 	}
-	kv_destroy(state.gotos);
+	vector_destroy(state.gotos);
 
 	*nr_vars = state.nr_vars;
 	return state.vars;
@@ -720,7 +721,7 @@ static jaf_var_set block_get_array_allocs(struct jaf_block *block)
 	jaf_var_set vars = {0};
 	for (unsigned i = 0; i < block->nr_items; i++) {
 		if (block->items[i]->kind == JAF_DECL_VAR && block->items[i]->var.array_dims) {
-			kv_push(struct jaf_vardecl*, vars, &block->items[i]->var);
+			vector_push(struct jaf_vardecl*, vars, &block->items[i]->var);
 		}
 	}
 	return vars;
@@ -837,7 +838,7 @@ static struct jaf_block *array_initializers(struct ain *ain, jaf_var_set *vars, 
 {
 	struct jaf_block *block = jaf_block(NULL);
 	struct jaf_vardecl *v;
-	kv_foreach(v, *vars) {
+	vector_foreach(v, *vars) {
 		block = jaf_block_append(block, array_alloc_stmt(ain, v, global));
 	}
 
@@ -861,7 +862,7 @@ static void jaf_process_structdef(struct ain *ain, struct jaf_block_item *item)
 	struct ain_struct *s = &ain->structures[item->struc.struct_no];
 
 	struct jaf_block *jaf_members = item->struc.members;
-	bool need_vtable = kv_size(item->struc.interfaces) > 0;
+	bool need_vtable = vector_length(item->struc.interfaces) > 0;
 	int nr_members = jaf_members->nr_items + (need_vtable ? 1 : 0);
 	struct ain_variable *members = xcalloc(nr_members, sizeof(struct ain_variable));
 
@@ -904,13 +905,13 @@ static void jaf_process_structdef(struct ain *ain, struct jaf_block_item *item)
 	s->members = members;
 
 	// process interfaces
-	s->nr_interfaces = kv_size(item->struc.interfaces);
+	s->nr_interfaces = vector_length(item->struc.interfaces);
 	s->interfaces = xcalloc(s->nr_interfaces, sizeof(struct ain_interface));
 
 	int iface_index = 0;
 	int vtable_offset = 0;
 	struct string *p;
-	kv_foreach(p, item->struc.interfaces) {
+	vector_foreach(p, item->struc.interfaces) {
 		char *name = conv_output(p->text);
 		int iface_no = ain_get_struct(ain, name);
 		free(name);
@@ -940,7 +941,7 @@ static void jaf_process_structdef(struct ain *ain, struct jaf_block_item *item)
 		// generate initializer function
 		jaf_var_set vars = block_get_array_allocs(item->struc.members);
 		struct jaf_block *body = array_initializers(ain, &vars, false);
-		kv_destroy(vars);
+		vector_destroy(vars);
 		if (need_vtable) {
 			struct jaf_block *vtable = vtable_initializer(ain, s);
 			body = jaf_merge_blocks(vtable, body);
@@ -1048,7 +1049,7 @@ static struct jaf_block_item *gen_enum_to_string(struct ain *ain, struct jaf_enu
 	struct string *var_name = make_string("value", 5);
 
 	struct jaf_enum_value *v;
-	kv_foreach_p(v, e->values) {
+	vector_foreach_p(v, e->values) {
 		struct jaf_expression *test = jaf_binary_expr(JAF_EQ,
 				jaf_simple_identifier(string_dup(var_name)),
 				jaf_identifier(enum_constant_name(e->name, v->symbol)));
@@ -1096,7 +1097,7 @@ static struct jaf_block_item *gen_enum_parse_string(struct ain *ain, struct jaf_
 	struct string *var_name = make_string("value", 5);
 
 	struct jaf_enum_value *v;
-	kv_foreach_p(v, e->values) {
+	vector_foreach_p(v, e->values) {
 		struct jaf_expression *test = jaf_binary_expr(JAF_EQ,
 				jaf_simple_identifier(string_dup(var_name)),
 				jaf_string(string_dup(v->symbol)));
@@ -1138,7 +1139,7 @@ static struct jaf_block_item *gen_enum_parse_int(struct ain *ain, struct jaf_enu
 	struct string *var_name = make_string("value", 5);
 
 	struct jaf_enum_value *v;
-	kv_foreach_p(v, e->values) {
+	vector_foreach_p(v, e->values) {
 		struct jaf_expression *test = jaf_binary_expr(JAF_EQ,
 				jaf_simple_identifier(string_dup(var_name)),
 				jaf_integer(v->value));
@@ -1223,7 +1224,7 @@ static struct jaf_block_item *gen_enum_is_exist(struct ain *ain, struct jaf_enum
 	struct string *var_name = make_string("value", 5);
 
 	struct jaf_enum_value *v;
-	kv_foreach_p(v, e->values) {
+	vector_foreach_p(v, e->values) {
 		struct jaf_expression *test = jaf_binary_expr(JAF_EQ,
 				jaf_simple_identifier(string_dup(var_name)),
 				jaf_integer(v->value));
@@ -1282,7 +1283,7 @@ void _jaf_process_enumdef(struct ain *ain, struct jaf_enumdecl *e,
 	jaf_block_append(block, gen_enum_num_of(ain, e));
 }
 
-typedef kvec_t(struct jaf_enumdecl*) enum_decl_list;
+typedef vector_t(struct jaf_enumdecl*) enum_decl_list;
 KHASH_MAP_INIT_INT(enum_table, enum_decl_list*);
 static khash_t(enum_table) *enum_table;
 
@@ -1290,8 +1291,8 @@ static void jaf_process_enumdef(struct ain *ain, enum_decl_list *decl_list,
 		struct jaf_block *block)
 {
 	// simple case: one declaration
-	if (kv_size(*decl_list) == 1) {
-		_jaf_process_enumdef(ain, kv_A(*decl_list, 0), block);
+	if (vector_length(*decl_list) == 1) {
+		_jaf_process_enumdef(ain, vector_A(*decl_list, 0), block);
 		goto end;
 	}
 
@@ -1300,22 +1301,22 @@ static void jaf_process_enumdef(struct ain *ain, enum_decl_list *decl_list,
 	//      because if an enum is defined normally in .jaf and then extended, the
 	//      combined enum should not be considered extended (it's just a definition that's
 	//      been spread out over multiple declarations).
-	assert(kv_size(*decl_list) > 0);
-	struct jaf_enumdecl e = *kv_A(*decl_list, 0);
-	kv_init(e.values);
+	assert(vector_length(*decl_list) > 0);
+	struct jaf_enumdecl e = *vector_A(*decl_list, 0);
+	vector_init(e.values);
 
 	struct jaf_enumdecl *p;
-	kv_foreach(p, *decl_list) {
+	vector_foreach(p, *decl_list) {
 		struct jaf_enum_value *v;
-		kv_foreach_p(v, p->values) {
-			kv_push(struct jaf_enum_value, e.values, *v);
+		vector_foreach_p(v, p->values) {
+			vector_push(struct jaf_enum_value, e.values, *v);
 		}
 	}
 
 	_jaf_process_enumdef(ain, &e, block);
-	kv_destroy(e.values);
+	vector_destroy(e.values);
 end:
-	kv_destroy(*decl_list);
+	vector_destroy(*decl_list);
 	free(decl_list);
 }
 
@@ -1332,12 +1333,12 @@ static void jaf_process_enumdefs(struct ain *ain, struct jaf_block *block)
 		if (!ret) {
 			// add to list
 			enum_decl_list *list = kh_value(enum_table, k);
-			kv_push(struct jaf_enumdecl*, *list, decl);
+			vector_push(struct jaf_enumdecl*, *list, decl);
 		} else if (ret == 1) {
 			// create list
 			enum_decl_list *list = xmalloc(sizeof(enum_decl_list));
-			kv_init(*list);
-			kv_push(struct jaf_enumdecl*, *list, decl);
+			vector_init(*list);
+			vector_push(struct jaf_enumdecl*, *list, decl);
 			kh_value(enum_table, k) = list;
 		} else {
 			WARNING("Failed to insert enum into enum table (%d)", ret);
@@ -1354,7 +1355,7 @@ static void jaf_process_global_allocs(struct ain *ain, struct jaf_block *block)
 	// TODO: in v12+, GSET section is not present and we have to initialize
 	//       all globals here
 	jaf_var_set allocs = block_get_array_allocs(block);
-	if (kv_size(allocs) == 0)
+	if (vector_length(allocs) == 0)
 		return;
 
 	struct jaf_name name;
@@ -1381,7 +1382,7 @@ static void jaf_process_global_allocs(struct ain *ain, struct jaf_block *block)
 	// process function
 	jaf_process_function(ain, alloc_fun);
 
-	kv_destroy(allocs);
+	vector_destroy(allocs);
 }
 
 void jaf_process_declarations(struct ain *ain, struct jaf_block *block)

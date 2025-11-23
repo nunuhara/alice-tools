@@ -18,8 +18,8 @@
 #define ALICE_AR_H_
 
 #include <stddef.h>
-#include "kvec.h"
 #include "system4/cg.h"
+#include "system4/vector.h"
 
 enum {
 	AR_RAW = 1,
@@ -167,9 +167,9 @@ struct archive *open_archive(const char *path, enum archive_type *type, int *err
 struct archive *open_ald_archive(const char *path, int *error, char *(*conv)(const char*));
 
 // pack.c
-kv_decl(ar_file_list, struct ar_file_spec*);
-kv_decl(ar_string_list, struct string*);
-kv_decl(ar_row_list, ar_string_list*);
+typedef vector_t(struct ar_file_spec*) ar_file_list;
+typedef vector_t(struct string*) ar_string_list;
+typedef vector_t(ar_string_list*) ar_row_list;
 void ar_set_path_separator(char c);
 void ar_pack_manifest(struct ar_manifest *ar, int afa_version);
 void ar_to_file_list(struct archive *ar, ar_file_list *files);

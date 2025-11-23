@@ -27,6 +27,7 @@
 #include "system4/file.h"
 #include "system4/ini.h"
 #include "system4/string.h"
+#include "system4/vector.h"
 #include "alice.h"
 #include "alice/ain.h"
 #include "alice/ar.h"
@@ -809,7 +810,7 @@ static void pje_build_pact(struct pje_config *config, struct build_job *job)
 
 	// copy input .pactex files
 	ar_file_list dst_files;
-	kv_init(dst_files);
+	vector_init(dst_files);
 	ar_to_file_list(&ar->ar, &dst_files);
 
 	// close input pact .afa
@@ -817,7 +818,7 @@ static void pje_build_pact(struct pje_config *config, struct build_job *job)
 
 	// get list of .txtex source files
 	ar_file_list src_files;
-	kv_init(src_files);
+	vector_init(src_files);
 	for (unsigned i = 0; i < job->pact.n; i++) {
 		ar_dir_to_file_list(job->pact.items[i], &src_files, AR_FT_TXTEX);
 	}
@@ -856,7 +857,7 @@ static void pje_build_pact(struct pje_config *config, struct build_job *job)
 			spec->type = AR_FILE_SPEC_MEM;
 			spec->name = string_ref(dst_name);
 			spec->mem.data = ex_write_mem(src_ex, &spec->mem.size);
-			kv_push(struct ar_file_spec*, dst_files, spec);
+			vector_push(struct ar_file_spec*, dst_files, spec);
 		}
 
 		free_string(dst_name);
@@ -874,8 +875,8 @@ static void pje_build_pact(struct pje_config *config, struct build_job *job)
 	free_string(out);
 	ar_file_list_free(&dst_files);
 	ar_file_list_free(&src_files);
-	kv_destroy(dst_files);
-	kv_destroy(src_files);
+	vector_destroy(dst_files);
+	vector_destroy(src_files);
 }
 
 static struct ar_manifest *pje_make_manifest(struct string *out, struct batchpack_list *list)

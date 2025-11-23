@@ -16,10 +16,10 @@
 
 #include <stdio.h>
 #include <ctype.h>
-#include "kvec.h"
 #include "system4.h"
 #include "system4/instructions.h"
 #include "system4/string.h"
+#include "system4/vector.h"
 #include "core/ain/asm.h"
 
 extern int asm_lex();
@@ -40,13 +40,13 @@ uint32_t asm_instr_ptr = 0;
 static parse_instruction_list *make_program(void)
 {
     parse_instruction_list *program = xmalloc(sizeof(parse_instruction_list));
-    kv_init(*program);
+    vector_init(*program);
     return program;
 }
 
 static void push_instruction(parse_instruction_list *program, struct parse_instruction *instr)
 {
-    kv_push(struct parse_instruction*, *program, instr);
+    vector_push(struct parse_instruction*, *program, instr);
     asm_instr_ptr += asm_instruction_width(instr->opcode);
 }
 
@@ -60,11 +60,11 @@ static struct parse_instruction *make_instruction(struct string *name, parse_arg
     if (!info)
         PARSE_ERROR("Invalid instruction: %s", name->text);
     // check argument count
-    size_t nr_args = args ? kv_size(*args) : 0;
+    size_t nr_args = args ? vector_length(*args) : 0;
     if (nr_args != (size_t)info->nr_args) {
         fprintf(stderr, "In: '%s", info->name);
         for (size_t i = 0; i < nr_args; i++) {
-            fprintf(stderr, " %s", kv_A(*args, i)->text);
+            fprintf(stderr, " %s", vector_A(*args, i)->text);
         }
         fprintf(stderr, "'\n");
         PARSE_ERROR("Wrong number of arguments for instruction '%s' (expected %d; got %lu)",
@@ -83,13 +83,13 @@ static struct parse_instruction *make_instruction(struct string *name, parse_arg
 static parse_argument_list *make_arglist(void)
 {
     parse_argument_list *args = xmalloc(sizeof(parse_argument_list));
-    kv_init(*args);
+    vector_init(*args);
     return args;
 }
 
 static void push_arg(parse_argument_list *args, struct string *arg)
 {
-    kv_push(struct string*, *args, arg);
+    vector_push(struct string*, *args, arg);
 }
 
 static void push_label(char *name)

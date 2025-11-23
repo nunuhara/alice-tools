@@ -503,10 +503,10 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 	switch (instr->opcode) {
 	case PO_CASE: {
 		int n_switch, n_case, c;
-		decompose_switch_index(state, kv_A(*instr->args, 0)->text, &n_switch, &n_case);
+		decompose_switch_index(state, vector_A(*instr->args, 0)->text, &n_switch, &n_case);
 
 		struct ain_switch *swi = &state->ain->switches[n_switch];
-		c = parse_integer_constant(state, kv_A(*instr->args, 1)->text);
+		c = parse_integer_constant(state, vector_A(*instr->args, 1)->text);
 		realloc_switch_cases(swi, n_case);
 		swi->cases[n_case].address = state->buf_ptr;
 		swi->cases[n_case].value = c;
@@ -514,42 +514,42 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 	}
 	case PO_STRCASE: {
 		int n_switch, n_case, c;
-		decompose_switch_index(state, kv_A(*instr->args, 0)->text, &n_switch, &n_case);
+		decompose_switch_index(state, vector_A(*instr->args, 0)->text, &n_switch, &n_case);
 
 		struct ain_switch *swi = &state->ain->switches[n_switch];
-		c = asm_add_string(state, kv_A(*instr->args, 1)->text);
+		c = asm_add_string(state, vector_A(*instr->args, 1)->text);
 		realloc_switch_cases(swi, n_case);
 		swi->cases[n_case].address = state->buf_ptr;
 		swi->cases[n_case].value = c;
 		break;
 	}
 	case PO_DEFAULT: {
-		int n_switch = parse_integer_constant(state, kv_A(*instr->args, 0)->text);
+		int n_switch = parse_integer_constant(state, vector_A(*instr->args, 0)->text);
 		if (n_switch < 0 || n_switch >= state->ain->nr_switches)
 			ASM_ERROR(state, "Invalid switch index: %d", n_switch);
 		state->ain->switches[n_switch].default_address = state->buf_ptr;
 		break;
 	}
 	case PO_SETSTR: {
-		int n_str = parse_integer_constant(state, kv_A(*instr->args, 0)->text);
+		int n_str = parse_integer_constant(state, vector_A(*instr->args, 0)->text);
 		if (n_str < 0)
 			ASM_ERROR(state, "Invalid string index: %d", n_str);
 		realloc_string_table(state->ain, n_str);
 		if (state->ain->strings[n_str])
 			free_string(state->ain->strings[n_str]);
-		char *sjis = conv_output(kv_A(*instr->args, 1)->text);
+		char *sjis = conv_output(vector_A(*instr->args, 1)->text);
 		state->ain->strings[n_str] = make_string(sjis, strlen(sjis));
 		free(sjis);
 		break;
 	}
 	case PO_SETMSG: {
-		int n_msg = parse_integer_constant(state, kv_A(*instr->args, 0)->text);
+		int n_msg = parse_integer_constant(state, vector_A(*instr->args, 0)->text);
 		if (n_msg < 0)
 			ASM_ERROR(state, "Invalid message index: %d", n_msg);
 		realloc_message_table(state->ain, n_msg);
 		if (state->ain->messages[n_msg])
 			free_string(state->ain->messages[n_msg]);
-		char *sjis = conv_output(kv_A(*instr->args, 1)->text);
+		char *sjis = conv_output(vector_A(*instr->args, 1)->text);
 		state->ain->messages[n_msg] = make_string(sjis, strlen(sjis));
 		free(sjis);
 		break;
@@ -557,7 +557,7 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 	case PO_MSG: {
 		int n_msg = state->ain->nr_messages;
 		realloc_message_table(state->ain, n_msg);
-		char *sjis = conv_output(kv_A(*instr->args, 0)->text);
+		char *sjis = conv_output(vector_A(*instr->args, 0)->text);
 		state->ain->messages[n_msg] = make_string(sjis, strlen(sjis));
 		free(sjis);
 
@@ -565,7 +565,7 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_LOCALREF: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
@@ -576,7 +576,7 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_GLOBALREF: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHGLOBALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
@@ -587,28 +587,28 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_LOCALREFREF: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction0(state, REFREF);
 		break;
 	}
 	case PO_GLOBALREFREF: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHGLOBALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction0(state, REFREF);
 		break;
 	}
 	case PO_LOCALINC: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction0(state, INC);
 		break;
 	}
 	case PO_LOCALINC2: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
@@ -628,7 +628,7 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_LOCALINC3: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction1(state, X_DUP, 2);
@@ -638,14 +638,14 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_LOCALDEC: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction0(state, DEC);
 		break;
 	}
 	case PO_LOCALDEC2: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
@@ -665,7 +665,7 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_LOCALDEC3: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction1(state, X_DUP, 2);
@@ -675,8 +675,8 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_LOCALPLUSA: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
-		int32_t val = asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
+		int32_t val = asm_resolve_arg(state, PUSH, T_INT, vector_A(*instr->args, 1)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction1(state, PUSH, val);
@@ -685,8 +685,8 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_LOCALMINUSA: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
-		int32_t val = asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
+		int32_t val = asm_resolve_arg(state, PUSH, T_INT, vector_A(*instr->args, 1)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction1(state, PUSH, val);
@@ -695,8 +695,8 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_LOCALASSIGN: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
-		int32_t val = asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
+		int32_t val = asm_resolve_arg(state, PUSH, T_INT, vector_A(*instr->args, 1)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction1(state, PUSH, val);
@@ -709,7 +709,7 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_LOCALASSIGN2: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction0(state, SWAP);
 		asm_write_instruction1(state, PUSH, var);
@@ -718,8 +718,8 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_F_LOCALASSIGN: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
-		int32_t val = asm_resolve_arg(state, F_PUSH, T_FLOAT, kv_A(*instr->args, 1)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
+		int32_t val = asm_resolve_arg(state, F_PUSH, T_FLOAT, vector_A(*instr->args, 1)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction1(state, F_PUSH, val);
@@ -728,7 +728,7 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_STACK_LOCALASSIGN: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction0(state, REF);
@@ -741,8 +741,8 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_S_LOCALASSIGN: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
-		int32_t str = asm_resolve_arg(state, S_PUSH, T_STRING, kv_A(*instr->args, 1)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
+		int32_t str = asm_resolve_arg(state, S_PUSH, T_STRING, vector_A(*instr->args, 1)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
@@ -761,7 +761,7 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_LOCALDELETE: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
@@ -782,8 +782,8 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_LOCALCREATE: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, kv_A(*instr->args, 0)->text);
-		int32_t struc = asm_resolve_arg(state, NEW, T_STRUCT, kv_A(*instr->args, 1)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_LOCAL, vector_A(*instr->args, 0)->text);
+		int32_t struc = asm_resolve_arg(state, NEW, T_STRUCT, vector_A(*instr->args, 1)->text);
 		asm_write_instruction0(state, PUSHLOCALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
@@ -807,22 +807,22 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_GLOBALINC: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHGLOBALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction0(state, INC);
 		break;
 	}
 	case PO_GLOBALDEC: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, vector_A(*instr->args, 0)->text);
 		asm_write_instruction0(state, PUSHGLOBALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction0(state, DEC);
 		break;
 	}
 	case PO_GLOBALASSIGN: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text);
-		int32_t val = asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, vector_A(*instr->args, 0)->text);
+		int32_t val = asm_resolve_arg(state, PUSH, T_INT, vector_A(*instr->args, 1)->text);
 		asm_write_instruction0(state, PUSHGLOBALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction1(state, PUSH, val);
@@ -835,8 +835,8 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_F_GLOBALASSIGN: {
-		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, kv_A(*instr->args, 0)->text);
-		int32_t val = asm_resolve_arg(state, F_PUSH, T_FLOAT, kv_A(*instr->args, 1)->text);
+		int32_t var = asm_resolve_arg(state, PUSH, T_GLOBAL, vector_A(*instr->args, 0)->text);
+		int32_t val = asm_resolve_arg(state, F_PUSH, T_FLOAT, vector_A(*instr->args, 1)->text);
 		asm_write_instruction0(state, PUSHGLOBALPAGE);
 		asm_write_instruction1(state, PUSH, var);
 		asm_write_instruction1(state, F_PUSH, val);
@@ -845,7 +845,7 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_STRUCTREF: {
-		int32_t memb = get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text);
+		int32_t memb = get_member_no(state, vector_A(*instr->args, 0)->text, vector_A(*instr->args, 1)->text);
 		asm_write_instruction0(state, PUSHSTRUCTPAGE);
 		asm_write_instruction1(state, PUSH, memb);
 		if (AIN_VERSION_GTE(state->ain, 14, 0)) {
@@ -856,29 +856,29 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_STRUCTREFREF: {
-		int32_t memb = get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text);
+		int32_t memb = get_member_no(state, vector_A(*instr->args, 0)->text, vector_A(*instr->args, 1)->text);
 		asm_write_instruction0(state, PUSHSTRUCTPAGE);
 		asm_write_instruction1(state, PUSH, memb);
 		asm_write_instruction0(state, REFREF);
 		break;
 	}
 	case PO_STRUCTINC: {
-		int32_t memb = get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text);
+		int32_t memb = get_member_no(state, vector_A(*instr->args, 0)->text, vector_A(*instr->args, 1)->text);
 		asm_write_instruction0(state, PUSHSTRUCTPAGE);
 		asm_write_instruction1(state, PUSH, memb);
 		asm_write_instruction0(state, INC);
 		break;
 	}
 	case PO_STRUCTDEC: {
-		int32_t memb = get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text);
+		int32_t memb = get_member_no(state, vector_A(*instr->args, 0)->text, vector_A(*instr->args, 1)->text);
 		asm_write_instruction0(state, PUSHSTRUCTPAGE);
 		asm_write_instruction1(state, PUSH, memb);
 		asm_write_instruction0(state, DEC);
 		break;
 	}
 	case PO_STRUCTASSIGN: {
-		int32_t memb = get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text);
-		int32_t val = asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 2)->text);
+		int32_t memb = get_member_no(state, vector_A(*instr->args, 0)->text, vector_A(*instr->args, 1)->text);
+		int32_t val = asm_resolve_arg(state, PUSH, T_INT, vector_A(*instr->args, 2)->text);
 		asm_write_instruction0(state, PUSHSTRUCTPAGE);
 		asm_write_instruction1(state, PUSH, memb);
 		asm_write_instruction1(state, PUSH, val);
@@ -891,8 +891,8 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_F_STRUCTASSIGN: {
-		int32_t memb = get_member_no(state, kv_A(*instr->args, 0)->text, kv_A(*instr->args, 1)->text);
-		int32_t val = asm_resolve_arg(state, F_PUSH, T_FLOAT, kv_A(*instr->args, 2)->text);
+		int32_t memb = get_member_no(state, vector_A(*instr->args, 0)->text, vector_A(*instr->args, 1)->text);
+		int32_t val = asm_resolve_arg(state, F_PUSH, T_FLOAT, vector_A(*instr->args, 2)->text);
 		asm_write_instruction0(state, PUSHSTRUCTPAGE);
 		asm_write_instruction1(state, PUSH, memb);
 		asm_write_instruction1(state, F_PUSH, val);
@@ -901,8 +901,8 @@ void handle_pseudo_op(struct asm_state *state, struct parse_instruction *instr)
 		break;
 	}
 	case PO_PUSHVMETHOD: {
-		int32_t memb = asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 0)->text);
-		int32_t val = asm_resolve_arg(state, PUSH, T_INT, kv_A(*instr->args, 1)->text);
+		int32_t memb = asm_resolve_arg(state, PUSH, T_INT, vector_A(*instr->args, 0)->text);
+		int32_t val = asm_resolve_arg(state, PUSH, T_INT, vector_A(*instr->args, 1)->text);
 		asm_write_instruction0(state, PUSHSTRUCTPAGE);
 		asm_write_instruction1(state, PUSH, memb);
 		asm_write_instruction0(state, DUP_U2);
@@ -1053,8 +1053,8 @@ static void jam_inject(struct asm_state *state, const char *filename, int fno, u
 
 static void _jam_assemble(struct asm_state *state, parse_instruction_list *code, size_t i)
 {
-	for (; i < kv_size(*code); i++) {
-		struct parse_instruction *instr = kv_A(*code, i);
+	for (; i < vector_length(*code); i++) {
+		struct parse_instruction *instr = vector_A(*code, i);
 		if (instr->opcode >= PSEUDO_OP_OFFSET) {
 			handle_pseudo_op(state, instr);
 			continue;
@@ -1065,7 +1065,7 @@ static void _jam_assemble(struct asm_state *state, parse_instruction_list *code,
 		// NOTE: special case: we need to record the new function address in the ain structure
 		if (idef->opcode == FUNC) {
 			int32_t fno = 0;
-			const char *arg = kv_A(*instr->args, 0)->text;
+			const char *arg = vector_A(*instr->args, 0)->text;
 			if (!_parse_integer_constant(arg, &fno)) {
 				fno = asm_resolve_arg(state, FUNC, T_FUNC, arg);
 			}
@@ -1077,7 +1077,7 @@ static void _jam_assemble(struct asm_state *state, parse_instruction_list *code,
 
 		asm_write_opcode(state, instr->opcode);
 		for (int a = 0; a < idef->nr_args; a++) {
-			asm_write_argument(state, asm_resolve_arg(state, idef->opcode, idef->args[a], kv_A(*instr->args, a)->text));
+			asm_write_argument(state, asm_resolve_arg(state, idef->opcode, idef->args[a], vector_A(*instr->args, a)->text));
 		}
 	}
 }
@@ -1087,20 +1087,20 @@ static void jam_assemble(struct asm_state *state, const char *filename)
 	parse_instruction_list *code = jam_parse(filename, state->buf_ptr);
 	_jam_assemble(state, code, 0);
 
-	for (size_t i = 0; i < kv_size(*code); i++) {
-		struct parse_instruction *instr = kv_A(*code, i);
+	for (size_t i = 0; i < vector_length(*code); i++) {
+		struct parse_instruction *instr = vector_A(*code, i);
 		if (!instr->args) {
 			free(instr);
 			continue;
 		}
-		for (size_t a = 0; a < kv_size(*instr->args); a++) {
-			free_string(kv_A(*instr->args, a));
+		for (size_t a = 0; a < vector_length(*instr->args); a++) {
+			free_string(vector_A(*instr->args, a));
 		}
-		kv_destroy(*instr->args);
+		vector_destroy(*instr->args);
 		free(instr->args);
 		free(instr);
 	}
-	kv_destroy(*code);
+	vector_destroy(*code);
 	free(code);
 
 	const char *key;

@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include "system4.h"
 #include "system4/ain.h"
-#include "kvec.h"
+#include "system4/vector.h"
 
 struct port;
 
@@ -415,7 +415,7 @@ struct jaf_vardecl {
 	int var;
 };
 
-typedef kvec_t(struct jaf_vardecl*) jaf_var_set;
+typedef vector_t(struct jaf_vardecl*) jaf_var_set;
 
 enum jaf_fundecl_type {
 	JAF_FUN_PROCEDURE,
@@ -435,7 +435,7 @@ struct jaf_fundecl {
 	int super_no;
 };
 
-typedef kvec_t(struct string*) jaf_string_list;
+typedef vector_t(struct string*) jaf_string_list;
 
 struct jaf_enum_value {
 	struct string *symbol;
@@ -443,7 +443,7 @@ struct jaf_enum_value {
 	int value;
 };
 
-typedef kvec_t(struct jaf_enum_value) jaf_enum_value_list;
+typedef vector_t(struct jaf_enum_value) jaf_enum_value_list;
 
 struct jaf_enumdecl {
 	struct string *name;

@@ -20,6 +20,7 @@
 #include "system4.h"
 #include "system4/ain.h"
 #include "system4/string.h"
+#include "system4/vector.h"
 #include "alice.h"
 #include "alice/jaf.h"
 
@@ -65,7 +66,7 @@ void jaf_define_enum(struct ain *ain, struct jaf_block_item *def)
 
 	int next_v = 0;
 	struct jaf_enum_value *p;
-	kv_foreach_p(p, def->enume.values) {
+	vector_foreach_p(p, def->enume.values) {
 		if (!p->explicit_value)
 			p->value = next_v;
 		next_v = p->value + 1;
@@ -73,10 +74,10 @@ void jaf_define_enum(struct ain *ain, struct jaf_block_item *def)
 
 	def->enume.enum_no = ain_add_enum(ain, name);
 	struct ain_enum *e = &ain->enums[def->enume.enum_no];
-	e->nr_values = kv_size(def->enume.values);
+	e->nr_values = vector_length(def->enume.values);
 	e->values = xcalloc(e->nr_values, sizeof(struct ain_enum_value));
 	for (unsigned i = 0; i < e->nr_values; i++) {
-		struct jaf_enum_value *jaf_v = &kv_A(def->enume.values, i);
+		struct jaf_enum_value *jaf_v = &vector_A(def->enume.values, i);
 		struct ain_enum_value *ain_v = &e->values[i];
 		char *tmp = conv_output(jaf_v->symbol->text);
 		ain_v->symbol = make_string(tmp, strlen(tmp));
@@ -107,11 +108,11 @@ void jaf_extend_enum(struct ain *ain, struct jaf_block_item *def)
 
 	def->enume.extends = true;
 	struct ain_enum *e = &ain->enums[def->enume.enum_no];
-	int new_nr_values = e->nr_values + kv_size(def->enume.values);
+	int new_nr_values = e->nr_values + vector_length(def->enume.values);
 	e->values = xrealloc_array(e->values, e->nr_values, new_nr_values,
 			sizeof(struct ain_enum_value));
-	for (int i = 0; i < kv_size(def->enume.values); i++) {
-		struct jaf_enum_value *jaf_v = &kv_A(def->enume.values, i);
+	for (int i = 0; i < vector_length(def->enume.values); i++) {
+		struct jaf_enum_value *jaf_v = &vector_A(def->enume.values, i);
 		struct ain_enum_value *ain_v = &e->values[e->nr_values+i];
 		char *tmp = conv_output(jaf_v->symbol->text);
 		ain_v->symbol = make_string(tmp, strlen(tmp));
@@ -123,7 +124,7 @@ void jaf_extend_enum(struct ain *ain, struct jaf_block_item *def)
 			ain_v->value = jaf_v->value;
 		next_v = ain_v->value + 1;
 	}
-	e->nr_values += kv_size(def->enume.values);
+	e->nr_values += vector_length(def->enume.values);
 
 	free(name);
 }

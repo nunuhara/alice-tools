@@ -20,6 +20,7 @@
 #include "system4.h"
 #include "system4/file.h"
 #include "system4/string.h"
+#include "system4/vector.h"
 #include "alice.h"
 #include "alice/ar.h"
 
@@ -48,27 +49,27 @@ struct ar_manifest *ar_parse_manifest(const char *path)
 
 static ar_string_list *push_string(ar_string_list *list, struct string *str)
 {
-    kv_push(struct string*, *list, str);
+    vector_push(struct string*, *list, str);
     return list;
 }
 
 static ar_string_list *make_string_list(struct string *str)
 {
     ar_string_list *list = xmalloc(sizeof(ar_string_list));
-    kv_init(*list);
+    vector_init(*list);
     return str ? push_string(list, str) : list;
 }
 
 static ar_row_list *push_row(ar_row_list *rows, ar_string_list *row)
 {
-    kv_push(ar_string_list*, *rows, row);
+    vector_push(ar_string_list*, *rows, row);
     return rows;
 }
 
 static ar_row_list *make_row_list(ar_string_list *row)
 {
     ar_row_list *rows = xmalloc(sizeof(ar_row_list));
-    kv_init(*rows);
+    vector_init(*rows);
     return push_row(rows, row);
 }
 

@@ -12,16 +12,16 @@
 
 %code requires {
     #include "system4/acx.h"
-    #include "kvec.h"
+    #include "system4/vector.h"
 
     struct tagged_acx_value {
 	enum acx_column_type type;
 	union acx_value value;
     };
 
-    kv_decl(acx_value_list, struct tagged_acx_value*);
-    kv_decl(acx_record_list, acx_value_list*);
-    kv_decl(acx_type_list, enum acx_column_type);
+    typedef vector_t(struct tagged_acx_value*) acx_value_list;
+    typedef vector_t(acx_value_list*) acx_record_list;
+    typedef vector_t(enum acx_column_type) acx_type_list;
 }
 %{
 
@@ -59,67 +59,67 @@ struct acx *acx_parse(const char *path)
 static struct acx *make_acx(acx_type_list *types, acx_record_list *lines)
 {
     struct acx *acx = xcalloc(1, sizeof(struct acx));
-    acx->nr_columns = kv_size(*types);
-    acx->nr_lines = kv_size(*lines);
+    acx->nr_columns = vector_length(*types);
+    acx->nr_lines = vector_length(*lines);
     acx->lines = xcalloc(acx->nr_lines * acx->nr_columns, sizeof(union acx_value));
 
-    acx->column_types = kv_data(*types);
+    acx->column_types = vector_data(*types);
     free(types);
 
     for (int row = 0; row < acx->nr_lines; row++) {
-	acx_value_list *line = kv_A(*lines, row);
-	if (kv_size(*line) != (size_t)acx->nr_columns)
-	    ERROR("Wrong number of columns at line %d (expected %d; got %d)", row, acx->nr_columns, (int)kv_size(*line));
+	acx_value_list *line = vector_A(*lines, row);
+	if (vector_length(*line) != (size_t)acx->nr_columns)
+	    ERROR("Wrong number of columns at line %d (expected %d; got %d)", row, acx->nr_columns, (int)vector_length(*line));
 	for (int col = 0; col < acx->nr_columns; col++) {
-	    if (kv_A(*line, col)->type != acx->column_types[col])
+	    if (vector_A(*line, col)->type != acx->column_types[col])
 		ERROR("Wrong value type at line %d column %d", row, col);
-	    acx->lines[row*acx->nr_columns + col] = kv_A(*line, col)->value;
-	    free(kv_A(*line, col));
+	    acx->lines[row*acx->nr_columns + col] = vector_A(*line, col)->value;
+	    free(vector_A(*line, col));
 	}
-        kv_destroy(*line);
+        vector_destroy(*line);
         free(line);
     }
-    kv_destroy(*lines);
+    vector_destroy(*lines);
     free(lines);
     return acx;
 }
 
 static acx_type_list *push_type(acx_type_list *list, enum acx_column_type type)
 {
-    kv_push(enum acx_column_type, *list, type);
+    vector_push(enum acx_column_type, *list, type);
     return list;
 }
 
 static acx_type_list *make_type_list(enum acx_column_type type)
 {
     acx_type_list *list = xmalloc(sizeof(acx_type_list));
-    kv_init(*list);
+    vector_init(*list);
     return push_type(list, type);
 }
 
 static acx_record_list *push_record(acx_record_list *lines, acx_value_list *line)
 {
-    kv_push(acx_value_list*, *lines, line);
+    vector_push(acx_value_list*, *lines, line);
     return lines;
 }
 
 static acx_record_list *make_record_list(acx_value_list *line)
 {
     acx_record_list *lines = xmalloc(sizeof(acx_record_list));
-    kv_init(*lines);
+    vector_init(*lines);
     return push_record(lines, line);
 }
 
 static acx_value_list *push_value(acx_value_list *line, struct tagged_acx_value *value)
 {
-    kv_push(struct tagged_acx_value*, *line, value);
+    vector_push(struct tagged_acx_value*, *line, value);
     return line;
 }
 
 static acx_value_list *make_value_list(struct tagged_acx_value *value)
 {
     acx_value_list *values = xmalloc(sizeof(acx_value_list));
-    kv_init(*values);
+    vector_init(*values);
     return push_value(values, value);
 }
 

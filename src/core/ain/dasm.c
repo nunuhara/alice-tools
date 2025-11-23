@@ -19,11 +19,11 @@
 #include "system4/ain.h"
 #include "system4/instructions.h"
 #include "system4/string.h"
+#include "system4/vector.h"
 #include "alice.h"
 #include "alice/ain.h"
 #include "alice/port.h"
 #include "khash.h"
-#include "kvec.h"
 #include "little_endian.h"
 
 enum jump_target_type {
@@ -41,7 +41,7 @@ struct jump_target {
 	};
 };
 
-kv_decl(jump_list, struct jump_target*);
+typedef vector_t(struct jump_target*) jump_list;
 
 KHASH_MAP_INIT_INT(jump_table, jump_list*);
 khash_t(jump_table) *jump_table;
@@ -55,13 +55,13 @@ static void free_jump_targets(jump_list *list)
 {
 	if (!list)
 		return;
-	for (size_t i = 0; i < kv_size(*list); i++) {
-		struct jump_target *t = kv_A(*list, i);
+	for (size_t i = 0; i < vector_length(*list); i++) {
+		struct jump_target *t = vector_A(*list, i);
 		if (t->type == JMP_LABEL)
 			free(t->label);
 		free(t);
 	}
-	kv_destroy(*list);
+	vector_destroy(*list);
 	free(list);
 }
 
@@ -89,8 +89,8 @@ bool dasm_is_jump_target(struct dasm_state *dasm)
 static char *get_label(ain_addr_t addr)
 {
 	jump_list *list = get_jump_targets(addr);
-	for (size_t i = 0; i < kv_size(*list); i++) {
-		struct jump_target *t = kv_A(*list, i);
+	for (size_t i = 0; i < vector_length(*list); i++) {
+		struct jump_target *t = vector_A(*list, i);
 		if (t->type == JMP_LABEL)
 			return t->label;
 	}
@@ -104,12 +104,12 @@ static void add_jump_target(struct jump_target *target, ain_addr_t addr)
 	if (!ret) {
 		// add to list
 		jump_list *list = kh_value(jump_table, k);
-		kv_push(struct jump_target*, *list, target);
+		vector_push(struct jump_target*, *list, target);
 	} else if (ret == 1) {
 		// create list
 		jump_list *list = xmalloc(sizeof(jump_list));
-		kv_init(*list);
-		kv_push(struct jump_target*, *list, target);
+		vector_init(*list);
+		vector_push(struct jump_target*, *list, target);
 		kh_value(jump_table, k) = list;
 	} else {
 		WARNING("Failed to insert target into jump table (%d)", ret);
@@ -121,8 +121,8 @@ static void add_label(char *name, ain_addr_t addr)
 	// check for duplicate label
 	jump_list *list = get_jump_targets(addr);
 	if (list) {
-		for (size_t i = 0; i < kv_size(*list); i++) {
-			struct jump_target *t = kv_A(*list, i);
+		for (size_t i = 0; i < vector_length(*list); i++) {
+			struct jump_target *t = vector_A(*list, i);
 			if (t->type == JMP_LABEL) {
 				free(name);
 				return;
@@ -620,8 +620,8 @@ void ain_disassemble(struct port *port, struct ain *ain, unsigned int flags)
 	for (dasm_reset(&dasm); !dasm_eof(&dasm); dasm_next(&dasm)) {
 		jump_list *targets = get_jump_targets(dasm.addr);
 		if (targets) {
-			for (size_t i = 0; i < kv_size(*targets); i++) {
-				struct jump_target *t = kv_A(*targets, i);
+			for (size_t i = 0; i < vector_length(*targets); i++) {
+				struct jump_target *t = vector_A(*targets, i);
 				switch (t->type) {
 				case JMP_LABEL:
 					port_printf(dasm.port, "%s:\n", t->label);
@@ -653,8 +653,8 @@ bool _ain_disassemble_function(struct port *port, struct ain *ain, int fno, unsi
 	for (dasm_jump(&dasm, addr); !dasm_eof(&dasm); dasm_next(&dasm)) {
 		jump_list *targets = get_jump_targets(dasm.addr);
 		if (targets) {
-			for (size_t i = 0; i < kv_size(*targets); i++) {
-				struct jump_target *t = kv_A(*targets, i);
+			for (size_t i = 0; i < vector_length(*targets); i++) {
+				struct jump_target *t = vector_A(*targets, i);
 				switch (t->type) {
 				case JMP_LABEL:
 					port_printf(dasm.port, "%s:\n", t->label);

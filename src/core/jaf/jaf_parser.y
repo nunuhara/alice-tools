@@ -29,6 +29,7 @@
 #include "system4/ain.h"
 #include "system4/file.h"
 #include "system4/string.h"
+#include "system4/vector.h"
 #include "alice.h"
 #include "alice/jaf.h"
 #include "jaf_parser.tab.h"
@@ -445,8 +446,8 @@ type_specifier
 	;
 
 interface_list
-	: IDENTIFIER                    { kv_init($$); kv_push(struct string*, $$, $1); }
-	| interface_list ',' IDENTIFIER { $$ = $1; kv_push(struct string*, $$, $3); }
+	: IDENTIFIER                    { vector_init($$); vector_push(struct string*, $$, $1); }
+	| interface_list ',' IDENTIFIER { $$ = $1; vector_push(struct string*, $$, $3); }
 	;
 
 struct_specifier
@@ -507,8 +508,8 @@ enum_specifier
 	;
 
 enumerator_list
-	: enumerator                     { kv_init($$); kv_push(struct jaf_enum_value, $$, $1); }
-	| enumerator_list ',' enumerator { $$ = $1; kv_push(struct jaf_enum_value, $$, $3); }
+	: enumerator                     { vector_init($$); vector_push(struct jaf_enum_value, $$, $1); }
+	| enumerator_list ',' enumerator { $$ = $1; vector_push(struct jaf_enum_value, $$, $3); }
 	;
 
 integer_constant

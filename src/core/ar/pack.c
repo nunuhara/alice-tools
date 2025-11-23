@@ -27,6 +27,7 @@
 #include "system4/file.h"
 #include "system4/flat.h"
 #include "system4/string.h"
+#include "system4/vector.h"
 #include "alice.h"
 #include "alice/ar.h"
 #include "alice/ex.h"
@@ -415,7 +416,7 @@ static void dir_to_file_list(struct string *dst, struct string *base_name, ar_fi
 		spec->type = AR_FILE_SPEC_DISK;
 		spec->disk.path = path;
 		spec->name = name;
-		kv_push(struct ar_file_spec*, *files, spec);
+		vector_push(struct ar_file_spec*, *files, spec);
 loop_next:
 		free(d_name);
 	}
@@ -442,7 +443,7 @@ void ar_file_list_sort(ar_file_list *list)
 static struct ar_file_spec **batchpack_to_file_list(struct ar_manifest *mf, size_t *size_out)
 {
 	ar_file_list files;
-	kv_init(files);
+	vector_init(files);
 
 	// convert files
 	for (size_t i = 0; i < mf->nr_rows; i++) {
@@ -512,7 +513,7 @@ static void ar_to_file_spec_iter(struct archive_data *data, void *user)
 	spec->name = cstr_to_string(tmp);
 	free(tmp);
 
-	kv_push(struct ar_file_spec*, *files, spec);
+	vector_push(struct ar_file_spec*, *files, spec);
 }
 
 void ar_to_file_list(struct archive *ar, ar_file_list *files)
