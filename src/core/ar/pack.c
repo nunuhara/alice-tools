@@ -162,19 +162,48 @@ static struct ar_file_spec **alicepack_to_file_list(struct ar_manifest *mf, size
 
 	for (size_t i = 0; i < mf->nr_rows; i++) {
 		files[i] = xmalloc(sizeof(struct ar_file_spec));
-		if (mf->alicepack[i].dst_fmt != AR_FT_UNKNOWN) {
+		struct alicepack_line *line = &mf->alicepack[i];
+		if (line->dst_fmt != AR_FT_UNKNOWN) {
+			// XXX: we don't cache .flat files, because timestamp check on .x
+			//      file doesn't capture changes to CGs
+			if (line->dst_fmt == AR_FT_FLAT && line->cache) {
+				free_string(line->cache);
+				line->cache = NULL;
+			}
+			if (line->cache && file_exists(line->cache->text)) {
+				// check timestamps
+				ustat src_s, cache_s;
+				checked_stat(line->src->text, &src_s);
+				checked_stat(line->cache->text, &cache_s);
+				if (src_s.st_mtime < cache_s.st_mtime) {
+					// cache hit
+					files[i]->type = AR_FILE_SPEC_DISK;
+					files[i]->disk.path = string_ref(line->cache);
+					files[i]->name = string_ref(line->dst);
+					continue;
+				}
+			}
 			files[i]->type = AR_FILE_SPEC_MEM;
 			files[i]->mem.data = convert_file_mem(mf,
-					mf->alicepack[i].src,
-					mf->alicepack[i].src_fmt,
-					mf->alicepack[i].dst_fmt,
+					line->src,
+					line->src_fmt,
+					line->dst_fmt,
 					&files[i]->mem.size,
-					mf->alicepack[i].opt);
-			files[i]->name = string_ref(mf->alicepack[i].dst);
+					line->opt);
+			files[i]->name = string_ref(line->dst);
+			if (line->cache) {
+				// write file to cache
+				if (!file_write(line->cache->text, files[i]->mem.data,
+							files[i]->mem.size)) {
+					WARNING("file_write(\"%s\"): %s", line->cache->text,
+							strerror(errno));
+					NOTICE("caching %s", line->cache->text);
+				}
+			}
 		} else {
 			files[i]->type = AR_FILE_SPEC_DISK;
-			files[i]->disk.path = string_ref(mf->alicepack[i].src);
-			files[i]->name = string_ref(mf->alicepack[i].dst);
+			files[i]->disk.path = string_ref(line->src);
+			files[i]->name = string_ref(line->dst);
 		}
 	}
 
@@ -533,6 +562,8 @@ static void free_manifest(struct ar_manifest *mf)
 		for (size_t i = 0; i < mf->nr_rows; i++) {
 			free_string(mf->alicepack[i].src);
 			free_string(mf->alicepack[i].dst);
+			if (mf->alicepack[i].cache)
+				free_string(mf->alicepack[i].cache);
 			if (mf->alicepack[i].opt)
 				free_string(mf->alicepack[i].opt);
 		}
@@ -560,6 +591,8 @@ static void free_manifest(struct ar_manifest *mf)
 	}
 	if (mf->src_dir)
 		free_string(mf->src_dir);
+	if (mf->cache_dir)
+		free_string(mf->cache_dir);
 	free_string(mf->output_path);
 	free(mf);
 }

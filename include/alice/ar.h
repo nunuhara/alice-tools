@@ -73,6 +73,7 @@ enum ar_filetype {
 struct alicepack_line {
 	struct string *src;
 	struct string *dst;
+	struct string *cache;
 	enum ar_filetype src_fmt;
 	enum ar_filetype dst_fmt;
 	struct string *opt;
@@ -119,6 +120,7 @@ struct ar_manifest {
 	int afa_version;
 	bool backslash;
 	struct string *src_dir; // ALICEPACK only
+	struct string *cache_dir; // ALICEPACK only
 	struct string *output_path;
 	size_t nr_rows;
 	union {

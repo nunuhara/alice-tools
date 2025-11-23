@@ -41,6 +41,8 @@
 #include "alice/ar.h"
 #include "cli.h"
 
+#define CACHE_DIRNAME "alice-tools-cache"
+
 enum {
 	LOPT_HELP = 256,
 	LOPT_OUTPUT,
@@ -51,6 +53,8 @@ enum {
 	LOPT_IMAGES_ONLY,
 	LOPT_RAW,
 	LOPT_MANIFEST,
+	LOPT_CACHE,
+	LOPT_NO_CACHE,
 	LOPT_FLAT_PNG,
 	LOPT_PROGRESS,
 };
@@ -171,6 +175,9 @@ int command_ar_extract(int argc, char *argv[])
 	char *file_name = NULL;
 	char *manifest = NULL;
 	int file_index = -1;
+	bool no_cache = false;
+	bool yes_cache = false;
+	bool cache = false;
 
 	uint32_t flags = 0;
 
@@ -215,6 +222,12 @@ int command_ar_extract(int argc, char *argv[])
 		case LOPT_MANIFEST:
 			manifest = optarg;
 			break;
+		case LOPT_CACHE:
+			yes_cache = true;
+			break;
+		case LOPT_NO_CACHE:
+			no_cache = true;
+			break;
 		case LOPT_FLAT_PNG:
 			flags |= AR_FLAT_PNG;
 			break;
@@ -232,6 +245,17 @@ int command_ar_extract(int argc, char *argv[])
 		USAGE_ERROR(&cmd_ar_extract, "Wrong number of arguments");
 	}
 
+	// XXX: enable cache by default for CG archives
+	const char *sub = strstr(argv[0], "CG");
+	if (sub && !raw) {
+		if (sub[2] == '.' || (sub[2] && isdigit(sub[2]) && sub[3] == '.'))
+			cache = true;
+	}
+	if (yes_cache)
+		cache = true;
+	if (no_cache)
+		cache = false;
+
 	// open archive
 	struct archive *ar;
 	enum archive_type type;
@@ -248,21 +272,37 @@ int command_ar_extract(int argc, char *argv[])
 		ar_extract_file(ar, file_name, output_file, flags);
 	} else {
 		ar_extract_all(ar, output_file, flags);
-	}
 
-	if (manifest) {
-		FILE *f = checked_fopen(manifest, "wb");
-		if (output_file) {
-			checked_fwrite("#ALICEPACK --src-dir=", 21, f);
-			checked_fwrite(output_file, strlen(output_file), f);
+		if (manifest) {
+			char *cache_dir = NULL;
+			if (cache) {
+				if (output_file)
+					cache_dir = path_join(output_file, CACHE_DIRNAME);
+				else
+					cache_dir = xstrdup(CACHE_DIRNAME);
+			}
+
+			FILE *f = checked_fopen(manifest, "wb");
+			checked_fwrite("#ALICEPACK", 10, f);
+			if (output_file) {
+				checked_fwrite(" --src-dir=", 11, f);
+				checked_fwrite(output_file, strlen(output_file), f);
+			}
+			if (cache_dir) {
+				checked_fwrite(" --cache-dir=", 13, f);
+				checked_fwrite(cache_dir, strlen(cache_dir), f);
+			}
 			checked_fwrite("\n", 1, f);
-		} else {
-			checked_fwrite("#ALICEPACK\n", 11, f);
+			checked_fwrite(argv[0], strlen(argv[0]), f);
+			checked_fwrite("\n", 1, f);
+			archive_for_each(ar, write_manifest_iter, f);
+			fclose(f);
+
+			if (cache_dir) {
+				ar_extract_all(ar, cache_dir, flags | AR_RAW);
+				free(cache_dir);
+			}
 		}
-		checked_fwrite(argv[0], strlen(argv[0]), f);
-		checked_fwrite("\n", 1, f);
-		archive_for_each(ar, write_manifest_iter, f);
-		fclose(f);
 	}
 
 	archive_free(ar);
@@ -284,6 +324,8 @@ struct command cmd_ar_extract = {
 		{ "images-only",  0,   "Only extract images",                  no_argument,       LOPT_IMAGES_ONLY },
 		{ "raw",          0,   "Don't convert image files",            no_argument,       LOPT_RAW },
 		{ "manifest",     0,   "Write ALICEPACK manifest",             required_argument, LOPT_MANIFEST },
+		{ "cache",        0,   "Create cache for manifest",            no_argument,       LOPT_CACHE },
+		{ "no-cache",     0,   "Don't create cache for manifest",      no_argument,       LOPT_NO_CACHE },
 		{ "flat-png",     0,   "Extract images in .flat files as png", no_argument,       LOPT_FLAT_PNG },
 		{ "progress",     0,   "Display extraction progress",          no_argument,       LOPT_PROGRESS },
 		{ 0 }

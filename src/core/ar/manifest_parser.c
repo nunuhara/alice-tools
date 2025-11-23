@@ -111,6 +111,14 @@ static void make_alicepack_manifest(struct ar_manifest *dst, ar_row_list *rows)
 			line->src = kv_A(*row, 0);
 			line->dst = string_ref(dst->alicepack[i].src);
 		}
+		if (dst->cache_dir) {
+			line->cache = path_join_string(dst->cache_dir, kv_A(*row, 0));
+			if (line->dst_fmt != AR_FT_UNKNOWN) {
+				struct string *tmp = line->cache;
+				line->cache = replace_extension(tmp->text, ar_ft_extension(line->dst_fmt));
+				free_string(tmp);
+			}
+		}
 		if (line->dst_fmt != AR_FT_UNKNOWN) {
 			struct string *tmp = line->dst;
 			line->dst = replace_extension(tmp->text, ar_ft_extension(line->dst_fmt));
@@ -179,9 +187,15 @@ static void parse_manifest_options(struct ar_manifest *mf, ar_string_list *optio
 				mf->afa_version = version;
 		} else if (!strncmp(opt->text, "--src-dir=", 10)) {
 			if (mf->type != AR_MF_ALICEPACK) {
-				WARNING("Ignoring --src-dir option (only valid for ALICEPACK archives)");
+				WARNING("Ignoring --src-dir option (only valid for ALICEPACK manifests)");
 			} else {
 				mf->src_dir = make_string(opt->text+10, strlen(opt->text)-10);
+			}
+		} else if (!strncmp(opt->text, "--cache-dir=", 12)) {
+			if (mf->type != AR_MF_ALICEPACK) {
+				WARNING("Ignoring --cache-dir option (only valid for ALICEPACK manifests)");
+			} else {
+				mf->cache_dir = make_string(opt->text+12, strlen(opt->text)-12);
 			}
 		} else {
 			WARNING("Unrecognized manifest option: '%s'", opt->text);
