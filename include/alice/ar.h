@@ -57,6 +57,7 @@ enum ar_filetype {
 	AR_FT_PMS,
 	AR_FT_QNT,
 	AR_FT_WEBP,
+	AR_FT_DCF,
 	AR_FT_X,
 	AR_FT_TXTEX,
 	AR_FT_EX,
@@ -74,6 +75,7 @@ struct alicepack_line {
 	struct string *dst;
 	enum ar_filetype src_fmt;
 	enum ar_filetype dst_fmt;
+	struct string *opt;
 };
 
 // Custom manifest format (batch conversion)

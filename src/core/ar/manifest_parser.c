@@ -47,6 +47,8 @@ enum ar_filetype ar_parse_filetype(const char *str)
 		return AR_FT_QNT;
 	if (!strcasecmp(str, "WEBP"))
 		return AR_FT_WEBP;
+	if (!strcasecmp(str, "DCF"))
+		return AR_FT_DCF;
 	if (!strcasecmp(str, "X"))
 		return AR_FT_X;
 	if (!strcasecmp(str, "TXTEX"))
@@ -86,7 +88,12 @@ static void make_alicepack_manifest(struct ar_manifest *dst, ar_row_list *rows)
 	for (size_t i = 0; i < dst->nr_rows; i++) {
 		ar_string_list *row = kv_A(*rows, i);
 		struct alicepack_line *line = &dst->alicepack[i];
-		if (kv_size(*row) == 2) {
+		if (kv_size(*row) > 3)
+			ALICE_ERROR("line %d: Too many columns", (int)i+2);
+		if (kv_size(*row) == 3) {
+			line->opt = kv_A(*row, 2);
+		}
+		if (kv_size(*row) >= 2) {
 			line->src_fmt = get_filetype_from_name(kv_A(*row, 0)->text);
 			if (line->src_fmt == AR_FT_UNKNOWN)
 				ALICE_ERROR("Unrecognized src file format for conversion: %s",
@@ -96,8 +103,6 @@ static void make_alicepack_manifest(struct ar_manifest *dst, ar_row_list *rows)
 				ALICE_ERROR("Unrecognized dst file format for conversion: %s",
 						kv_A(*row, 1)->text);
 			free_string(kv_A(*row, 1));
-		} else if (kv_size(*row) != 1) {
-			ALICE_ERROR("line %d: Too many columns", (int)i+2);
 		}
 		if (dst->src_dir) {
 			line->src = path_join_string(dst->src_dir, kv_A(*row, 0));

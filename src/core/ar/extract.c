@@ -87,7 +87,7 @@ static enum filetype get_filetype(uint8_t *data, size_t size)
 /*
  * Determine the default filename to use for an archived file.
  */
-static char *get_default_filename(const char *name, enum filetype ft, uint32_t flags)
+static struct string *get_default_filename(const char *name, enum filetype ft, uint32_t flags)
 {
 	// get conversion extension
 	const char *ext = NULL;
@@ -99,19 +99,17 @@ static char *get_default_filename(const char *name, enum filetype ft, uint32_t f
 		}
 	}
 
-	char *u = conv_output(name);
+	struct string *u = string_conv_output(name, strlen(name));
 
 	if (ext) {
-		size_t ulen = strlen(u);
-		size_t extlen = strlen(ext);
-		u = xrealloc(u, ulen + extlen + 2);
-		u[ulen] = '.';
-		memcpy(u+ulen+1, ext, extlen + 1);
+		struct string *tmp = replace_extension(u->text, ext);
+		free_string(u);
+		u = tmp;
 	}
 
-	for (int i = 0; u[i]; i++) {
-		if (u[i] == '\\')
-			u[i] = '/';
+	for (unsigned i = 0; i < u->size; i++) {
+		if (u->text[i] == '\\')
+			u->text[i] = '/';
 	}
 	return u;
 }
@@ -130,17 +128,17 @@ static bool write_file(struct archive_data *data, const char *output_file, enum 
 		return true;
 
 	if (!output_file) {
-		char *u = get_default_filename(data->name, ft, flags);
-		mkdir_for_file(u);
-		if (!(flags & AR_FORCE) && file_exists(u)) {
-			free(u);
+		struct string *u = get_default_filename(data->name, ft, flags);
+		mkdir_for_file(u->text);
+		if (!(flags & AR_FORCE) && file_exists(u->text)) {
+			free_string(u);
 			return false;
 		}
-		if (!(f = checked_fopen(u, "wb"))) {
-			free(u);
+		if (!(f = checked_fopen(u->text, "wb"))) {
+			free_string(u);
 			return false;
 		}
-		free(u);
+		free_string(u);
 	} else if (strcmp(output_file, "-")) {
 		if (!(flags & AR_FORCE) && file_exists(output_file)) {
 			return false;
@@ -259,8 +257,9 @@ static void extract_flat(struct archive_data *data, struct extract_all_iter_data
 	} else {
 		display_filename(outfile->text, iter_data);
 		mkdir_for_file(outfile->text);
-		string_append_cstr(&outfile, ".x", 2);
-		flat_extract(flat, outfile->text, iter_data->flags & AR_FLAT_PNG);
+		struct string *flat_x = replace_extension(outfile->text, "x");
+		flat_extract(flat, flat_x->text, iter_data->flags & AR_FLAT_PNG);
+		free_string(flat_x);
 	}
 
 	flat_free(flat);
@@ -278,10 +277,10 @@ static void _extract_all_iter(struct archive_data *data, struct extract_all_iter
 	}
 
 	bool is_image = is_image_file(data->data);
-	char *file_name = get_default_filename(data->name, ft, iter_data->flags);
+	struct string *file_name = get_default_filename(data->name, ft, iter_data->flags);
 	char output_file[PATH_MAX];
-	snprintf(output_file, PATH_MAX, "%s%s", iter_data->prefix, file_name);
-	free(file_name);
+	snprintf(output_file, PATH_MAX, "%s%s", iter_data->prefix, file_name->text);
+	free_string(file_name);
 	if (!is_image && (iter_data->flags & AR_IMAGES_ONLY)) {
 		NOTICE("Skipping non-image file: %s", output_file);
 		return;

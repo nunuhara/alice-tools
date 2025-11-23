@@ -29,6 +29,7 @@
 #include "system4/afa.h"
 #include "system4/ald.h"
 #include "system4/cg.h"
+#include "system4/dcf.h"
 #include "system4/ex.h"
 #include "system4/file.h"
 #include "system4/flat.h"
@@ -66,7 +67,7 @@ static struct conv_format {
 	{ "ajp",    "png", false },
 	{ "pms",    "png", false },
 	{ "webp",   "png", false },
-	{ "dcf",    "png", false },
+	{ "dcf",    "png", true },
 	{ "pcf",    "png", false },
 	{ "rou",    "png", false },
 	{ "ex",     "x",   true },
@@ -81,14 +82,6 @@ static int is_conv_format(const char *ext)
 			return i;
 	}
 	return -1;
-}
-
-static struct string *append_extension(const char *name, const char *ext)
-{
-	struct string *s = make_string(name, strlen(name));
-	string_append_cstr(&s, ".", 1);
-	string_append_cstr(&s, ext, strlen(ext));
-	return s;
 }
 
 static void write_manifest_filename(const char *name, size_t len, bool need_quotes, FILE *f)
@@ -131,10 +124,34 @@ static void write_manifest_iter(struct archive_data *data, void *_f)
 	const char *ext = file_extension(name);
 	if (!raw && (i = is_conv_format(ext)) >= 0) {
 		struct conv_format *fmt = &conv_formats[i];
-		struct string *conv_name = append_extension(name, fmt->dst);
+		struct string *conv_name = replace_extension(name, fmt->dst);
 		write_manifest_filename(conv_name->text, conv_name->size, need_quotes, f);
 		checked_fwrite(",", 1, f);
-		checked_fwrite(ext, strlen(ext), f);
+		if (!strcasecmp(ext, "ajp")) {
+			// XXX: round-trip from AJP->PNG->AJP will cause quality loss,
+			//      so we encode as QNT instead
+			checked_fwrite("qnt", 3, f);
+		} else {
+			checked_fwrite(ext, strlen(ext), f);
+		}
+		if (!strcasecmp(ext, "dcf")) {
+			archive_load_file(data);
+			char *base_sjis = dcf_get_base_cg_name(data->data, data->size);
+			if (base_sjis) {
+				char *tmp = conv_output(base_sjis);
+				// XXX: the game doesn't care about the extension when looking
+				//      up the base CG, so we can just use the converted PNG
+				struct string *base_utf = replace_extension(tmp, "png");
+				checked_fwrite(",", 1, f);
+				checked_fwrite(base_utf->text, base_utf->size, f);
+				free_string(base_utf);
+				free(tmp);
+				free(base_sjis);
+			} else {
+				WARNING("Unable to determine base CG for \"%s\"", conv_name->text);
+			}
+			archive_release_file(data);
+		}
 		// warn if the reverse conversion is not supported
 		if (!fmt->rev_conv_supported && !fmt->warned) {
 			WARNING("Conversion to .%s is not yet implemented", fmt->src);

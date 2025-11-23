@@ -22,20 +22,16 @@
 #include "system4.h"
 #include "system4/cg.h"
 #include "system4/flat.h"
+#include "system4/string.h"
 #include "alice.h"
 #include "alice/flat.h"
 #include "cli.h"
 
-static char *get_output_path(const char *output_file, const char *input_file)
+static struct string *get_output_path(const char *output_file, const char *input_file)
 {
 	if (output_file)
-		return xstrdup(output_file);
-
-	size_t len = strlen(input_file);
-	char *name = xmalloc(len + 3);
-	memcpy(name, input_file, len);
-	memcpy(name+len, ".x", 3);
-	return name;
+		return make_string(output_file, strlen(output_file));
+	return replace_extension(output_file, "x");
 }
 
 enum {
@@ -84,10 +80,10 @@ int command_flat_extract(int argc, char *argv[])
 	flat->needs_free = true;
 
 	// write manifest
-	output_file = get_output_path(output_file, argv[0]);
-	flat_extract(flat, output_file, png);
+	struct string *out_file = get_output_path(output_file, argv[0]);
+	flat_extract(flat, out_file->text, png);
 
-	free(output_file);
+	free_string(out_file);
 	flat_free(flat);
 
 	return 0;

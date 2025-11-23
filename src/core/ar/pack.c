@@ -21,11 +21,12 @@
 #include <unistd.h>
 #include "system4.h"
 #include "system4/archive.h"
+#include "system4/cg.h"
+#include "system4/dcf.h"
 #include "system4/ex.h"
 #include "system4/file.h"
 #include "system4/flat.h"
 #include "system4/string.h"
-#include "system4/cg.h"
 #include "alice.h"
 #include "alice/ar.h"
 #include "alice/ex.h"
@@ -44,6 +45,7 @@ static const char * const ar_ft_extensions[] = {
 	[AR_FT_PMS] = "pms",
 	[AR_FT_QNT] = "qnt",
 	[AR_FT_WEBP] = "webp",
+	[AR_FT_DCF] = "dcf",
 	[AR_FT_X] = "x",
 	[AR_FT_TXTEX] = "txtex",
 	[AR_FT_EX] = "ex",
@@ -63,6 +65,7 @@ static enum ar_filetype cg_type_to_ar_filetype(enum cg_type type)
 	switch (type) {
 	case ALCG_PNG: return AR_FT_PNG;
 	case ALCG_QNT: return AR_FT_QNT;
+	case ALCG_DCF: return AR_FT_DCF;
 	default: ALICE_ERROR("Unsupported CG type");
 	}
 }
@@ -72,16 +75,48 @@ static enum cg_type ar_filetype_to_cg_type(enum ar_filetype type)
 	switch (type) {
 	case AR_FT_PNG: return ALCG_PNG;
 	case AR_FT_QNT: return ALCG_QNT;
+	case AR_FT_DCF: return ALCG_DCF;
 	default: ALICE_ERROR("Unsupported CG type");
 	}
 }
 
-static uint8_t *convert_file_mem(struct string *src, enum ar_filetype src_fmt,
-		enum ar_filetype dst_fmt, size_t *size_out)
+static uint8_t *encode_dcf(struct ar_manifest *mf, struct string *src,
+		enum ar_filetype src_fmt, enum ar_filetype dst_fmt, size_t *size_out,
+		struct string *opt)
 {
+	if (!opt)
+		ALICE_ERROR("No base CG provided for DCF encoding");
+	struct string *file_name = path_join_string(mf->src_dir, opt);
+	struct string *base_name = string_conv_output(opt->text, opt->size);
+
+	struct cg *diff = cg_load_file(src->text);
+	if (!diff)
+		ALICE_ERROR("Failed to load CG: %s", src->text);
+	struct cg *base = cg_load_file(file_name->text);
+	if (!base)
+		ALICE_ERROR("Failed to load base CG: %s", file_name->text);
+
+	uint8_t *dcf = dcf_encode(base, diff, base_name->text, size_out);
+	if (!dcf)
+		ALICE_ERROR("Failed to encode DCF file");
+
+	cg_free(base);
+	cg_free(diff);
+	free_string(base_name);
+	free_string(file_name);
+	return dcf;
+}
+
+static uint8_t *convert_file_mem(struct ar_manifest *mf, struct string *src,
+		enum ar_filetype src_fmt, enum ar_filetype dst_fmt, size_t *size_out,
+		struct string *opt)
+{
+	NOTICE("%s -> %s", src->text, ar_ft_extension(dst_fmt));
 	switch (src_fmt) {
 	case AR_FT_PNG:
 	case AR_FT_QNT: {
+		if (dst_fmt == AR_FT_DCF)
+			return encode_dcf(mf, src, src_fmt, dst_fmt, size_out, opt);
 		struct cg *cg = cg_load_file(src->text);
 		if (!cg)
 			ALICE_ERROR("Failed to load CG: %s", src->text);
@@ -129,10 +164,12 @@ static struct ar_file_spec **alicepack_to_file_list(struct ar_manifest *mf, size
 		files[i] = xmalloc(sizeof(struct ar_file_spec));
 		if (mf->alicepack[i].dst_fmt != AR_FT_UNKNOWN) {
 			files[i]->type = AR_FILE_SPEC_MEM;
-			files[i]->mem.data = convert_file_mem(mf->alicepack[i].src,
+			files[i]->mem.data = convert_file_mem(mf,
+					mf->alicepack[i].src,
 					mf->alicepack[i].src_fmt,
 					mf->alicepack[i].dst_fmt,
-					&files[i]->mem.size);
+					&files[i]->mem.size,
+					mf->alicepack[i].opt);
 			files[i]->name = string_ref(mf->alicepack[i].dst);
 		} else {
 			files[i]->type = AR_FILE_SPEC_DISK;
@@ -496,6 +533,8 @@ static void free_manifest(struct ar_manifest *mf)
 		for (size_t i = 0; i < mf->nr_rows; i++) {
 			free_string(mf->alicepack[i].src);
 			free_string(mf->alicepack[i].dst);
+			if (mf->alicepack[i].opt)
+				free_string(mf->alicepack[i].opt);
 		}
 		free(mf->alicepack);
 		break;
