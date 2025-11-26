@@ -35,8 +35,7 @@
  */
 struct loop_state {
 	size_t loop_addr;
-	size_t nr_breaks;
-	uint32_t *breaks;
+	vector_t(uint32_t) breaks;
 };
 
 struct label {
@@ -46,8 +45,7 @@ struct label {
 };
 
 struct scope {
-	int nr_vars;
-	int *vars;
+	vector_t(int) vars;
 };
 
 struct compiler_state {
@@ -55,14 +53,10 @@ struct compiler_state {
 	struct buffer out;
 	int func_no;
 	int super_no;
-	size_t nr_loops;
-	struct loop_state *loops;
-	size_t nr_labels;
-	struct label *labels;
-	size_t nr_gotos;
-	struct label *gotos;
-	size_t nr_scopes;
-	struct scope *scopes;
+	vector_t(struct loop_state) loops;
+	vector_t(struct label) labels;
+	vector_t(struct label) gotos;
+	vector_t(struct scope) scopes;
 };
 
 static int get_string_no(struct compiler_state *state, const char *s)
@@ -199,28 +193,29 @@ static void write_CALLHLL(struct compiler_state *state, const char *lib, const c
 
 static void start_loop(struct compiler_state *state)
 {
-	state->loops = xrealloc_array(state->loops, state->nr_loops, state->nr_loops+1, sizeof(struct loop_state));
-	state->loops[state->nr_loops].loop_addr = state->out.index;
-	state->loops[state->nr_loops].nr_breaks = 0;
-	state->loops[state->nr_loops].breaks = NULL;
-	state->nr_loops++;
+	struct loop_state *p = vector_pushp(struct loop_state, state->loops);
+	*p = (struct loop_state) {
+		.loop_addr = state->out.index,
+		.breaks = vector_initializer,
+	};
 }
 
 static void end_loop(struct compiler_state *state)
 {
-	struct loop_state *loop = &state->loops[--state->nr_loops];
-	for (size_t i = 0; i < loop->nr_breaks; i++) {
-		buffer_write_int32_at(&state->out, loop->breaks[i], state->out.index);
+	struct loop_state *loop = &vector_pop(state->loops);
+	uint32_t addr;
+	vector_foreach(addr, loop->breaks) {
+		buffer_write_int32_at(&state->out, addr, state->out.index);
 	}
-	free(loop->breaks);
+	vector_destroy(loop->breaks);
 }
 
 static void start_scope(struct compiler_state *state)
 {
-	state->scopes = xrealloc_array(state->scopes, state->nr_scopes, state->nr_scopes+1, sizeof(struct scope));
-	state->scopes[state->nr_scopes].vars = NULL;
-	state->scopes[state->nr_scopes].nr_vars = 0;
-	state->nr_scopes++;
+	struct scope *p = vector_pushp(struct scope, state->scopes);
+	*p = (struct scope) {
+		.vars = vector_initializer
+	};
 }
 
 static void compile_local_pageref(struct compiler_state *state, int var_no);
@@ -246,33 +241,33 @@ static void compile_delete_var(struct compiler_state *state, int var_no)
 
 static void end_scope(struct compiler_state *state)
 {
-	struct scope *scope = &state->scopes[--state->nr_scopes];
+	struct scope *scope = &vector_pop(state->scopes);
 
 	// XXX: no need to delete at end of function scope
-	if (state->nr_scopes == 0) {
-		free(scope->vars);
+	if (vector_empty(state->scopes)) {
+		vector_destroy(scope->vars);
 		return;
 	}
 
-	for (int i = scope->nr_vars - 1; i >= 0; i--) {
-		compile_delete_var(state, scope->vars[i]);
+	if (!vector_empty(scope->vars)) {
+		int v;
+		vector_foreach_reverse(v, scope->vars) {
+			compile_delete_var(state, v);
+		}
 	}
-	free(scope->vars);
+	vector_destroy(scope->vars);
 }
 
 static void scope_add_variable(struct compiler_state *state, int var_no)
 {
-	struct scope *scope = &state->scopes[state->nr_scopes-1];
-	scope->vars = xrealloc_array(scope->vars, scope->nr_vars, scope->nr_vars+1, sizeof(int));
-	scope->vars[scope->nr_vars++] = var_no;
+	struct scope *scope = &vector_peek(state->scopes);
+	vector_push(int, scope->vars, var_no);
 }
 
 static void start_function(struct compiler_state *state, int func_no, int super_no)
 {
-	state->nr_labels = 0;
-	state->nr_gotos = 0;
-	state->labels = NULL;
-	state->gotos = NULL;
+	vector_init(state->labels);
+	vector_init(state->gotos);
 	state->func_no = func_no;
 	state->super_no = super_no;
 	start_scope(state);
@@ -280,26 +275,27 @@ static void start_function(struct compiler_state *state, int func_no, int super_
 
 static void end_function(struct compiler_state *state)
 {
-	for (size_t i = 0; i < state->nr_gotos; i++) {
+	struct label *gt;
+	vector_foreach_p(gt, state->gotos) {
 		// find corresponding label
-		struct label *label = NULL;
-		for (size_t j = 0; j < state->nr_labels; j++) {
-			if (!strcmp(state->labels[j].name, state->gotos[i].name)) {
-				label = &state->labels[j];
+		struct label *p, *label = NULL;
+		vector_foreach_p(p, state->labels) {
+			if (!strcmp(p->name, gt->name)) {
+				label = p;
 				break;
 			}
 		}
 		if (!label) {
-			JAF_ERROR(state->gotos[i].stmt, "Undefined label");
+			JAF_ERROR(gt->stmt, "Undefined label");
 		}
 
 		// write label address into JUMP argument
-		buffer_write_int32_at(&state->out, state->gotos[i].addr, label->addr);
+		buffer_write_int32_at(&state->out, gt->addr, label->addr);
 	}
 
 	end_scope(state);
-	free(state->labels);
-	free(state->gotos);
+	vector_destroy(state->labels);
+	vector_destroy(state->gotos);
 }
 
 #define AIN_WIDE_TYPE \
@@ -1369,8 +1365,9 @@ static void compile_function_arguments(struct compiler_state *state,
 		struct jaf_argument_list *args, int func_no)
 {
 	struct ain_function *f = &state->ain->functions[func_no];
-	for (size_t i = 0; i < args->nr_items; i++) {
-		compile_argument(state, args->items[i], f->vars[args->var_nos[i]].type.data);
+	for (size_t i = 0; i < vector_length(args->items); i++) {
+		compile_argument(state, vector_A(args->items, i),
+				f->vars[args->var_nos[i]].type.data);
 	}
 }
 
@@ -1381,8 +1378,9 @@ static void compile_interface_call_arguments(struct compiler_state *state,
 	struct ain_struct *s = &state->ain->structures[iface_no];
 	assert(method_no >= 0 && method_no < s->nr_iface_methods);
 	struct ain_function_type *f = &s->iface_methods[method_no];
-	for (size_t i = 0; i < args->nr_items; i++) {
-		compile_argument(state, args->items[i], f->variables[args->var_nos[i]].type.data);
+	for (size_t i = 0; i < vector_length(args->items); i++) {
+		compile_argument(state, vector_A(args->items, i),
+				f->variables[args->var_nos[i]].type.data);
 	}
 }
 
@@ -1394,9 +1392,9 @@ static void jaf_compile_functype_call(struct compiler_state *state, struct jaf_e
 	compile_expression(state, expr->call.fun);
 
 	struct ain_function_type *f = &state->ain->function_types[expr->call.func_no];
-	for (size_t i = 0; i < expr->call.args->nr_items; i++) {
+	for (size_t i = 0; i < vector_length(expr->call.args->items); i++) {
 		enum ain_data_type type = f->variables[expr->call.args->var_nos[i]].type.data;
-		compile_argument(state, expr->call.args->items[i], type);
+		compile_argument(state, vector_A(expr->call.args->items, i), type);
 		if (is_wide_type(type)) {
 			write_instruction0(state, DUP2_X1);
 			write_instruction0(state, POP);
@@ -1414,9 +1412,9 @@ static void jaf_compile_delegate_call(struct compiler_state *state, struct jaf_e
 	assert(expr->call.func_no >= 0 && expr->call.func_no < state->ain->nr_delegates);
 	struct ain_function_type *dg = &state->ain->delegates[expr->call.func_no];
 	compile_lvalue(state, expr->call.fun);
-	for (size_t i = 0; i < expr->call.args->nr_items; i++) {
+	for (size_t i = 0; i < vector_length(expr->call.args->items); i++) {
 		enum ain_data_type type = dg->variables[expr->call.args->var_nos[i]].type.data;
-		compile_argument(state, expr->call.args->items[i], type);
+		compile_argument(state, vector_A(expr->call.args->items, i), type);
 	}
 	write_instruction1(state, DG_CALLBEGIN, expr->call.func_no);
 	size_t loop_addr = state->out.index;
@@ -1444,7 +1442,7 @@ static void _compile_method_call(struct compiler_state *state, struct jaf_expres
 		write_instruction1(state, PUSH, expr->call.func_no);
 		compile_function_arguments(state, expr->call.args, expr->call.func_no);
 		// TODO: should this be f->nr_args or args->nr_items?
-		write_instruction1(state, CALLMETHOD, expr->call.args->nr_items);
+		write_instruction1(state, CALLMETHOD, vector_length(expr->call.args->items));
 	} else {
 		compile_function_arguments(state, expr->call.args, expr->call.func_no);
 		write_instruction1(state, CALLMETHOD, expr->call.func_no);
@@ -1473,14 +1471,15 @@ static void compile_interface_call(struct compiler_state *state, struct jaf_expr
 	write_instruction0(state, ADD);
 	write_instruction0(state, REF);
 	compile_interface_call_arguments(state, expr->call.args, obj->valuetype.struc, method_no);
-	write_instruction1(state, CALLMETHOD, expr->call.args->nr_items);
+	write_instruction1(state, CALLMETHOD, vector_length(expr->call.args->items));
 }
 
 static void compile_syscall(struct compiler_state *state, struct jaf_expression *expr)
 {
-	unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
+	unsigned nr_args = expr->call.args ? vector_length(expr->call.args->items) : 0;
 	for (unsigned i = 0; i < nr_args; i++) {
-		compile_argument(state, expr->call.args->items[i], syscalls[expr->call.func_no].argtypes[i]);
+		compile_argument(state, vector_A(expr->call.args->items, i),
+				syscalls[expr->call.func_no].argtypes[i]);
 	}
 
 	if (state->ain->version >= 11) {
@@ -1493,7 +1492,7 @@ static void compile_syscall(struct compiler_state *state, struct jaf_expression 
 static void compile_hllcall(struct compiler_state *state, struct jaf_expression *expr)
 {
 	struct ain_library *lib = &state->ain->libraries[expr->call.lib_no];
-	for (unsigned i = 0; i < expr->call.args->nr_items; i++) {
+	for (unsigned i = 0; i < vector_length(expr->call.args->items); i++) {
 		struct ain_hll_function *fun = &lib->functions[expr->call.func_no];
 		enum ain_data_type arg_t = fun->arguments[i].type.data;
 		if (arg_t == AIN_HLL_PARAM) {
@@ -1501,7 +1500,7 @@ static void compile_hllcall(struct compiler_state *state, struct jaf_expression 
 				COMPILER_ERROR(expr, "compiling hll_param with void array data type");
 			arg_t = expr->call.array_data_type;
 		}
-		compile_argument(state, expr->call.args->items[i], arg_t);
+		compile_argument(state, vector_A(expr->call.args->items, i), arg_t);
 	}
 	if (AIN_VERSION_GTE(state->ain, 11, 0)) {
 		write_instruction3(state, CALLHLL, expr->call.lib_no, expr->call.func_no, expr->call.type_param);
@@ -1524,6 +1523,7 @@ static void compile_super_call(struct compiler_state *state, struct jaf_expressi
 
 static void compile_builtin_call(possibly_unused struct compiler_state *state, struct jaf_expression *expr)
 {
+	struct jaf_expression *p;
 	switch ((enum jaf_builtin_method)expr->call.func_no) {
 	case JAF_INT_STRING:
 		compile_variable_ref(state, expr->call.fun->member.struc);
@@ -1533,8 +1533,8 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 	case JAF_FLOAT_STRING:
 		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, REF);
-		if (expr->call.args->nr_items > 0)
-			compile_expression(state, expr->call.args->items[0]);
+		if (vector_length(expr->call.args->items) > 0)
+			compile_expression(state, vector_A(expr->call.args->items, 0));
 		else
 			write_instruction1(state, PUSH, -1);
 		write_instruction0(state, FTOS);
@@ -1560,20 +1560,20 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 	case JAF_STRING_FIND:
 		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, S_REF);
-		compile_expression(state, expr->call.args->items[0]);
+		compile_expression(state, vector_A(expr->call.args->items, 0));
 		write_instruction0(state, S_FIND);
 		break;
 	case JAF_STRING_GETPART:
 		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, S_REF);
-		compile_expression(state, expr->call.args->items[0]);
-		compile_expression(state, expr->call.args->items[1]);
+		compile_expression(state, vector_A(expr->call.args->items, 0));
+		compile_expression(state, vector_A(expr->call.args->items, 1));
 		write_instruction0(state, S_GETPART);
 		break;
 	case JAF_STRING_PUSHBACK:
 		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, REF);
-		compile_expression(state, expr->call.args->items[0]);
+		compile_expression(state, vector_A(expr->call.args->items, 0));
 		write_instruction0(state, S_PUSHBACK2);
 		break;
 	case JAF_STRING_POPBACK:
@@ -1584,24 +1584,24 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 	case JAF_STRING_ERASE:
 		compile_variable_ref(state, expr->call.fun->member.struc);
 		write_instruction0(state, REF);
-		compile_expression(state, expr->call.args->items[0]);
+		compile_expression(state, vector_A(expr->call.args->items, 0));
 		write_instruction1(state, PUSH, 1); // number of chars?
 		write_instruction0(state, S_ERASE2);
 		break;
 	case JAF_ARRAY_ALLOC:
 		compile_variable_ref(state, expr->call.fun->member.struc);
-		for (int i = 0; i < expr->call.args->nr_items; i++) {
-			compile_expression(state, expr->call.args->items[i]);
+		vector_foreach(p, expr->call.args->items) {
+			compile_expression(state, p);
 		}
-		write_instruction1(state, PUSH, expr->call.args->nr_items);
+		write_instruction1(state, PUSH, vector_length(expr->call.args->items));
 		write_instruction0(state, A_ALLOC);
 		break;
 	case JAF_ARRAY_REALLOC:
 		compile_variable_ref(state, expr->call.fun->member.struc);
-		for (int i = 0; i < expr->call.args->nr_items; i++) {
-			compile_expression(state, expr->call.args->items[i]);
+		vector_foreach(p, expr->call.args->items) {
+			compile_expression(state, p);
 		}
-		write_instruction1(state, PUSH, expr->call.args->nr_items);
+		write_instruction1(state, PUSH, vector_length(expr->call.args->items));
 		write_instruction0(state, A_REALLOC);
 		break;
 	case JAF_ARRAY_FREE:
@@ -1610,8 +1610,8 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 		break;
 	case JAF_ARRAY_NUMOF:
 		compile_variable_ref(state, expr->call.fun->member.struc);
-		if (expr->call.args->nr_items > 0) {
-			compile_expression(state, expr->call.args->items[0]);
+		if (vector_length(expr->call.args->items) > 0) {
+			compile_expression(state, vector_A(expr->call.args->items, 0));
 		} else {
 			write_instruction1(state, PUSH, 1);
 		}
@@ -1619,22 +1619,22 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 		break;
 	case JAF_ARRAY_COPY:
 		compile_variable_ref(state, expr->call.fun->member.struc);
-		compile_expression(state, expr->call.args->items[0]);
-		compile_expression(state, expr->call.args->items[1]);
-		compile_expression(state, expr->call.args->items[2]);
-		compile_expression(state, expr->call.args->items[3]);
+		compile_expression(state, vector_A(expr->call.args->items, 0));
+		compile_expression(state, vector_A(expr->call.args->items, 1));
+		compile_expression(state, vector_A(expr->call.args->items, 2));
+		compile_expression(state, vector_A(expr->call.args->items, 3));
 		write_instruction0(state, A_COPY);
 		break;
 	case JAF_ARRAY_FILL:
 		compile_variable_ref(state, expr->call.fun->member.struc);
-		compile_expression(state, expr->call.args->items[0]);
-		compile_expression(state, expr->call.args->items[1]);
-		compile_expression(state, expr->call.args->items[2]);
+		compile_expression(state, vector_A(expr->call.args->items, 0));
+		compile_expression(state, vector_A(expr->call.args->items, 1));
+		compile_expression(state, vector_A(expr->call.args->items, 2));
 		write_instruction0(state, A_FILL);
 		break;
 	case JAF_ARRAY_PUSHBACK:
 		compile_variable_ref(state, expr->call.fun->member.struc);
-		compile_expression(state, expr->call.args->items[0]);
+		compile_expression(state, vector_A(expr->call.args->items, 0));
 		write_instruction0(state, A_PUSHBACK);
 		break;
 	case JAF_ARRAY_POPBACK:
@@ -1647,19 +1647,19 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 		break;
 	case JAF_ARRAY_ERASE:
 		compile_variable_ref(state, expr->call.fun->member.struc);
-		compile_expression(state, expr->call.args->items[0]);
+		compile_expression(state, vector_A(expr->call.args->items, 0));
 		write_instruction0(state, A_ERASE);
 		break;
 	case JAF_ARRAY_INSERT:
 		compile_variable_ref(state, expr->call.fun->member.struc);
-		compile_expression(state, expr->call.args->items[0]);
-		compile_expression(state, expr->call.args->items[1]);
+		compile_expression(state, vector_A(expr->call.args->items, 0));
+		compile_expression(state, vector_A(expr->call.args->items, 1));
 		write_instruction0(state, A_INSERT);
 		break;
 	case JAF_ARRAY_SORT:
 		compile_variable_ref(state, expr->call.fun->member.struc);
-		if (expr->call.args->nr_items > 0) {
-			compile_expression(state, expr->call.args->items[0]);
+		if (vector_length(expr->call.args->items) > 0) {
+			compile_expression(state, vector_A(expr->call.args->items, 0));
 		} else {
 			write_instruction1(state, PUSH, 0);
 		}
@@ -1667,11 +1667,11 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 		break;
 	case JAF_ARRAY_FIND:
 		compile_variable_ref(state, expr->call.fun->member.struc);
-		compile_expression(state, expr->call.args->items[0]);
-		compile_expression(state, expr->call.args->items[1]);
-		compile_expression(state, expr->call.args->items[2]);
-		if (expr->call.args->nr_items > 3) {
-			compile_expression(state, expr->call.args->items[3]);
+		compile_expression(state, vector_A(expr->call.args->items, 0));
+		compile_expression(state, vector_A(expr->call.args->items, 1));
+		compile_expression(state, vector_A(expr->call.args->items, 2));
+		if (vector_length(expr->call.args->items) > 3) {
+			compile_expression(state, vector_A(expr->call.args->items, 3));
 		} else {
 			write_instruction1(state, PUSH, 0);
 		}
@@ -1683,7 +1683,7 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 		write_instruction0(state, DUP2);
 		write_instruction0(state, REF);
 		write_instruction0(state, DELETE);
-		compile_expression(state, expr->call.args->items[0]);
+		compile_expression(state, vector_A(expr->call.args->items, 0));
 		// FIXME: Argument to X_A_INIT can be 0 or 1. What does it mean?
 		write_instruction1(state, X_A_INIT, 0);
 		write_instruction0(state, POP);
@@ -1694,7 +1694,7 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 		break;
 	case JAF_DELEGATE_EXIST:
 		compile_lvalue(state, expr->call.fun->member.struc);
-		compile_expression(state, expr->call.args->items[0]);
+		compile_expression(state, vector_A(expr->call.args->items, 0));
 		write_instruction0(state, DG_EXIST);
 	case JAF_DELEGATE_CLEAR:
 		compile_lvalue(state, expr->call.fun->member.struc);
@@ -1712,7 +1712,7 @@ static void compile_builtin_call(possibly_unused struct compiler_state *state, s
 		uint32_t addr = state->out.index + 2;
 		write_instruction1(state, IFZ, 0);
 		write_instruction0(state, POP);
-		compile_expression(state, expr->call.args->items[0]);
+		compile_expression(state, vector_A(expr->call.args->items, 0));
 		buffer_write_int32_at(&state->out, addr, state->out.index);
 		break;
 	}
@@ -1984,7 +1984,7 @@ static void compile_vardecl(struct compiler_state *state, struct jaf_block_item 
 		.type = JAF_EXP_IDENTIFIER,
 		.valuetype = decl->valuetype,
 		.ident = {
-			.name = { 0 },
+			.name = { .parts = {0} },
 			.kind = JAF_IDENT_LOCAL,
 			.local = decl
 		}
@@ -2222,7 +2222,7 @@ static void compile_while(struct compiler_state *state, struct jaf_expression *t
 	write_instruction1(state, IFZ, 0);
 	// loop body
 	compile_statement(state, body);
-	write_instruction1(state, JUMP, state->loops[state->nr_loops-1].loop_addr);
+	write_instruction1(state, JUMP, vector_peek(state->loops).loop_addr);
 	// loop end
 	buffer_write_int32_at(&state->out, addr, state->out.index);
 	end_loop(state);
@@ -2242,7 +2242,7 @@ static void compile_do_while(struct compiler_state *state, struct jaf_expression
 	// loop body
 	buffer_write_int32_at(&state->out, addr[0], state->out.index);
 	compile_statement(state, body);
-	write_instruction1(state, JUMP, state->loops[state->nr_loops-1].loop_addr);
+	write_instruction1(state, JUMP, vector_peek(state->loops).loop_addr);
 	// loop end
 	buffer_write_int32_at(&state->out, addr[1], state->out.index);
 	end_loop(state);
@@ -2271,7 +2271,7 @@ static void compile_for(struct compiler_state *state, struct jaf_block *init, st
 	// loop body
 	buffer_write_int32_at(&state->out, addr[2], state->out.index);
 	compile_statement(state, body);
-	write_instruction1(state, JUMP, state->loops[state->nr_loops-1].loop_addr);
+	write_instruction1(state, JUMP, vector_peek(state->loops).loop_addr);
 	// loop end
 	buffer_write_int32_at(&state->out, addr[1], state->out.index);
 	end_loop(state);
@@ -2280,32 +2280,32 @@ static void compile_for(struct compiler_state *state, struct jaf_block *init, st
 static void compile_label(struct compiler_state *state, struct jaf_block_item *item)
 {
 	// add label
-	state->labels = xrealloc_array(state->labels, state->nr_labels, state->nr_labels+1, sizeof(struct label));
-	state->labels[state->nr_labels].name = item->label.name->text;
-	state->labels[state->nr_labels].addr = state->out.index;
-	state->nr_labels++;
-
+	struct label *p = vector_pushp(struct label, state->labels);
+	*p = (struct label) {
+		.name = item->label.name->text,
+		.addr = state->out.index,
+	};
 	compile_statement(state, item->label.stmt);
 }
 
 static void compile_goto(struct compiler_state *state, struct jaf_block_item *item)
 {
 	// add goto
-	state->gotos = xrealloc_array(state->gotos, state->nr_gotos, state->nr_gotos+1, sizeof(struct label));
-	state->gotos[state->nr_gotos].name = item->label.name->text;
-	state->gotos[state->nr_gotos].addr = state->out.index + 2;
-	state->nr_gotos++;
+	struct label *p = vector_pushp(struct label, state->gotos);
+	*p = (struct label) {
+		.name = item->label.name->text,
+		.addr = state->out.index + 2,
+	};
 
 	write_instruction1(state, JUMP, 0);
 }
 
 static void compile_break(struct compiler_state *state, struct jaf_block_item *item)
 {
-	if (state->nr_loops == 0)
+	if (vector_empty(state->loops))
 		JAF_ERROR(item, "break outside of loop");
-	struct loop_state *loop = &state->loops[state->nr_loops-1];
-	loop->breaks = xrealloc_array(loop->breaks, loop->nr_breaks, loop->nr_breaks+1, sizeof(uint32_t));
-	loop->breaks[loop->nr_breaks++] = state->out.index + 2;
+	struct loop_state *loop = &vector_peek(state->loops);
+	vector_push(uint32_t, loop->breaks, state->out.index + 2);
 	write_instruction1(state, JUMP, 0);
 }
 
@@ -2458,9 +2458,9 @@ static void compile_statement(struct compiler_state *state, struct jaf_block_ite
 		compile_goto(state, item);
 		break;
 	case JAF_STMT_CONTINUE:
-		if (state->nr_loops == 0)
+		if (vector_empty(state->loops))
 			JAF_ERROR(item, "continue outside of loop");
-		write_instruction1(state, JUMP, state->loops[state->nr_loops-1].loop_addr);
+		write_instruction1(state, JUMP, vector_peek(state->loops).loop_addr);
 		break;
 	case JAF_STMT_BREAK:
 		compile_break(state, item);
@@ -2642,8 +2642,8 @@ static void jaf_compile(struct ain *ain, struct jaf_block *toplevel)
 	// add final EOF
 	compile_declaration(&state, toplevel->items[toplevel->nr_items-1]);
 
-	free(state.loops);
-	free(state.scopes);
+	vector_destroy(state.loops);
+	vector_destroy(state.scopes);
 	ain->code = state.out.buf;
 	ain->code_size = state.out.index;
 

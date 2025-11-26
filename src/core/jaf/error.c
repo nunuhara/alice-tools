@@ -103,11 +103,11 @@ void jaf_print_expression(struct port *out, struct jaf_expression *expr);
 static void print_arglist(struct port *out, struct jaf_argument_list *list)
 {
 	port_putc(out, '(');
-	if (list->nr_items) {
-		for (size_t i = 0; i < list->nr_items; i++) {
+	if (vector_length(list->items)) {
+		for (size_t i = 0; i < vector_length(list->items); i++) {
 			if (i > 0)
 				port_printf(out, ", ");
-			jaf_print_expression(out, list->items[i]);
+			jaf_print_expression(out, vector_A(list->items, i));
 		}
 	}
 	port_putc(out, ')');

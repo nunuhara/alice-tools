@@ -733,14 +733,14 @@ static void type_check_identifier(struct jaf_env *env, struct jaf_expression *ex
 	} else {
 		// check for enum value of form: Enum::Value
 		struct jaf_name *name = &expr->ident.name;
-		if (name->nr_parts != 2)
+		if (vector_length(name->parts) != 2)
 			goto undefined_variable;
-		char *enum_name = conv_output(name->parts[0]->text);
+		char *enum_name = conv_output(vector_A(name->parts, 0)->text);
 		int no = ain_get_enum(env->ain, enum_name);
 		free(enum_name);
 		if (no < 0)
 			goto undefined_variable;
-		enum_name = conv_output(name->parts[1]->text);
+		enum_name = conv_output(vector_A(name->parts, 1)->text);
 		for (int i = 0; i < env->ain->enums[no].nr_values; i++) {
 			struct ain_enum_value *value = &env->ain->enums[no].values[i];
 			if (!strcmp(value->symbol->text, enum_name)) {
@@ -1064,12 +1064,12 @@ static void check_function_arguments(struct jaf_env *env, struct jaf_expression 
 {
 	int arg = 0;
 
-	args->var_nos = xcalloc(args->nr_items, sizeof(int));
-	for (unsigned i = 0; i < args->nr_items; i++, arg++) {
+	args->var_nos = xcalloc(vector_length(args->items), sizeof(int));
+	for (unsigned i = 0; i < vector_length(args->items); i++, arg++) {
 		if (arg >= f->nr_args)
 			JAF_ERROR(expr, "Too many arguments to function %s", conv_utf8(f->name));
 
-		check_function_argument(env, &f->vars[arg].type, args->items[i]);
+		check_function_argument(env, &f->vars[arg].type, vector_A(args->items, i));
 
 		args->var_nos[i] = arg;
 		if (ain_wide_type(f->vars[arg].type.data))
@@ -1084,12 +1084,12 @@ static void check_functype_arguments(struct jaf_env *env, struct jaf_expression 
 {
 	int arg = 0;
 
-	args->var_nos = xcalloc(args->nr_items, sizeof(int));
-	for (unsigned i = 0; i < args->nr_items; i++, arg++) {
+	args->var_nos = xcalloc(vector_length(args->items), sizeof(int));
+	for (unsigned i = 0; i < vector_length(args->items); i++, arg++) {
 		if (arg >= f->nr_arguments)
 			JAF_ERROR(expr, "Too many arguments to function type %s", conv_utf8(f->name));
 
-		check_function_argument(env, &f->variables[arg].type, args->items[i]);
+		check_function_argument(env, &f->variables[arg].type, vector_A(args->items, i));
 
 		args->var_nos[i] = arg;
 		if (ain_wide_type(f->variables[arg].type.data))
@@ -1137,13 +1137,13 @@ static void type_check_system_call(struct jaf_env *env, struct jaf_expression *e
 	expr->type = JAF_EXP_SYSCALL;
 	expr->call.func_no = expr->call.fun->member.member_no;
 
-	for (size_t i = 0; i < expr->call.args->nr_items; i++) {
+	for (size_t i = 0; i < vector_length(expr->call.args->items); i++) {
 		struct ain_type type = {
 			.data = syscalls[expr->call.func_no].argtypes[i],
 			.struc = -1,
 			.rank = 0
 		};
-		check_function_argument(env, &type, expr->call.args->items[i]);
+		check_function_argument(env, &type, vector_A(expr->call.args->items, i));
 	}
 	ain_copy_type(&expr->valuetype, &syscalls[expr->call.func_no].return_type);
 }
@@ -1229,7 +1229,7 @@ static void type_check_hll_call(struct jaf_env *env, struct jaf_expression *expr
 	const char *obj_name = env->ain->libraries[expr->call.lib_no].name;
 	const char *mbr_name = expr->call.fun->member.name->text;
 
-	unsigned nr_args = expr->call.args ? expr->call.args->nr_items : 0;
+	unsigned nr_args = expr->call.args ? vector_length(expr->call.args->items) : 0;
 	struct ain_hll_function *def = &env->ain->libraries[expr->call.lib_no].functions[expr->call.func_no];
 	if (nr_args < (unsigned)def->nr_arguments)
 		JAF_ERROR(expr, "Too few arguments to HLL function: %s.%s", obj_name, mbr_name);
@@ -1237,7 +1237,8 @@ static void type_check_hll_call(struct jaf_env *env, struct jaf_expression *expr
 		JAF_ERROR(expr, "Too many arguments to HLL function: %s.%s", obj_name, mbr_name);
 	// FIXME: multi-valued arguments?
 	for (unsigned i = 0; i < nr_args; i++) {
-		check_hll_argument(env, expr->call.args->items[i], &def->arguments[i].type, obj_type);
+		check_hll_argument(env, vector_A(expr->call.args->items, i),
+				&def->arguments[i].type, obj_type);
 	}
 
 	if (def->return_type.data == AIN_HLL_PARAM) {
@@ -1398,10 +1399,10 @@ static void type_check_builtin_call(struct jaf_env *env, struct jaf_expression *
 	enum jaf_builtin_method builtin_no = expr->call.fun->member.member_no;
 	assert(builtin_no >= 0 && builtin_no < JAF_NR_BUILTINS);
 	struct builtin *builtin = &builtins[builtin_no];
-	if (expr->call.args->nr_items < builtin->min_args)
+	if (vector_length(expr->call.args->items) < builtin->min_args)
 		JAF_ERROR(expr, "Too few arguments to builtin method: %s.%s",
 				_builtin_type_name(builtin->type), builtin->name);
-	if (expr->call.args->nr_items > builtin->max_args)
+	if (vector_length(expr->call.args->items) > builtin->max_args)
 		JAF_ERROR(expr, "Too many arguments to builtin method: %s.%s",
 				_builtin_type_name(builtin->type), builtin->name);
 
@@ -1417,82 +1418,82 @@ static void type_check_builtin_call(struct jaf_env *env, struct jaf_expression *
 	struct jaf_argument_list *args = expr->call.args;
 	switch (builtin_no) {
 	case JAF_FLOAT_STRING:
-		if (args->nr_items > 0)
-			type_check(env, &int_type, args->items[0]);
+		if (vector_length(args->items) > 0)
+			type_check(env, &int_type, vector_A(args->items, 0));
 		break;
 	case JAF_STRING_FIND:
-		type_check(env, &string_type, args->items[0]);
+		type_check(env, &string_type, vector_A(args->items, 0));
 		break;
 	case JAF_STRING_GETPART:
-		type_check(env, &int_type, args->items[0]);
-		type_check(env, &int_type, args->items[1]);
+		type_check(env, &int_type, vector_A(args->items, 0));
+		type_check(env, &int_type, vector_A(args->items, 1));
 		break;
 	case JAF_STRING_PUSHBACK:
-		type_check(env, &int_type, args->items[0]);
+		type_check(env, &int_type, vector_A(args->items, 0));
 		break;
 	case JAF_STRING_ERASE:
-		type_check(env, &int_type, args->items[0]);
+		type_check(env, &int_type, vector_A(args->items, 0));
 		break;
 	case JAF_ARRAY_ALLOC:
-		for (int i = 0; i < args->nr_items; i++) {
-			type_check(env, &int_type, args->items[i]);
+		for (int i = 0; i < vector_length(args->items); i++) {
+			type_check(env, &int_type, vector_A(args->items, i));
 		}
 		// check nr args matches array rank
 		break;
 	case JAF_ARRAY_REALLOC:
-		for (int i = 0; i < args->nr_items; i++) {
-			type_check(env, &int_type, args->items[i]);
+		for (int i = 0; i < vector_length(args->items); i++) {
+			type_check(env, &int_type, vector_A(args->items, i));
 		}
 		// check nr args matches array rank
 		break;
 	case JAF_ARRAY_NUMOF:
-		if (args->nr_items > 0)
-			type_check(env, &int_type, args->items[0]);
+		if (vector_length(args->items) > 0)
+			type_check(env, &int_type, vector_A(args->items, 0));
 		break;
 	case JAF_ARRAY_COPY:
-		type_check(env, &int_type, args->items[0]);
-		type_check(env, &expr->call.fun->member.struc->valuetype, args->items[1]);
-		type_check(env, &int_type, args->items[2]);
-		type_check(env, &int_type, args->items[3]);
+		type_check(env, &int_type, vector_A(args->items, 0));
+		type_check(env, &expr->call.fun->member.struc->valuetype, vector_A(args->items, 1));
+		type_check(env, &int_type, vector_A(args->items, 2));
+		type_check(env, &int_type, vector_A(args->items, 3));
 		break;
 	case JAF_ARRAY_FILL:
-		type_check(env, &int_type, args->items[0]);
-		type_check(env, &int_type, args->items[1]);
-		type_check(env, &val_type, args->items[2]);
+		type_check(env, &int_type, vector_A(args->items, 0));
+		type_check(env, &int_type, vector_A(args->items, 1));
+		type_check(env, &val_type, vector_A(args->items, 2));
 		break;
 	case JAF_ARRAY_PUSHBACK:
-		type_check(env, &val_type, args->items[0]);
+		type_check(env, &val_type, vector_A(args->items, 0));
 		break;
 	case JAF_ARRAY_ERASE:
-		type_check(env, &int_type, args->items[0]);
+		type_check(env, &int_type, vector_A(args->items, 0));
 		break;
 	case JAF_ARRAY_INSERT:
-		type_check(env, &int_type, args->items[0]);
-		type_check(env, &val_type, args->items[1]);
+		type_check(env, &int_type, vector_A(args->items, 0));
+		type_check(env, &val_type, vector_A(args->items, 1));
 		break;
 	case JAF_ARRAY_SORT:
-		if (args->nr_items > 0) {
-			jaf_check_comparator_type(env, args->items[0], &val_type);
+		if (vector_length(args->items) > 0) {
+			jaf_check_comparator_type(env, vector_A(args->items, 0), &val_type);
 		}
 		break;
 	case JAF_ARRAY_FIND:
-		type_check(env, &int_type, args->items[0]);
-		type_check(env, &int_type, args->items[1]);
-		type_check(env, &val_type, args->items[2]);
-		if (args->nr_items > 3) {
-			jaf_check_comparator_type(env, args->items[3], &val_type);
+		type_check(env, &int_type, vector_A(args->items, 0));
+		type_check(env, &int_type, vector_A(args->items, 1));
+		type_check(env, &val_type, vector_A(args->items, 2));
+		if (vector_length(args->items) > 3) {
+			jaf_check_comparator_type(env, vector_A(args->items, 3), &val_type);
 		}
 		break;
 	case JAF_ARRAY_INIT:
-		type_check(env, &int_type, args->items[0]);
+		type_check(env, &int_type, vector_A(args->items, 0));
 		break;
 	case JAF_DELEGATE_EXIST:
-		check_delegate_compatible(env, &expr->call.fun->member.struc->valuetype, args->items[0]);
+		check_delegate_compatible(env, &expr->call.fun->member.struc->valuetype, vector_A(args->items, 0));
 		break;
 	case JAF_OPTION_VALUE: {
 		struct ain_type *t = &expr->call.fun->member.struc->valuetype;
 		assert(t->rank == 1 && t->array_type);
-		type_check(env, t->array_type, args->items[0]);
+		type_check(env, t->array_type, vector_A(args->items, 0));
 		ain_copy_type(&expr->valuetype, t->array_type);
 		break;
 	}
@@ -1526,13 +1527,11 @@ static void type_check_builtin_hll_call(struct jaf_env *env, struct jaf_expressi
 
 	// put obj at head of argument list
 	struct jaf_argument_list *args = expr->call.args;
-	args->items = xrealloc_array(args->items, args->nr_items, args->nr_items+1,
-			sizeof(struct jaf_expression*));
-	for (unsigned i = args->nr_items; i > 0; i--) {
-		args->items[i] = args->items[i-1];
+	vector_resize(struct jaf_expression*, args->items, vector_length(args->items)+1);
+	for (unsigned i = vector_length(args->items) - 1; i > 0; i--) {
+		vector_A(args->items, i) = vector_A(args->items, i-1);
 	}
-	args->items[0] = obj;
-	args->nr_items++;
+	vector_A(args->items, 0) = obj;
 
 	type_check_hll_call(env, expr, &obj->valuetype);
 }
@@ -1605,7 +1604,7 @@ static void type_check_new(struct jaf_env *env, struct jaf_expression *expr)
 	}
 
 	if (expr->new.func_no < 0) {
-		if (expr->new.args->nr_items > 0) {
+		if (vector_length(expr->new.args->items) > 0) {
 			JAF_ERROR(expr, "Too many arguments to (default) constructor");
 		}
 	} else {
@@ -2154,12 +2153,10 @@ static void analyze_const_declaration(struct jaf_env *env, struct jaf_block_item
 	jaf_to_ain_type(env->ain, &decl->valuetype, decl->type);
 	type_check_initval(env, &decl->valuetype, decl->init);
 
-	env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+2,
-				     sizeof(struct jaf_env_local));
-	env->locals[env->nr_locals].name = decl->name->text;
-	env->locals[env->nr_locals].is_const = true;
-	jaf_to_initval(&env->locals[env->nr_locals].val, env->ain, decl->init);
-	env->nr_locals++;
+	struct jaf_env_local *p = vector_pushp(struct jaf_env_local, env->locals);
+	p->name = decl->name->text;
+	p->is_const = true;
+	jaf_to_initval(&p->val, env->ain, decl->init);
 }
 
 static void analyze_global_declaration(struct jaf_env *env, struct jaf_block_item *item)

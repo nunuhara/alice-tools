@@ -41,10 +41,7 @@ struct pje_formation {
 	struct string **defines;
 };
 
-struct string_list {
-	unsigned n;
-	struct string **items;
-};
+typedef vector_t(struct string*) string_list;
 
 struct pje_config {
 	const char *pje_path;
@@ -58,16 +55,16 @@ struct pje_config {
 	struct string *output_dir;
 	unsigned nr_formations;
 	struct pje_formation *formations;
-	struct string_list system_source;
-	struct string_list source;
+	string_list system_source;
+	string_list source;
 	// alice-tools extensions
 	struct string *ain_input;
 	struct string *mod_text;
-	struct string_list mod_jam;
+	string_list mod_jam;
 	struct string *ex_input;
 	struct string *ex_name;
 	struct string *ex_mod_name;
-	struct string_list archives; // DEPRECATED
+	string_list archives; // DEPRECATED
 	struct string *cg_name;
 	struct string *sound_name;
 	struct string *flat_name;
@@ -80,47 +77,43 @@ struct pje_config {
 };
 
 struct inc_config {
-	struct string_list system_source;
-	struct string_list source;
-	struct string_list copy_to_run;
-	struct string_list copy_to_dll;
-	struct string_list copy_to_dp;
-	struct string_list load_dll;
-	struct string_list cg;
-	struct string_list sound;
-	struct string_list flat;
+	string_list system_source;
+	string_list source;
+	string_list copy_to_run;
+	string_list copy_to_dll;
+	string_list copy_to_dp;
+	string_list load_dll;
+	string_list cg;
+	string_list sound;
+	string_list flat;
 	struct string *pact;
 };
 
-struct batchpack_list {
-	unsigned n;
-	struct batchpack_line *lines;
-};
+typedef vector_t(struct batchpack_line) batchpack_list;
 
 struct build_job {
-	struct string_list system_source;
-	struct string_list source;
-	struct string_list headers;
-	struct string_list ex_source;
-	struct string_list jam_source;
-	struct batchpack_list cg;
-	struct batchpack_list sound;
-	struct batchpack_list flat;
-	struct string_list pact;
+	string_list system_source;
+	string_list source;
+	string_list headers;
+	string_list ex_source;
+	string_list jam_source;
+	batchpack_list cg;
+	batchpack_list sound;
+	batchpack_list flat;
+	string_list pact;
 };
 
-static void string_list_append(struct string_list *list, struct string *str)
+static void string_list_append(string_list *list, struct string *str)
 {
-	list->items = xrealloc_array(list->items, list->n, list->n+1, sizeof(struct string*));
-	list->items[list->n++] = str;
+	vector_push(struct string*, *list, str);
 }
 
-static void batchpack_list_append(struct batchpack_list *list,
+static void batchpack_list_append(batchpack_list *list,
 				  struct string *src_dir, enum ar_filetype src_fmt,
 				  struct string *dst_dir, enum ar_filetype dst_fmt)
 {
-	list->lines = xrealloc_array(list->lines, list->n, list->n+1, sizeof(struct batchpack_line));
-	list->lines[list->n++] = (struct batchpack_line) {
+	struct batchpack_line *p = vector_pushp(struct batchpack_line, *list);
+	*p = (struct batchpack_line) {
 		.src = src_dir,
 		.src_fmt = src_fmt,
 		.dst = dst_dir,
@@ -128,21 +121,22 @@ static void batchpack_list_append(struct batchpack_list *list,
 	};
 }
 
-static void free_string_list(struct string_list *list)
+static void free_string_list(string_list *list)
 {
-	for (unsigned i = 0; i < list->n; i++) {
-		free_string(list->items[i]);
+	struct string *p;
+	vector_foreach(p, *list) {
+		free_string(p);
 	}
-	free(list->items);
+	vector_destroy(*list);
 }
 
-static void free_batchpack_list(struct batchpack_list *list)
+static void free_batchpack_list(batchpack_list *list)
 {
 	for (unsigned i = 0; i < list->n; i++) {
-		free_string(list->lines[i].src);
-		free_string(list->lines[i].dst);
+		free_string(vector_A(*list, i).src);
+		free_string(vector_A(*list, i).dst);
 	}
-	free(list->lines);
+	vector_destroy(*list);
 }
 
 static struct string *directory_name(const char *path)
@@ -173,18 +167,16 @@ static int pje_integer(struct ini_entry *entry)
 	return entry->value.i;
 }
 
-static void pje_string_list(struct ini_entry *entry, struct string_list *out)
+static void pje_string_list(struct ini_entry *entry, string_list *out)
 {
 	if (entry->value.type != INI_LIST)
 		ERROR("Invalid value for '%s': not a list", entry->name->text);
 
-	out->n = entry->value.list_size;
-	out->items = xcalloc(entry->value.list_size, sizeof(struct string*));
-
-	for (unsigned i = 0; i < out->n; i++) {
+	vector_resize(struct string*, *out, entry->value.list_size);
+	for (unsigned i = 0; i < vector_length(*out); i++) {
 		if (entry->value.list[i].type != INI_STRING)
-			ERROR("Invalid value in '%s': not a string", entry->name->text);
-		out->items[i] = string_dup(entry->value.list[i].s);
+			ALICE_ERROR("Invalid value in '%s': not a string", entry->name->text);
+		vector_A(*out, i) = string_dup(entry->value.list[i].s);
 	}
 }
 
@@ -340,15 +332,15 @@ static const char *extname(const char *s)
 	return e ? e+1 : NULL;
 }
 
-static void pje_read_source(struct build_job *job, struct string *dir, struct string_list *source, bool system);
+static void pje_read_source(struct build_job *job, struct string *dir, string_list *source, bool system);
 
-static void pje_read_archive(struct batchpack_list *dst, struct string_list *src, struct string *dir)
+static void pje_read_archive(batchpack_list *dst, string_list *src, struct string *dir)
 {
-	for (unsigned i = 0; i < src->n; i += 4) {
-		struct string *src_dir = string_path_join(dir, src->items[i]->text);
-		enum ar_filetype src_fmt = ar_parse_filetype(src->items[i+1]->text);
-		struct string *dst_dir = string_path_join(dir, src->items[i+2]->text);
-		enum ar_filetype dst_fmt = ar_parse_filetype(src->items[i+3]->text);
+	for (unsigned i = 0; i < vector_length(*src); i += 4) {
+		struct string *src_dir = string_path_join(dir, vector_A(*src, i)->text);
+		enum ar_filetype src_fmt = ar_parse_filetype(vector_A(*src, i+1)->text);
+		struct string *dst_dir = string_path_join(dir, vector_A(*src, i+2)->text);
+		enum ar_filetype dst_fmt = ar_parse_filetype(vector_A(*src, i+3)->text);
 		batchpack_list_append(dst, src_dir, src_fmt, dst_dir, dst_fmt);
 	}
 }
@@ -360,11 +352,11 @@ static void pje_read_inc(struct build_job *job, struct string *dir, struct strin
 	struct string *file_dir = directory_name(file->text);
 	pje_parse_inc(file->text, &config);
 
-	if (config.cg.n % 4 != 0)
+	if (vector_length(config.cg) % 4 != 0)
 		ALICE_ERROR("Incorrect format for 'CG' entry");
-	if (config.sound.n % 4 != 0)
+	if (vector_length(config.sound) % 4 != 0)
 		ALICE_ERROR("Incorrect format for 'Sound' entry");
-	if (config.flat.n % 4 != 0)
+	if (vector_length(config.flat) % 4 != 0)
 		ALICE_ERROR("Incorrect format for 'Flat' entry");
 
 	pje_read_source(job, file_dir, &config.system_source, true);
@@ -487,28 +479,28 @@ static void pje_read_source_dir_wildcard(struct build_job *job, struct string *d
 	closedir_utf8(d);
 }
 
-static void pje_read_source(struct build_job *job, struct string *dir, struct string_list *source, bool system)
+static void pje_read_source(struct build_job *job, struct string *dir, string_list *source, bool system)
 {
-	for (unsigned i = 0; i < source->n; i++) {
+	for (unsigned i = 0; i < vector_length(*source); i++) {
 		// check for dir wildcard (e.g. '*/source.inc')
-		char c0 = source->items[i]->text[0];
-		char c1 = source->items[i]->text[1];
+		char c0 = vector_A(*source, i)->text[0];
+		char c1 = vector_A(*source, i)->text[1];
 		if (c0 == '*' && (c1 == '/' || c1 == '\\')) {
-			pje_read_source_dir_wildcard(job, dir, source->items[i]->text + 2, system);
+			pje_read_source_dir_wildcard(job, dir, vector_A(*source, i)->text + 2, system);
 		}
 		// hll sources are handled differently because they are followed by the library name
-		else if (!strcmp(extname(source->items[i]->text), "hll")) {
-			if (i+1 >= source->n)
-				ERROR("Missing HLL name in source list: %s", source->items[i]->text);
-			if (strchr(source->items[i+1]->text, '.'))
-				ERROR("HLL name contains '.': %s", source->items[i+1]->text);
-			string_list_append(&job->headers, string_path_join(dir, source->items[i]->text));
-			string_list_append(&job->headers, string_dup(source->items[i+1]));
+		else if (!strcmp(extname(vector_A(*source, i)->text), "hll")) {
+			if (i+1 >= vector_length(*source))
+				ERROR("Missing HLL name in source list: %s", vector_A(*source, i)->text);
+			if (strchr(vector_A(*source, i+1)->text, '.'))
+				ERROR("HLL name contains '.': %s", vector_A(*source, i+1)->text);
+			string_list_append(&job->headers, string_path_join(dir, vector_A(*source, i)->text));
+			string_list_append(&job->headers, string_dup(vector_A(*source, i+1)));
 			i++;
 		}
 		// standard source file include (inc, jaf, txtex)
 		else {
-			pje_read_source_file(job, dir, source->items[i], system);
+			pje_read_source_file(job, dir, vector_A(*source, i), system);
 		}
 	}
 }
@@ -579,10 +571,10 @@ static void pje_build_ain(struct pje_config *config, struct build_job *job)
 	struct string *output_file = string_path_join(config->output_dir, config->code_name->text);
 	NOTICE("AIN    %s", output_file->text);
 
-	unsigned nr_header_files = job->headers.n;
+	unsigned nr_header_files = vector_length(job->headers);
 	const char **header_files = xcalloc(nr_header_files, sizeof(const char*));
-	for (unsigned i = 0; i < job->headers.n; i++) {
-		header_files[i] = job->headers.items[i]->text;
+	for (unsigned i = 0; i < vector_length(job->headers); i++) {
+		header_files[i] = vector_A(job->headers, i)->text;
 	}
 
 	// consolidate files into list
@@ -592,13 +584,13 @@ static void pje_build_ain(struct pje_config *config, struct build_job *job)
 	//       SystemSource files included from the top-level Source list be compiled
 	//       before Source files included from the top-level SystemSource list?
 	//       This needs to be confirmed before implementing global constructors.
-	unsigned nr_source_files = job->system_source.n + job->source.n;
+	unsigned nr_source_files = vector_length(job->system_source) + vector_length(job->source);
 	const char **source_files = xcalloc(nr_source_files, sizeof(const char*));
-	for (unsigned i = 0; i < job->system_source.n; i++) {
-		source_files[i] = job->system_source.items[i]->text;
+	for (unsigned i = 0; i < vector_length(job->system_source); i++) {
+		source_files[i] = vector_A(job->system_source, i)->text;
 	}
-	for (unsigned i = 0; i < job->source.n; i++) {
-		source_files[job->system_source.n + i] = job->source.items[i]->text;
+	for (unsigned i = 0; i < vector_length(job->source); i++) {
+		source_files[vector_length(job->system_source) + i] = vector_A(job->source, i)->text;
 	}
 
 	// open/create ain object
@@ -625,33 +617,37 @@ static void pje_build_ain(struct pje_config *config, struct build_job *job)
 
 	// build .jam files
 	// XXX: DEPRECATED
-	for (unsigned i = 0; i < config->mod_jam.n; i++) {
-		struct string *mod_jam = string_path_join(config->source_dir, config->mod_jam.items[i]->text);
+	for (unsigned i = 0; i < vector_length(config->mod_jam); i++) {
+		struct string *mod_jam = string_path_join(config->source_dir,
+				vector_A(config->mod_jam, i)->text);
 		ain_append_jam(mod_jam->text, ain, 0);
 		free_string(mod_jam);
 	}
 
 	// build .jam files
-	for (unsigned i = 0; i < job->jam_source.n; i++) {
+	for (unsigned i = 0; i < vector_length(job->jam_source); i++) {
 		int n;
-		char *tmp = strdup(job->jam_source.items[i]->text);
+		char *tmp = strdup(vector_A(job->jam_source, i)->text);
 		char **strings = source_path_decompose(tmp, &n);
 		if (n == 1) {
-			ain_append_jam(job->jam_source.items[i]->text, ain, 0);
+			ain_append_jam(vector_A(job->jam_source, i)->text, ain, 0);
 		} else {
 			if (!strcmp(strings[0], "inject")) {
 				if (n != 4)
-					ALICE_ERROR("Invalid .jam injection spec: %s", job->jam_source.items[i]->text);
+					ALICE_ERROR("Invalid .jam injection spec: %s",
+							vector_A(job->jam_source, i)->text);
 				char *endptr;
 				errno = 0;
 				long off = strtol(strings[2], &endptr, 0);
 				if (errno || *endptr != '\0')
-					ALICE_ERROR("Invalid .jam injection spec: %s", job->jam_source.items[i]->text);
+					ALICE_ERROR("Invalid .jam injection spec: %s",
+							vector_A(job->jam_source, i)->text);
 				char *fun = conv_output(strings[1]);
 				ain_inject_jam(strings[3], ain, fun, off, 0);
 				free(fun);
 			} else {
-				ALICE_ERROR("Invalid .jam file path: %s", job->jam_source.items[i]->text);
+				ALICE_ERROR("Invalid .jam file path: %s",
+						vector_A(job->jam_source, i)->text);
 			}
 		}
 		free(strings);
@@ -698,9 +694,9 @@ static struct ex *read_input_ex(struct string *ex_input)
 static struct ex *read_source_ex(struct build_job *job)
 {
 	struct ex *source_ex = NULL;
-	for (unsigned i = 0; i < job->ex_source.n; i++) {
-		NOTICE("TXTEX  %s", job->ex_source.items[i]->text);
-		struct ex *this_ex = ex_parse_file(job->ex_source.items[i]->text);
+	for (unsigned i = 0; i < vector_length(job->ex_source); i++) {
+		NOTICE("TXTEX  %s", vector_A(job->ex_source, i)->text);
+		struct ex *this_ex = ex_parse_file(vector_A(job->ex_source, i)->text);
 		if (!source_ex) {
 			source_ex = this_ex;
 		} else {
@@ -728,11 +724,11 @@ static struct ex *read_source_ex(struct build_job *job)
 static void pje_build_ex(struct pje_config *config, struct build_job *job)
 {
 	if (!config->ex_name && !config->ex_mod_name) {
-		if (job->ex_source.n > 0)
+		if (vector_length(job->ex_source) > 0)
 			ALICE_ERROR("'%s': Ex source files found but ExName/ExModName not given", config->pje_path);
 		return;
 	}
-	if (config->ex_mod_name && job->ex_source.n == 0) {
+	if (config->ex_mod_name && vector_length(job->ex_source) == 0) {
 		ALICE_ERROR("'%s': ExModName present but no .txtex files found in source directory", config->pje_path);
 	}
 
@@ -788,7 +784,7 @@ static void pje_build_ex(struct pje_config *config, struct build_job *job)
 
 static void pje_build_pact(struct pje_config *config, struct build_job *job)
 {
-	if (!job->pact.n)
+	if (!vector_length(job->pact))
 		return;
 	if (!config->pact_input)
 		ALICE_ERROR("'%s': Pact source files found but PactInput was not given", config->pje_path);
@@ -819,12 +815,12 @@ static void pje_build_pact(struct pje_config *config, struct build_job *job)
 	// get list of .txtex source files
 	ar_file_list src_files;
 	vector_init(src_files);
-	for (unsigned i = 0; i < job->pact.n; i++) {
-		ar_dir_to_file_list(job->pact.items[i], &src_files, AR_FT_TXTEX);
+	for (unsigned i = 0; i < vector_length(job->pact); i++) {
+		ar_dir_to_file_list(vector_A(job->pact, i), &src_files, AR_FT_TXTEX);
 	}
 
 	// for each .txtex source file
-	for (unsigned i = 0; i < src_files.n; i++) {
+	for (unsigned i = 0; i < vector_length(src_files); i++) {
 		// pack .txtex to .ex
 		assert(src_files.a[i]->type == AR_FILE_SPEC_DISK);
 		NOTICE("TXTEX  %s", src_files.a[i]->disk.path->text);
@@ -833,7 +829,7 @@ static void pje_build_pact(struct pje_config *config, struct build_job *job)
 		// search for matching file in dst_files
 		struct string *dst_name = replace_extension(src_files.a[i]->name->text, "pactex");
 		struct ar_file_spec *dst = NULL;
-		for (unsigned j = 0; j < dst_files.n; j++) {
+		for (unsigned j = 0; j < vector_length(dst_files); j++) {
 			if (strcmp(dst_name->text, dst_files.a[j]->name->text))
 				continue;
 			dst = dst_files.a[j];
@@ -852,7 +848,6 @@ static void pje_build_pact(struct pje_config *config, struct build_job *job)
 		}
 		// if no matching file was found, add new file to list
 		else {
-			WARNING("!!!");
 			struct ar_file_spec *spec = xmalloc(sizeof(struct ar_file_spec));
 			spec->type = AR_FILE_SPEC_MEM;
 			spec->name = string_ref(dst_name);
@@ -870,7 +865,7 @@ static void pje_build_pact(struct pje_config *config, struct build_job *job)
 	// write dst_files to new .afa
 	struct string *out = string_path_join(config->output_dir, config->pact_name->text);
 	NOTICE("AFA    %s", out->text);
-	write_afa(out, dst_files.a, dst_files.n, 2);
+	write_afa(out, dst_files.a, vector_length(dst_files), 2);
 
 	free_string(out);
 	ar_file_list_free(&dst_files);
@@ -879,13 +874,13 @@ static void pje_build_pact(struct pje_config *config, struct build_job *job)
 	vector_destroy(src_files);
 }
 
-static struct ar_manifest *pje_make_manifest(struct string *out, struct batchpack_list *list)
+static struct ar_manifest *pje_make_manifest(struct string *out, batchpack_list *list)
 {
 	struct ar_manifest *ar = xcalloc(1, sizeof(struct ar_manifest));
 	ar->type = AR_MF_BATCHPACK;
 	ar->output_path = out;
-	ar->nr_rows = list->n;
-	ar->batchpack = list->lines;
+	ar->nr_rows = vector_length(*list);
+	ar->batchpack = vector_data(*list);
 	return ar;
 }
 
@@ -895,7 +890,7 @@ static void pje_free_manifest(struct ar_manifest *ar)
 	free(ar);
 }
 
-static void pje_build_archive(struct pje_config *config, struct string *out_name, struct batchpack_list *list)
+static void pje_build_archive(struct pje_config *config, struct string *out_name, batchpack_list *list)
 {
 	struct string *out_path = string_path_join(config->output_dir, out_name->text);
 	struct ar_manifest *ar = pje_make_manifest(out_path, list);
@@ -906,24 +901,24 @@ static void pje_build_archive(struct pje_config *config, struct string *out_name
 
 static void pje_build_archives(struct pje_config *config, struct build_job *job)
 {
-	for (unsigned i = 0; i < config->archives.n; i++) {
-		struct string *path = string_path_join(config->pje_dir, config->archives.items[i]->text);
+	for (unsigned i = 0; i < vector_length(config->archives); i++) {
+		struct string *path = string_path_join(config->pje_dir, vector_A(config->archives, i)->text);
 		NOTICE("AFA    %s", path->text);
 		ar_pack(path->text, 2);
 		free_string(path);
 	}
 
-	if (job->cg.n > 0) {
+	if (vector_length(job->cg) > 0) {
 		if (!config->cg_name)
 			ALICE_ERROR("CG files found but CgName not given");
 		pje_build_archive(config, config->cg_name, &job->cg);
 	}
-	if (job->sound.n > 0) {
+	if (vector_length(job->sound) > 0) {
 		if (!config->sound_name)
 			ALICE_ERROR("Sound files found but SoundName not given");
 		pje_build_archive(config, config->sound_name, &job->sound);
 	}
-	if (job->flat.n > 0) {
+	if (vector_length(job->flat) > 0) {
 		if (!config->flat_name)
 			ALICE_ERROR("Flat files found but FlatName not given");
 		pje_build_archive(config, config->flat_name, &job->flat);

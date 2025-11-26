@@ -38,7 +38,7 @@ struct jaf_env *jaf_env_push(struct jaf_env *parent)
 struct jaf_env *jaf_env_pop(struct jaf_env *env)
 {
 	struct jaf_env *parent = env->parent;
-	free(env->locals);
+	vector_destroy(env->locals);
 	free(env);
 	return parent;
 }
@@ -52,14 +52,17 @@ struct jaf_env *jaf_env_push_function(struct jaf_env *parent, struct jaf_fundecl
 	struct jaf_env *funenv = jaf_env_push(parent);
 	funenv->func_no = decl->func_no;
 	funenv->fundecl = decl;
-	funenv->nr_locals = decl->params ? decl->params->nr_items : 0;
-	if (funenv->nr_locals) {
-		funenv->locals = xcalloc(funenv->nr_locals, sizeof(struct jaf_env_local));
-		for (size_t i = 0; i < funenv->nr_locals; i++) {
+
+	if (decl->params && decl->params->nr_items) {
+		vector_set_capacity(struct jaf_env_local, funenv->locals, 
+				decl->params ? decl->params->nr_items : 0);
+		for (size_t i = 0; i < decl->params->nr_items; i++) {
 			struct jaf_block_item *param = decl->params->items[i];
 			assert(param->kind == JAF_DECL_VAR);
-			funenv->locals[i].name = param->var.name->text;
-			funenv->locals[i].decl = &param->var;
+			vector_A(funenv->locals, i) = (struct jaf_env_local) {
+				.name = param->var.name->text,
+				.decl = &param->var,
+			};
 		}
 	}
 
@@ -68,9 +71,8 @@ struct jaf_env *jaf_env_push_function(struct jaf_env *parent, struct jaf_fundecl
 
 void jaf_env_add_local(struct jaf_env *env, struct jaf_vardecl *decl)
 {
-	env->locals = xrealloc_array(env->locals, env->nr_locals, env->nr_locals+1,
-				     sizeof(struct jaf_env_local));
-	env->locals[env->nr_locals++] = (struct jaf_env_local) {
+	struct jaf_env_local *p = vector_pushp(struct jaf_env_local, env->locals);
+	*p = (struct jaf_env_local) {
 		.name = decl->name->text,
 		.decl = decl,
 	};
@@ -78,10 +80,10 @@ void jaf_env_add_local(struct jaf_env *env, struct jaf_vardecl *decl)
 
 static struct jaf_env_local *jaf_scope_lookup(struct jaf_env *env, const char *name)
 {
-	for (size_t i = 0; i < env->nr_locals; i++) {
-		if (!strcmp(env->locals[i].name, name)) {
-			return &env->locals[i];
-		}
+	struct jaf_env_local *p;
+	vector_foreach_p(p, env->locals) {
+		if (!strcmp(p->name, name))
+			return p;
 	}
 	return NULL;
 }
@@ -104,8 +106,8 @@ static struct jaf_expression *jaf_accept_expr(struct jaf_expression *expr,
 
 static void jaf_accept_arglist(struct jaf_argument_list *args, struct jaf_visitor *visitor)
 {
-	for (size_t i = 0; i < args->nr_items; i++) {
-		args->items[i] = jaf_accept_expr(args->items[i], visitor);
+	for (size_t i = 0; i < vector_length(args->items); i++) {
+		vector_A(args->items, i) = jaf_accept_expr(vector_A(args->items, i), visitor);
 	}
 }
 
@@ -335,5 +337,5 @@ void jaf_accept_block(struct ain *ain, struct jaf_block *block, struct jaf_visit
 	struct jaf_env env = { .ain = ain };
 	visitor->env = &env;
 	_jaf_accept_block(block, visitor);
-	free(env.locals);
+	vector_destroy(env.locals);
 }

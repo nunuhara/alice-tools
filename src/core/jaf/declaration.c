@@ -32,15 +32,15 @@ struct string *jaf_name_collapse(struct ain *ain, struct jaf_name *name)
 	if (name->collapsed)
 		return name->collapsed;
 
-	assert(name->nr_parts >= 1);
-	name->collapsed = string_dup(name->parts[0]);
-	if (name->nr_parts == 1)
+	assert(vector_length(name->parts) >= 1);
+	name->collapsed = string_dup(vector_A(name->parts, 0));
+	if (vector_length(name->parts) == 1)
 		return name->collapsed;
 
-	for (size_t i = 1; i < name->nr_parts - 1; i++) {
+	for (size_t i = 1; i < vector_length(name->parts) - 1; i++) {
 		string_push_back(&name->collapsed, ':');
 		string_push_back(&name->collapsed, ':');
-		string_append(&name->collapsed, name->parts[i]);
+		string_append(&name->collapsed, vector_A(name->parts, i));
 	}
 
 	// XXX: static methods don't have '@' in them, so we check for this case first
@@ -48,7 +48,7 @@ struct string *jaf_name_collapse(struct ain *ain, struct jaf_name *name)
 	struct string *tmp = string_dup(name->collapsed);
 	string_push_back(&tmp, ':');
 	string_push_back(&tmp, ':');
-	string_append(&tmp, name->parts[name->nr_parts - 1]);
+	string_append(&tmp, vector_peek(name->parts));
 	char *tmp_conv = conv_output(tmp->text);
 	if (ain && ain_get_function(ain, tmp_conv) > 0) {
 		free_string(name->collapsed);
@@ -79,8 +79,8 @@ struct string *jaf_name_collapse(struct ain *ain, struct jaf_name *name)
 
 	if (name->struct_no >= 0) {
 		// check if method is constructor/destructor
-		struct string *class_name = name->parts[name->nr_parts - 2];
-		struct string *method_name = name->parts[name->nr_parts - 1];
+		struct string *class_name = vector_peekn(name->parts, 1);
+		struct string *method_name = vector_peekn(name->parts, 0);
 		if (method_name->text[0] == '~' && !strcmp(class_name->text, method_name->text + 1)) {
 			// destructor
 			string_push_back(&name->collapsed, '1');
@@ -91,10 +91,10 @@ struct string *jaf_name_collapse(struct ain *ain, struct jaf_name *name)
 			name->is_constructor = true;
 		} else {
 			// regular method
-			string_append(&name->collapsed, name->parts[name->nr_parts - 1]);
+			string_append(&name->collapsed, vector_peek(name->parts));
 		}
 	} else {
-		string_append(&name->collapsed, name->parts[name->nr_parts - 1]);
+		string_append(&name->collapsed, vector_peek(name->parts));
 	}
 	//printf("collapsed name = %s\n", name->collapsed->text);
 	return name->collapsed;
@@ -175,8 +175,7 @@ struct label {
 
 struct alloc_state {
 	struct ain *ain;
-	struct ain_variable *vars;
-	int nr_vars;
+	vector_t(struct ain_variable) vars;
 	struct scope *scope;
 	jump_list gotos;
 	vector_t(struct label) labels;
@@ -185,14 +184,17 @@ struct alloc_state {
 static warn_unused int _init_variable(struct alloc_state *state, const char *name,
 		struct ain_type *type)
 {
-	int var = state->nr_vars;
-	state->vars[var].name = conv_output(name);
+	int var = vector_length(state->vars);
+	struct ain_variable *v = vector_pushp(struct ain_variable, state->vars);
+	*v = (struct ain_variable) {
+		.name = conv_output(name),
+		.type = *type,
+	};
 	if (state->ain->version >= 12)
-		state->vars[var].name2 = strdup("");
-	state->vars[var].type = *type;
+		v->name2 = xstrdup("");
 
 	// immediate reference types need extra slot (page+index)
-	switch (state->vars[var].type.data) {
+	switch (v->type.data) {
 	case AIN_REF_INT:
 	case AIN_REF_FLOAT:
 	case AIN_REF_BOOL:
@@ -200,18 +202,18 @@ static warn_unused int _init_variable(struct alloc_state *state, const char *nam
 	case AIN_REF_FUNC_TYPE:
 	case AIN_IFACE:
 	case AIN_OPTION:
-		state->nr_vars++;
-		state->vars[var+1].name = strdup("<void>");
+		v = vector_pushp(struct ain_variable, state->vars);
+		*v = (struct ain_variable) {
+			.name = xstrdup("<void>"),
+			.type = { .data = AIN_VOID, .struc = -1 },
+		};
 		if (state->ain->version >= 12)
-			state->vars[var+1].name2 = strdup("");
-		state->vars[var+1].type.data = AIN_VOID;
-		state->vars[var+1].type.struc = -1;
+			v->name2 = xstrdup("");
 		break;
 	default:
 		break;
 	}
 
-	state->nr_vars++;
 	return var;
 }
 
@@ -225,11 +227,11 @@ static warn_unused int init_variable(struct alloc_state *state, const char *name
 
 static void env_to_var_list(struct jaf_env *env, jaf_var_set *out)
 {
-	for (size_t i = 0; i < env->nr_locals; i++) {
-		struct jaf_env_local *local = &env->locals[i];
-		if (local->is_const)
+	struct jaf_env_local *p;
+	vector_foreach_p(p, env->locals) {
+		if (p->is_const)
 			continue;
-		vector_push(struct jaf_vardecl*, *out, local->decl);
+		vector_push(struct jaf_vardecl*, *out, p->decl);
 	}
 
 	if (env->parent)
@@ -386,8 +388,6 @@ static void stmt_get_vars_post(struct jaf_block_item *stmt, struct jaf_visitor *
 	switch (stmt->kind) {
 	case JAF_DECL_VAR:
 		if (!(stmt->var.type->qualifiers & JAF_QUAL_CONST)) {
-			state->vars = xrealloc_array(state->vars, state->nr_vars, state->nr_vars+2,
-					sizeof(struct ain_variable));
 			stmt->var.var = init_variable(state, stmt->var.name->text, stmt->var.type);
 		}
 		break;
@@ -421,8 +421,6 @@ static int create_dummy_var(struct alloc_state *state, struct ain_type *type, co
 	vsnprintf(name, 1023, dfmt, ap);
 	va_end(ap);
 
-	state->vars = xrealloc_array(state->vars, state->nr_vars, state->nr_vars+2,
-			sizeof(struct ain_variable));
 	struct ain_type copy;
 	ain_copy_type(&copy, type);
 	return _init_variable(state, name, &copy);
@@ -492,8 +490,11 @@ static struct ain_variable *function_get_vars(struct ain *ain, struct jaf_block 
 {
 	struct alloc_state state = {
 		.ain = ain,
-		.vars = vars,
-		.nr_vars = *nr_vars,
+		.vars = {
+			.n = *nr_vars,
+			.m = *nr_vars,
+			.a = vars,
+		},
 	};
 	struct jaf_visitor visitor = {
 		.visit_stmt_pre = stmt_get_vars_pre,
@@ -519,8 +520,8 @@ static struct ain_variable *function_get_vars(struct ain *ain, struct jaf_block 
 	}
 	vector_destroy(state.gotos);
 
-	*nr_vars = state.nr_vars;
-	return state.vars;
+	*nr_vars = vector_length(state.vars);
+	return vector_data(state.vars);
 }
 
 void jaf_allocate_variables(struct ain *ain, struct jaf_block *block)
@@ -549,11 +550,15 @@ static void function_init_args(struct ain *ain, struct jaf_fundecl *decl, int32_
 		struct jaf_vardecl *param = &decl->params->items[i]->var;
 		struct alloc_state state = {
 			.ain = ain,
-			.vars = *vars,
-			.nr_vars = *nr_args
+			.vars = {
+				.n = *nr_args,
+				.m = *nr_args,
+				.a = *vars,
+			},
 		};
 		param->var = init_variable(&state, param->name->text, param->type);
-		*nr_args = state.nr_vars;
+		*nr_args = vector_length(state.vars);
+		*vars = vector_data(state.vars);
 	}
 	*nr_vars = *nr_args;
 }

@@ -157,27 +157,22 @@ struct jaf_expression *jaf_char(struct string *text)
 void jaf_name_init(struct jaf_name *name, struct string *str)
 {
 	memset(name, 0, sizeof(struct jaf_name));
-	name->nr_parts = 1;
-	name->parts = xmalloc(sizeof(struct string*));
-	name->parts[0] = str;
+	vector_push(struct string*, name->parts, str);
 	name->struct_no = -1;
 }
 
 void jaf_name_append(struct jaf_name *name, struct string *str)
 {
-	name->nr_parts++;
-	name->parts = xrealloc(name->parts, name->nr_parts * sizeof(struct string*));
-	name->parts[name->nr_parts - 1] = str;
+	vector_push(struct string*, name->parts, str);
 }
 
 void jaf_name_prepend(struct jaf_name *name, struct string *str)
 {
-	name->nr_parts++;
-	name->parts = xrealloc(name->parts, name->nr_parts * sizeof(struct string*));
-	for (int i = name->nr_parts - 1; i >= 1; i--) {
-		name->parts[i] = name->parts[i - 1];
+	vector_push(struct string*, name->parts, NULL);
+	for (int i = vector_length(name->parts) - 1; i >= 1; i--) {
+		vector_A(name->parts, i) = vector_A(name->parts, i - 1);
 	}
-	name->parts[0] = str;
+	vector_A(name->parts, 0) = str;
 }
 
 struct jaf_expression *jaf_identifier(struct jaf_name name)
@@ -261,8 +256,7 @@ struct jaf_argument_list *jaf_args(struct jaf_argument_list *head, struct jaf_ex
 	if (!head) {
 		head = xcalloc(1, sizeof(struct jaf_argument_list));
 	}
-	head->items = xrealloc_array(head->items, head->nr_items, head->nr_items+1, sizeof(struct jaf_expression*));
-	head->items[head->nr_items++] = tail;
+	vector_push(struct jaf_expression*, head->items, tail);
 	return head;
 }
 
@@ -352,18 +346,13 @@ struct jaf_declarator *jaf_array_allocation(struct string *name, struct jaf_expr
 {
 	struct jaf_declarator *d = xcalloc(1, sizeof(struct jaf_declarator));
 	d->name = name;
-	d->array_rank = 1;
-	d->array_dims = xmalloc(sizeof(struct jaf_expression*));
-	d->array_dims[0] = dim;
+	vector_push(struct jaf_expression*, d->array_dims, dim);
 	return d;
 }
 
 struct jaf_declarator *jaf_array_dimension(struct jaf_declarator *d, struct jaf_expression *dim)
 {
-	int no = d->array_rank;
-	d->array_dims = xrealloc_array(d->array_dims, no, no+1, sizeof(struct jaf_expression*));
-	d->array_dims[no] = dim;
-	d->array_rank++;
+	vector_push(struct jaf_expression*, d->array_dims, dim);
 	return d;
 }
 
@@ -384,8 +373,8 @@ static void init_declaration(struct jaf_type_specifier *type, struct jaf_block_i
 	if (src) {
 		dst->var.name = src->name;
 		dst->var.init = src->init;
-		dst->var.array_dims = src->array_dims;
-		if (src->array_rank && src->array_rank != type->rank)
+		dst->var.array_dims = vector_data(src->array_dims);
+		if (!vector_empty(src->array_dims) && vector_length(src->array_dims) != type->rank)
 			JAF_ERROR(dst, "Invalid array declaration");
 		free(src);
 	} else {
@@ -741,13 +730,13 @@ struct jaf_block_item *jaf_assert(struct jaf_expression *expr, int line, const c
 static struct jaf_argument_list *jaf_copy_argument_list(struct jaf_argument_list *args)
 {
 	struct jaf_argument_list *out = xmalloc(sizeof(struct jaf_argument_list));
-	out->nr_items = args->nr_items;
-	out->items = xmalloc(args->nr_items * sizeof(struct jaf_expression*));
-	out->var_nos = xmalloc(args->nr_items * sizeof(int));
-	for (int i = 0; i < args->nr_items; i++) {
-		out->items[i] = jaf_copy_expression(args->items[i]);
+	vector_init(out->items);
+	vector_set_capacity(struct jaf_expression*, out->items, vector_length(args->items));
+	out->var_nos = xmalloc(vector_length(args->items) * sizeof(int));
+	for (int i = 0; i < vector_length(args->items); i++) {
+		vector_A(out->items, i) = jaf_copy_expression(vector_A(args->items, i));
 	}
-	memcpy(out->var_nos, args->var_nos, args->nr_items * sizeof(int));
+	memcpy(out->var_nos, args->var_nos, vector_length(args->items) * sizeof(int));
 	return out;
 }
 
@@ -767,8 +756,8 @@ static struct jaf_type_specifier *jaf_copy_type_specifier(struct jaf_type_specif
 void jaf_copy_name(struct jaf_name *dst, struct jaf_name *src)
 {
 	*dst = *src;
-	for (size_t i = 0; i < dst->nr_parts; i++) {
-		dst->parts[i] = string_dup(src->parts[i]);
+	for (size_t i = 0; i < vector_length(dst->parts); i++) {
+		vector_A(dst->parts, i) = string_dup(vector_A(src->parts, i));
 	}
 	if (src->collapsed)
 		dst->collapsed = string_dup(src->collapsed);
@@ -854,24 +843,24 @@ struct jaf_expression *jaf_copy_expression(struct jaf_expression *e)
 
 static void jaf_free_name(struct jaf_name name)
 {
-	for (size_t i = 0; i < name.nr_parts; i++) {
-		free_string(name.parts[i]);
+	struct string *p;
+	vector_foreach(p, name.parts) {
+		free_string(p);
 	}
-	free(name.parts);
+	vector_destroy(name.parts);
 	if (name.collapsed) {
 		free_string(name.collapsed);
 		name.collapsed = NULL;
 	}
-	name.nr_parts = 0;
-	name.parts = NULL;
+	vector_init(name.parts);
 }
 
 static void jaf_free_argument_list(struct jaf_argument_list *list)
 {
-	for (size_t i = 0; i < list->nr_items; i++) {
-		jaf_free_expr(list->items[i]);
+	for (size_t i = 0; i < vector_length(list->items); i++) {
+		jaf_free_expr(vector_A(list->items, i));
 	}
-	free(list->items);
+	vector_destroy(list->items);
 	free(list->var_nos);
 	free(list);
 }

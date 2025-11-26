@@ -236,8 +236,7 @@ struct jaf_expression;
 struct jaf_block_item;
 
 struct jaf_name {
-	size_t nr_parts;
-	struct string **parts;
+	vector_t(struct string*) parts;
 	struct string *collapsed;
 	int16_t struct_no;
 	bool is_constructor;
@@ -245,8 +244,7 @@ struct jaf_name {
 };
 
 struct jaf_argument_list {
-	size_t nr_items;
-	struct jaf_expression **items;
+	vector_t(struct jaf_expression*) items;
 	int *var_nos;
 };
 
@@ -362,8 +360,7 @@ struct jaf_expression {
 struct jaf_declarator {
 	struct string *name;
 	struct jaf_expression *init;
-	size_t array_rank;
-	struct jaf_expression **array_dims;
+	vector_t(struct jaf_expression*) array_dims;
 };
 
 struct jaf_declarator_list {
@@ -540,8 +537,7 @@ struct jaf_env {
 	struct jaf_env *parent;
 	int func_no;
 	struct jaf_fundecl *fundecl;
-	size_t nr_locals;
-	struct jaf_env_local *locals;
+	vector_t(struct jaf_env_local) locals;
 };
 
 _Noreturn void jaf_generic_error(const char *file, int line, const char *msgf, ...);
