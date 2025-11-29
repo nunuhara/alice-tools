@@ -22,6 +22,10 @@
 #include <QVector>
 #include "galice.hpp"
 
+extern "C" {
+#include "system4/cg.h"
+}
+
 class NavigatorNode {
 public:
 	enum NodeType {
@@ -37,12 +41,28 @@ public:
 		ExStringKeyValueNode,
 		ExIntKeyValueNode,
 		ExRowNode,
+		FlatTimelineNode,
+		FlatLibraryNode,
+		KVNode,
+		IndexNode,
+		CGNode,
 		FileNode,
 	};
 	enum NodeFileType {
 		NormalFile,
 		ExFile,
 		ArFile,
+		FlatFile,
+	};
+	enum ValueType {
+		Int,
+		Float,
+		Bool,
+		String,
+		Point2,
+		Point3,
+		Color,
+		Rect,
 	};
 
 	NodeType type;
@@ -69,6 +89,35 @@ public:
 			unsigned i;
 			struct ex_table *t;
 		} exRow;
+		struct flat_timeline *flat_timeline;
+		struct flat_library *flat_library;
+		struct talt_entry *flat_talt;
+		// KVNode
+		struct {
+			const char *name;
+			ValueType type;
+			union {
+				int i;
+				float f;
+				bool b;
+				struct string *s;
+				struct { float x, y, z; } point;
+				struct { int r, g, b; } color;
+				struct { int x, y, w, h; } rect;
+			};
+		} kv;
+		// IndexNode
+		struct {
+			const char *name;
+			int i;
+		} index;
+		// CGNode
+		struct {
+			struct string *name;
+			const uint8_t *data;
+			size_t size;
+			enum cg_type type;
+		} cg;
 		// FileNode
 		struct {
 			// Descriptor for external use
@@ -79,6 +128,7 @@ public:
 			union {
 				struct ex *ex;
 				struct archive *ar;
+				struct flat *flat;
 			};
 		} ar;
 	};

@@ -25,6 +25,7 @@ struct cg;
 struct ex;
 struct acx;
 struct archive;
+struct flat;
 
 enum class FileFormat {
 	NONE,
@@ -70,6 +71,7 @@ public:
 	static void openArchiveData(struct archive_data *file, bool newTab = false);
 	static void openText(const QString &name, char *text, FileFormat format, bool newTab = false);
 	static void openBinary(const QString &name, uint8_t *bytes, size_t size, bool newTab = false);
+	static void openImage(const QString &name, const uint8_t *bytes, size_t size, bool newTab = false);
 	static void openAinFunction(struct ain *ain, int i, bool newTab = false);
 	static void openExValue(const QString &name, struct ex_value *value, bool newTab = false);
 	static void error(const QString &message);
@@ -79,6 +81,7 @@ public:
 signals:
 	void openedAinFile(const QString &fileName, std::shared_ptr<struct ain> ain);
 	void openedExFile(const QString &fileName, std::shared_ptr<struct ex> ex);
+	void openedFlatFile(const QString &fileName, std::shared_ptr<struct flat> flat);
 	void openedAcxFile(const QString &filename, std::shared_ptr<struct acx> acx, bool newTab);
 	void openedArchive(const QString &fileName, std::shared_ptr<struct archive> ar);
 	void openedImageFile(const QString &fileName, std::shared_ptr<struct cg> cg, bool newTab);
@@ -93,6 +96,7 @@ private:
 	~GAlice();
 	static void openAinFile(const QString &path);
 	static void openExFile(const QString &path);
+	static void openFlatFile(const QString &path);
 	static void openAcxFile(const QString &path, bool newTab);
 	static void openArchive(const QString &path, FileFormat format);
 	static void openImageFile(const QString &path, bool newTab);

@@ -43,6 +43,7 @@ Navigator::Navigator(MainWindow *parent)
 
         connect(&GAlice::getInstance(), &GAlice::openedAinFile, this, &Navigator::addAinFile);
         connect(&GAlice::getInstance(), &GAlice::openedExFile, this, &Navigator::addExFile);
+	connect(&GAlice::getInstance(), &GAlice::openedFlatFile, this, &Navigator::addFlatFile);
         connect(&GAlice::getInstance(), &GAlice::openedArchive, this, &Navigator::addArchive);
 }
 
@@ -103,17 +104,36 @@ void Navigator::addExFile(const QString &fileName, std::shared_ptr<struct ex> ex
         addFile(fileName, widget);
 }
 
+void Navigator::addFlatFile(const QString &fileName, std::shared_ptr<struct flat> flat)
+{
+	QWidget *widget = new QWidget;
+	NavigatorModel *model = NavigatorModel::fromFlatFile(flat);
+	NavigatorView *view = new NavigatorView(model);
+	view->setColumnWidth(0, 150);
+	view->setColumnWidth(1, 50);
+
+	QVBoxLayout *layout = new QVBoxLayout(widget);
+	layout->addWidget(view);
+	layout->setContentsMargins(0, 0, 0, 0);
+	addFile(fileName, widget);
+}
+
 void Navigator::addArchive(const QString &fileName, std::shared_ptr<struct archive> ar)
 {
-        QWidget *widget = new QWidget;
-        NavigatorModel *model = NavigatorModel::fromArchive(ar);
-        NavigatorView *view = new NavigatorView(model);
-	view->setColumnWidth(0, 500);
+	QWidget *widget = new QWidget;
+	NavigatorModel *model = NavigatorModel::fromArchive(ar);
+	NavigatorView *view = new NavigatorView(model);
+	if (fileName.contains("Flat")) {
+		view->setColumnWidth(0, 150);
+		view->setColumnWidth(1, 50);
+	} else {
+		view->setColumnWidth(0, 500);
+	}
 
-        QVBoxLayout *layout = new QVBoxLayout(widget);
-        layout->addWidget(view);
-        layout->setContentsMargins(0, 0, 0, 0);
-        addFile(fileName, widget);
+	QVBoxLayout *layout = new QVBoxLayout(widget);
+	layout->addWidget(view);
+	layout->setContentsMargins(0, 0, 0, 0);
+	addFile(fileName, widget);
 }
 
 void Navigator::addFile(const QString &name, QWidget *widget)

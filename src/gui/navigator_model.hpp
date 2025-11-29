@@ -23,65 +23,85 @@
 #include "navigator_node.hpp"
 
 class NavigatorModel : public QAbstractItemModel {
-        Q_OBJECT
+	Q_OBJECT
 public:
-        static NavigatorModel *fromExFile(std::shared_ptr<struct ex> exFile, QObject *parent = nullptr);
+	static NavigatorModel *fromExFile(std::shared_ptr<struct ex> exFile, QObject *parent = nullptr);
+	static NavigatorModel *fromFlatFile(std::shared_ptr<struct flat> flatFile, QObject *parent = nullptr);
 	static NavigatorModel *fromAinFile(std::shared_ptr<struct ain> ainFile, QObject *parent = nullptr);
-        static NavigatorModel *fromArchive(std::shared_ptr<struct archive> ar, QObject *parent = nullptr);
-        ~NavigatorModel();
+	static NavigatorModel *fromArchive(std::shared_ptr<struct archive> ar, QObject *parent = nullptr);
+	~NavigatorModel();
 
-        QVariant data(const QModelIndex &index, int role) const override;
-        Qt::ItemFlags flags(const QModelIndex &index) const override;
-        QVariant headerData(int section, Qt::Orientation orientation,
-                            int role = Qt::DisplayRole) const override;
-        QModelIndex index(int row, int column,
-                          const QModelIndex &parent = QModelIndex()) const override;
-        QModelIndex parent(const QModelIndex &index) const override;
-        int rowCount(const QModelIndex &parent = QModelIndex()) const override;
-        int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+	QVariant data(const QModelIndex &index, int role) const override;
+	Qt::ItemFlags flags(const QModelIndex &index) const override;
+	QVariant headerData(int section, Qt::Orientation orientation,
+			int role = Qt::DisplayRole) const override;
+	QModelIndex index(int row, int column,
+			const QModelIndex &parent = QModelIndex()) const override;
+	QModelIndex parent(const QModelIndex &index) const override;
+	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+	int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
 	NavigatorNode *getNode(const QModelIndex &index) const;
 
 private:
-        explicit NavigatorModel(QObject *parent = nullptr)
-                : QAbstractItemModel(parent) {}
+	explicit NavigatorModel(QObject *parent = nullptr)
+		: QAbstractItemModel(parent) {}
 
-        class Node {
-        public:
-                static Node *fromEx(struct ex *exFile);
-                static Node *fromAin(struct ain *ainFile);
-                static Node *fromArchive(struct archive *ar);
-                ~Node();
+	class Node {
+	public:
+		static Node *fromEx(struct ex *exFile);
+		static Node *fromFlat(struct flat *flatFile);
+		static Node *fromAin(struct ain *ainFile);
+		static Node *fromArchive(struct archive *ar);
+		~Node();
 
-                void appendChild(Node *child);
-                Node *child(int i);
-                int childCount();
-                int columnCount();
-                QVariant data(int column) const;
-                int row();
-                Node *parent();
-                void requestOpen(const NavigatorModel *model, bool newTab);
+		void appendChild(Node *child);
+		Node *child(int i);
+		int childCount();
+		int columnCount();
+		QVariant data(int column) const;
+		int row();
+		Node *parent();
+		void requestOpen(const NavigatorModel *model, bool newTab);
 
 		NavigatorNode node;
 
-        private:
+	private:
 		Node(NavigatorNode::NodeType type);
-                static Node *fromExKeyValue(struct string *key, struct ex_value *value);
-                static Node *fromExKeyValue(int key, struct ex_value *value);
-                static Node *fromExRow(int index, struct ex_table *table, struct ex_field *fields, unsigned nFields);
-                static Node *fromExColumn(struct ex_value *value, struct ex_field *field);
-                void appendExValueChildren(struct ex_value *value);
-                void appendExFileChildren(struct ex *exFile);
-                void appendArchiveChildren(struct archive *archive);
+		static Node *fromExKeyValue(struct string *key, struct ex_value *value);
+		static Node *fromExKeyValue(int key, struct ex_value *value);
+		static Node *fromExRow(int index, struct ex_table *table,
+				struct ex_field *fields, unsigned nFields);
+		static Node *fromExColumn(struct ex_value *value, struct ex_field *field);
+		static Node *fromFlatTimeline(struct flat_timeline *tl, int version);
+		static Node *fromFlatLibrary(struct flat_library *lib, int version);
 		static Node *fromAinItem(struct ain *ain, int i, NavigatorNode::NodeType type);
-                static Node *fromArchiveFile(struct archive_data *file);
-                static void fromArchiveIter(struct archive_data *data, void *user);
+		static Node *fromArchiveFile(struct archive_data *file);
+		static Node *makeKVNode(const char *name, int value);
+		static Node *makeKVNode(const char *name, float value);
+		static Node *makeKVNode(const char *name, bool value);
+		static Node *makeKVNode(const char *name, struct string *value);
+		static Node *makeKVNode_XY(const char *name, float x, float y);
+		static Node *makeKVNode_XYZ(const char *name, float x, float y, float z);
+		static Node *makeKVNode_RGB(const char *name, int r, int g, int b);
+		static Node *makeKVNode_Rect(const char *name, int x, int y, int w, int h);
+		static Node *makeIndexNode(const char *name, int index);
+		static Node *makeCGNode(struct string *name, const uint8_t *data, size_t size);
+		void appendExValueChildren(struct ex_value *value);
+		void appendExFileChildren(struct ex *exFile);
+		void appendFlatFileChildren(struct flat *flat);
+		void appendFlatKeyDataGraphic(struct flat_key_data_graphic* key, int version);
+		void appendFlatKeyFrameGraphic(struct flat_key_frame_graphic* key, int version);
+		void appendFlatScriptKey(struct flat_script_key *key, int version);
+		void appendArchiveChildren(struct archive *archive);
+		static void fromArchiveIter(struct archive_data *data, void *user);
 
-                QVector<Node*> children;
-                Node *parentNode;
-        };
-        Node *root;
+		QVector<Node*> children;
+		Node *parentNode;
+	};
+	Node *root;
 	std::shared_ptr<struct ex> exFile;
+	std::shared_ptr<struct flat> flatFile;
 	std::shared_ptr<struct ain> ainFile;
 	std::shared_ptr<struct archive> arFile;
 };

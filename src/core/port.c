@@ -95,7 +95,7 @@ void port_putc(struct port *port, char c)
 	}
 }
 
-bool port_write_bytes(struct port *port, uint8_t *data, size_t size)
+bool port_write_bytes(struct port *port, const uint8_t *data, size_t size)
 {
 	if (port->type == PORT_TYPE_BUFFER) {
 		buffer_write_bytes(&port->buffer, data, size);

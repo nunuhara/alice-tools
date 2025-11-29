@@ -236,12 +236,14 @@ void GAlice::openFile(const QString &path, bool newTab)
 	case FileFormat::EX:
 		openExFile(path);
 		break;
+	case FileFormat::FLAT:
+		openFlatFile(path);
+		break;
 	case FileFormat::AAR:
 	case FileFormat::AFA:
 	case FileFormat::ALD:
 	case FileFormat::ALK:
 	case FileFormat::DLF:
-	case FileFormat::FLAT:
 		openArchive(path, format);
 		break;
 	}
@@ -281,6 +283,30 @@ void GAlice::openExFile(const QString &path)
 
 	std::shared_ptr<struct ex> ptr(ex, ex_free);
 	emit getInstance().openedExFile(path, ptr);
+	QGuiApplication::restoreOverrideCursor();
+}
+
+void GAlice::openFlatFile(const QString &path)
+{
+	QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+
+	size_t size;
+	uint8_t *data = (uint8_t*)file_read(path.toUtf8(), &size);
+
+	set_encodings("CP932", "UTF-8");
+	int error = FLAT_SUCCESS;
+	struct flat *flat = flat_open(data, size, &error);
+
+	if (!flat) {
+		free(data);
+		QGuiApplication::restoreOverrideCursor();
+		fileError(path, tr("Failed to read .flat file"));
+		return;
+	}
+	flat->needs_free = true;
+
+	std::shared_ptr<struct flat> ptr(flat, flat_free);
+	emit getInstance().openedFlatFile(path, ptr);
 	QGuiApplication::restoreOverrideCursor();
 }
 
@@ -354,6 +380,21 @@ void GAlice::openArchive(const QString &path, FileFormat format)
 	}
 
 	emit getInstance().openedArchive(path, ar);
+	QGuiApplication::restoreOverrideCursor();
+}
+
+void GAlice::openImage(const QString &name, const uint8_t *data, size_t size, bool newTab)
+{
+	QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+
+	struct cg *cg = cg_load_buffer((uint8_t*)data, size);
+	if (!cg) {
+		QGuiApplication::restoreOverrideCursor();
+		fileError(name, tr("Failed to decode image"));
+		return;
+	}
+
+	emit getInstance().openedImageFile(name, std::shared_ptr<struct cg>(cg, cg_free), newTab);
 	QGuiApplication::restoreOverrideCursor();
 }
 

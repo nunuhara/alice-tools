@@ -22,6 +22,7 @@ extern "C" {
 #include "system4/archive.h"
 #include "system4/cg.h"
 #include "system4/ex.h"
+#include "system4/flat.h"
 #include "system4/string.h"
 #include "alice.h"
 #include "alice/ain.h"
@@ -62,6 +63,25 @@ static QVector<FileFormat> getSupportedConversionFormats(FileFormat from)
 	return QVector<FileFormat>();
 }
 
+static FileFormat cgTypeToFileFormat(enum cg_type t)
+{
+
+	switch (t) {
+	case ALCG_UNKNOWN: return FileFormat::NONE;
+	case ALCG_QNT: return FileFormat::QNT;
+	case ALCG_AJP: return FileFormat::AJP;
+	case ALCG_PNG: return FileFormat::PNG;
+	case ALCG_PMS8: return FileFormat::NONE;
+	case ALCG_PMS16: return FileFormat::NONE;
+	case ALCG_WEBP: return FileFormat::WEBP;
+	case ALCG_DCF: return FileFormat::DCF;
+	case ALCG_JPEG: return FileFormat::NONE;
+	case ALCG_PCF: return FileFormat::PCF;
+	case ALCG_ROU: return FileFormat::NONE;
+	default: return FileFormat::NONE;
+	}
+}
+
 /*
  * Get the list of valid export formats.
  */
@@ -70,6 +90,10 @@ QVector<FileFormat> NavigatorNode::getSupportedFormats() const
 	switch (type) {
 	case RootNode:
 	case BranchNode:
+	case FlatTimelineNode:
+	case FlatLibraryNode:
+	case KVNode:
+	case IndexNode:
 		return QVector<FileFormat>();
 	case ClassNode:
 	case EnumNode:
@@ -84,6 +108,8 @@ QVector<FileFormat> NavigatorNode::getSupportedFormats() const
 	case ExIntKeyValueNode:
 	case ExRowNode:
 		return QVector<FileFormat>({FileFormat::TXTEX});
+	case CGNode:
+		return getSupportedConversionFormats(cgTypeToFileFormat(cg.type));
 	case FileNode:
 		return getSupportedConversionFormats(
 				extensionToFileFormat(
@@ -92,10 +118,11 @@ QVector<FileFormat> NavigatorNode::getSupportedFormats() const
 	return QVector<FileFormat>();
 }
 
-static bool convertFormat(struct port *port, struct archive_data *dfile, FileFormat from, FileFormat to)
+static bool convertFormatBytes(struct port *port, const uint8_t *data, size_t size,
+		FileFormat from, FileFormat to)
 {
 	if (from == to) {
-		return port_write_bytes(port, dfile->data, dfile->size);
+		return port_write_bytes(port, data, size);
 	}
 
 	struct cg *cg;
@@ -116,7 +143,7 @@ static bool convertFormat(struct port *port, struct archive_data *dfile, FileFor
 		// FIXME: cg_write can only write to files...
 		if (port->type != PORT_TYPE_FILE)
 			return false;
-		if (!(cg = cg_load_data(dfile)))
+		if (!(cg = cg_load_buffer((uint8_t*)data, size)))
 			return false;
 		cg_write(cg, cg_type, port->file);
 		cg_free(cg);
@@ -147,12 +174,41 @@ static bool convertFormat(struct port *port, struct archive_data *dfile, FileFor
 	return false;
 }
 
+static bool convertFormatArchived(struct port *port, struct archive_data *dfile,
+		FileFormat from, FileFormat to)
+{
+	if (from == to)
+		return port_write_bytes(port, dfile->data, dfile->size);
+	if (!isImageFormat(from))
+		return convertFormatBytes(port, dfile->data, dfile->size, from, to);
+	enum cg_type cg_type;
+	switch (to) {
+	case FileFormat::PNG:  cg_type = ALCG_PNG;  break;
+	case FileFormat::WEBP: cg_type = ALCG_WEBP; break;
+	case FileFormat::QNT:  cg_type = ALCG_QNT;  break;
+	default: return false;
+	}
+	// FIXME: cg_write can only write to files...
+	if (port->type != PORT_TYPE_FILE)
+		return false;
+	struct cg *cg;
+	if (!(cg = cg_load_data(dfile)))
+		return false;
+	cg_write(cg, cg_type, port->file);
+	cg_free(cg);
+	return true;
+}
+
 bool NavigatorNode::write(struct port *port, FileFormat format) const
 {
 	bool r;
 	switch (type) {
 	case RootNode:
 	case BranchNode:
+	case FlatTimelineNode:
+	case FlatLibraryNode:
+	case KVNode:
+	case IndexNode:
 		return false;
 	case ClassNode:
 		if (format != FileFormat::JAF)
@@ -207,10 +263,13 @@ bool NavigatorNode::write(struct port *port, FileFormat format) const
 		set_encodings("UTF-8", "UTF-8");
 		ex_dump_table_row(port, exRow.t, exRow.i);
 		return true;
+	case CGNode:
+		return convertFormatBytes(port, cg.data, cg.size,
+				cgTypeToFileFormat(cg.type), format);
 	case FileNode:
 		if (!archive_load_file(ar.file))
 			return false;
-		r = convertFormat(port, ar.file,
+		r = convertFormatArchived(port, ar.file,
 				extensionToFileFormat(QFileInfo(ar.file->name).suffix()),
 				format);
 		archive_release_file(ar.file);
@@ -226,6 +285,10 @@ void NavigatorNode::open(bool newTab) const
 	switch (type) {
 	case RootNode:
 	case BranchNode:
+	case FlatTimelineNode:
+	case FlatLibraryNode:
+	case KVNode:
+	case IndexNode:
 		break;
 	case ClassNode:
 	case EnumNode:
@@ -251,12 +314,16 @@ void NavigatorNode::open(bool newTab) const
 	case ExRowNode:
 		// TODO
 		break;
+	case CGNode:
+		GAlice::openImage(QString::fromUtf8(cg.name->text), cg.data, cg.size);
+		break;
 	case FileNode:
 		switch (ar.type) {
 		case NormalFile:
 			GAlice::openArchiveData(ar.file, newTab);
 			break;
 		case ExFile:
+		case FlatFile:
 		case ArFile:
 			break;
 		}
@@ -291,6 +358,16 @@ static QString exRowName(struct ex_table *t, unsigned row)
 	return "[" + QString::number(row) + "]";
 }
 
+static QString sjis_string_to_qstring(struct string *str)
+{
+	set_input_encoding("CP932");
+	set_output_encoding("UTF-8");
+	char *u = conv_output_len(str->text, str->size);
+	QString qstr = QString::fromUtf8(u);
+	free(u);
+	return qstr;
+}
+
 QString NavigatorNode::getName() const
 {
 	switch (type) {
@@ -318,6 +395,16 @@ QString NavigatorNode::getName() const
 		return "[" + QString::number(exKV.key.i) + "]";
 	case ExRowNode:
 		return exRowName(exRow.t, exRow.i);
+	case FlatTimelineNode:
+		return sjis_string_to_qstring(flat_timeline->name);
+	case FlatLibraryNode:
+		return sjis_string_to_qstring(flat_library->name);
+	case KVNode:
+		return kv.name;
+	case IndexNode:
+		return QString("%1 %2").arg(index.name).arg(index.i);
+	case CGNode:
+		return QString::fromUtf8(cg.name->text);
 	case FileNode:
 		return ar.file->name;
 	}
@@ -337,6 +424,11 @@ QVariant NavigatorNode::getType() const
 		case FuncTypeNode:
 		case DelegateNode:
 		case LibraryNode:
+		case FlatTimelineNode:
+		case FlatLibraryNode:
+		case KVNode:
+		case IndexNode:
+		case CGNode:
 		case FileNode:
 			break;
 		case ExStringKeyValueNode:
@@ -362,6 +454,10 @@ QVariant NavigatorNode::getValue() const
 	case DelegateNode:
 	case LibraryNode:
 	case ExRowNode:
+	case FlatTimelineNode:
+	case FlatLibraryNode:
+	case IndexNode:
+	case CGNode:
 	case FileNode:
 		break;
 	case ExStringKeyValueNode:
@@ -373,6 +469,26 @@ QVariant NavigatorNode::getValue() const
 		default:        break;
 		}
 		break;
+	case KVNode:
+		switch (kv.type) {
+		case ValueType::Int:
+			return kv.i;
+		case ValueType::Float:
+			return kv.f;
+		case ValueType::Bool:
+			return kv.b ? "true" : "false";
+		case ValueType::String:
+			return QString::fromUtf8(kv.s->text);
+		case ValueType::Point2:
+			return QString("{ %1, %2 }").arg(kv.point.x).arg(kv.point.y);
+		case ValueType::Point3:
+			return QString("{ %1, %2, %3 }").arg(kv.point.x).arg(kv.point.y).arg(kv.point.z);
+		case ValueType::Color:
+			return QString("{ %1, %2, %3 }").arg(kv.color.r).arg(kv.color.g).arg(kv.color.b);
+		case ValueType::Rect:
+			return QString("{ %1, %2, %3, %4 }").arg(kv.rect.x).arg(kv.rect.y)
+				.arg(kv.rect.w).arg(kv.rect.h);
+		}
 	}
 	return QVariant();
 }

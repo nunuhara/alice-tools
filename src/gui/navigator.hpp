@@ -44,6 +44,7 @@ public:
 private slots:
         void addAinFile(const QString &fileName, std::shared_ptr<struct ain> ain);
         void addExFile(const QString &fileName, std::shared_ptr<struct ex> ex);
+	void addFlatFile(const QString &fileName, std::shared_ptr<struct flat> flat);
         void addArchive(const QString &fileName, std::shared_ptr<struct archive> ar);
 
 private:
