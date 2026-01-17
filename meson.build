@@ -27,6 +27,7 @@ if meson.get_compiler('c').has_function('iconv')
 else
     iconv = dependency('iconv', static : static_libs)
     tool_deps = [libm, zlib, iconv, libsys4_dep]
+    add_project_arguments('-DUSE_LIBICONV', language : 'c')
 endif
 
 incdir = include_directories('include')

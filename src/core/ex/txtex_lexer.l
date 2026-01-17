@@ -28,12 +28,13 @@
 #include "system4.h"
 #include "system4/file.h"
 #include "system4/string.h"
+#include "system4/utfsjis.h"
 #include "alice.h"
 
 static char string_buf[65536];
 static char *string_buf_ptr;
 
-struct string *make_string_from_utf8(const char *str, size_t len)
+struct string *make_string_from_utf8(const char *str)
 {
     char *sjis = conv_output(str);
     struct string *s = make_string(sjis, strlen(sjis));
@@ -118,7 +119,7 @@ table                     return TABLE;
 list                      return LIST;
 tree                      return TREE;
 indexed                   return INDEXED;
-{id_head}{id_char}*       yex_lval.s = make_string_from_utf8(yex_text, yex_leng); return CONST_STRING;
+{id_head}{id_char}*       yex_lval.s = make_string_from_utf8(yex_text); return CONST_STRING;
 [0-9]+\.[0-9]+            yex_lval.f = strtof(yex_text, NULL); return CONST_FLOAT;
 [0-9]+                    yex_lval.i = atoi(yex_text); return CONST_INT;
 
@@ -128,9 +129,7 @@ indexed                   return INDEXED;
     \" {
         BEGIN(INITIAL);
         *string_buf_ptr = '\0';
-        char *sjis = conv_output(string_buf);
-        yex_lval.s = make_string(sjis, strlen(sjis));
-        free(sjis);
+        yex_lval.s = make_string_from_utf8(string_buf);
         return CONST_STRING;
     }
 

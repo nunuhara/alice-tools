@@ -124,9 +124,12 @@ jobs:
 
       - name: Deploy Qt Dependencies (for galice)
         run: |
+          # windeployqt-qt5 is broken?
+          cp /mingw64/bin/qmake-qt5.exe /mingw64/bin/qmake.exe
+
           mkdir -p dist/galice
           cp build/src/galice.exe dist/galice/
-          windeployqt --no-translations --no-svg --no-system-d3d-compiler --no-opengl-sw --no-angle dist/galice/galice.exe
+          windeployqt-qt5 --no-translations --no-svg --no-system-d3d-compiler --no-opengl-sw --no-angle dist/galice/galice.exe
 
           # Find missing DLLs
           echo "Checking missing dependencies..."
