@@ -32,11 +32,8 @@
 #include "alice.h"
 #include "cli.h"
 
-static void write_bitmap(FILE *f, uint32_t width, uint32_t height, uint8_t *pixels)
+static void write_bitmap(FILE *f, struct fnl_glyph *g, uint8_t *pixels)
 {
-	if (width % 8 != 0)
-		ERROR("Invalid glyph width");
-
 	png_structp png_ptr = NULL;
 	png_infop info_ptr = NULL;
 	png_byte **row_pointers = NULL;
@@ -57,15 +54,15 @@ static void write_bitmap(FILE *f, uint32_t width, uint32_t height, uint8_t *pixe
 	if (setjmp(png_jmpbuf(png_ptr)))
 		ERROR("png_write_header failed");
 
-	png_set_IHDR(png_ptr, info_ptr, width, height, 1,
+	png_set_IHDR(png_ptr, info_ptr, g->width, g->height, 1,
 		     PNG_COLOR_TYPE_GRAY, PNG_INTERLACE_NONE,
 		     PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
 	png_write_info(png_ptr, info_ptr);
 
-	uint32_t stride = width / 8;
-	row_pointers = png_malloc(png_ptr, height * sizeof(png_byte*));
-	for (unsigned i = 0; i < height; i++) {
-		row_pointers[height - (i+1)] = pixels + i*stride;
+	uint32_t stride = fnl_glyph_stride(g);
+	row_pointers = png_malloc(png_ptr, g->height * sizeof(png_byte*));
+	for (unsigned i = 0; i < g->height; i++) {
+		row_pointers[g->height - (i+1)] = pixels + i*stride;
 	}
 
 	if (setjmp(png_jmpbuf(png_ptr)))
@@ -137,12 +134,8 @@ int command_fnl_dump(int argc, char *argv[])
 					ERROR("fopen failed: %s", strerror(errno));
 				}
 
-				unsigned long data_size;
-				uint8_t *data = fnl_glyph_data(fnl, glyph, &data_size);
-
-				uint32_t height = font_face->height;
-				uint32_t width = (data_size*8) / height;
-				write_bitmap(f, width, height, data);
+				uint8_t *data = fnl_glyph_data(fnl, glyph);
+				write_bitmap(f, glyph, data);
 				free(data);
 				fclose(f);
 			}
