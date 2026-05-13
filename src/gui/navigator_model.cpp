@@ -242,11 +242,7 @@ static struct string *timeline_typestr(enum flat_timeline_type t)
 
 void NavigatorModel::Node::appendFlatKeyDataGraphic(struct flat_key_data_graphic *key, int version)
 {
-	if (version <= 4) {
-		appendChild(makeKVNode_XY("Pos", (float)key->pos_x.i, (float)key->pos_y.i));
-	} else {
-		appendChild(makeKVNode_XY("Pos", key->pos_x.f, key->pos_y.f));
-	}
+	appendChild(makeKVNode_XY("Pos", key->pos_x, key->pos_y));
 	appendChild(makeKVNode_XY("Scale", key->scale_x, key->scale_y));
 	appendChild(makeKVNode_XYZ("Angle", key->angle_x, key->angle_y, key->angle_z));
 	appendChild(makeKVNode_RGB("Add", key->add_r, key->add_g, key->add_b));
@@ -381,82 +377,82 @@ NavigatorModel::Node *NavigatorModel::Node::fromFlatLibrary(struct flat_library 
 		struct string *cgname = string_conv_output(em->end_cg_name->text,
 				em->end_cg_name->size);
 		node->appendChild(makeKVNode("Library Name", libname));
-		node->appendChild(makeKVNode("Unknown Int 1", (int)em->uk_int1));
+		node->appendChild(makeKVNode("Particle Align", (int)em->particle_align));
 		node->appendChild(makeKVNode("Create Pos Type", (int)em->create_pos_type));
 		node->appendChild(makeKVNode("Create Pos Length", em->create_pos_length));
 		node->appendChild(makeKVNode("Create Pos Length 2", em->create_pos_length2));
 		node->appendChild(makeKVNode("Create Count", (int)em->create_count));
-		node->appendChild(makeKVNode("Particle Length", (int)em->particle_length));
+		node->appendChild(makeKVNode("Particle Lifetime", (int)em->particle_lifetime));
 		if (version < 1) {
-			node->appendChild(makeKVNode("End Size Rate", em->end_size_rate));
-			node->appendChild(makeKVNode_XY("Begin Size Rate", em->begin_x_size_rate,
-						em->begin_y_size_rate));
-			node->appendChild(makeKVNode_XY("End Size Rate", em->end_x_size_rate,
-						em->end_y_size_rate));
+			node->appendChild(makeKVNode("End Scale", em->end_scale));
+			node->appendChild(makeKVNode_XY("Begin Scale", em->begin_x_scale,
+						em->begin_y_scale));
+			node->appendChild(makeKVNode_XY("End Scale", em->end_x_scale,
+						em->end_y_scale));
 		} else {
-			node->appendChild(makeKVNode("Begin Size Rate", em->begin_size_rate));
-			node->appendChild(makeKVNode("Unknown Size Rate 1", em->uk1_size_rate));
-			node->appendChild(makeKVNode("End Size Rate", em->end_size_rate));
-			node->appendChild(makeKVNode("Unknown Size Rate 2", em->uk2_size_rate));
-			node->appendChild(makeKVNode_XY("Begin Size Rate", em->begin_x_size_rate,
-						em->begin_y_size_rate));
-			node->appendChild(makeKVNode_XY("End Size Rate", em->end_x_size_rate,
-						em->end_y_size_rate));
-			node->appendChild(makeKVNode_XY("Unknown Size Rate 1", em->uk1_x_size_rate,
-						em->uk1_y_size_rate));
-			node->appendChild(makeKVNode_XY("Unknown Size Rate 2", em->uk2_x_size_rate,
-						em->uk2_y_size_rate));
+			node->appendChild(makeKVNode("Begin Scale", em->begin_scale));
+			node->appendChild(makeKVNode("Begin Scale Rand", em->begin_scale_rand));
+			node->appendChild(makeKVNode("End Scale", em->end_scale));
+			node->appendChild(makeKVNode("End Scale Rand", em->end_scale_rand));
+			node->appendChild(makeKVNode_XY("Begin Scale", em->begin_x_scale,
+						em->begin_y_scale));
+			node->appendChild(makeKVNode_XY("End Scale", em->end_x_scale,
+						em->end_y_scale));
+			node->appendChild(makeKVNode_XY("Begin Scale Rand", em->begin_x_scale_rand,
+						em->begin_y_scale_rand));
+			node->appendChild(makeKVNode_XY("End Scale Rand", em->end_x_scale_rand,
+						em->end_y_scale_rand));
 			if (version > 5)
-				node->appendChild(makeKVNode("Unknown Bool 1", em->uk_bool1));
+				node->appendChild(makeKVNode("Sync Scale Rand", em->sync_scale_rand));
 		}
 		node->appendChild(makeKVNode("Direction Type", (int)em->direction_type));
 		node->appendChild(makeKVNode_XYZ("Direction", em->direction_x,
 					em->direction_y, em->direction_z));
 		node->appendChild(makeKVNode("Direction Angle", em->direction_angle));
-		node->appendChild(makeKVNode("Is Emitter Connect Type", em->is_emitter_connect_type));
+		node->appendChild(makeKVNode("Parent Key Mode", em->parent_key_mode));
 		if (version > 2)
-			node->appendChild(makeKVNode("Unknown Int 2", (int)em->uk_int2));
+			node->appendChild(makeKVNode("Pos Track Mode", (int)em->pos_track_mode));
 		if (version > 9)
 			node->appendChild(makeKVNode("Unknown Int 3", (int)em->uk_int3));
 		if (version > 1) {
-			node->appendChild(makeKVNode("Unknown Int 4", (int)em->uk_int4));
-			node->appendChild(makeKVNode("Unknown Int 5", (int)em->uk_int5));
-			node->appendChild(makeKVNode("Unknown Int 6", (int)em->uk_int6));
-			node->appendChild(makeKVNode("Unknown Int 7", (int)em->uk_int7));
-			node->appendChild(makeKVNode("Unknown Int 8", (int)em->uk_int8));
-			node->appendChild(makeKVNode("Unknown Int 9", (int)em->uk_int9));
-			node->appendChild(makeKVNode("Unknown Int 10", (int)em->uk_int10));
-			node->appendChild(makeKVNode("Unknown Int 11", (int)em->uk_int11));
+			node->appendChild(makeKVNode("Inherit Alpha", (int)em->inherit_alpha));
+			node->appendChild(makeKVNode("Inherit Rotation", (int)em->inherit_rotation));
+			node->appendChild(makeKVNode("Inherit Scale", (int)em->inherit_scale));
+			node->appendChild(makeKVNode("Inherit Add Color", (int)em->inherit_add_color));
+			node->appendChild(makeKVNode("Inherit Mul Color", (int)em->inherit_mul_color));
+			node->appendChild(makeKVNode("Inherit Draw Filter", (int)em->inherit_draw_filter));
+			node->appendChild(makeKVNode("Inherit Reverse LR", (int)em->inherit_reverse_lr));
+			node->appendChild(makeKVNode("Inherit Reverse TB", (int)em->inherit_reverse_tb));
 		}
 		node->appendChild(makeKVNode("Speed", em->speed));
-		node->appendChild(makeKVNode("Speed Rate", em->speed_rate));
+		node->appendChild(makeKVNode("Acceleration", em->acceleration));
 		node->appendChild(makeKVNode("Move Length", em->move_length));
-		node->appendChild(makeKVNode("Move Curve", em->mobe_curve));
+		node->appendChild(makeKVNode("Move Curve", em->move_curve));
 		if (version > 1)
-			node->appendChild(makeKVNode("Unknown Float 1", em->uk_float1));
+			node->appendChild(makeKVNode("Move Rand", em->move_rand));
 		node->appendChild(makeKVNode("Is Fall", em->is_fall));
 		node->appendChild(makeKVNode("Width", em->width));
 		node->appendChild(makeKVNode("Air Resistance", em->air_resistance));
 		if (version > 1)
-			node->appendChild(makeKVNode("Unknown Bool 2", em->uk_bool2));
+			node->appendChild(makeKVNode("Align To Direction", em->align_to_direction));
 		if (version < 1) {
 
 		} else {
 			node->appendChild(makeKVNode_XYZ("Begin Angle", em->begin_x_angle,
 						em->begin_y_angle, em->begin_z_angle));
-			node->appendChild(makeKVNode_XYZ("Unknown Angle 1", em->uk1_x_angle,
-						em->uk1_y_angle, em->uk1_z_angle));
+			node->appendChild(makeKVNode_XYZ("Begin Angle Rand", em->begin_x_angle_rand,
+						em->begin_y_angle_rand, em->begin_z_angle_rand));
 			node->appendChild(makeKVNode_XYZ("End Angle", em->end_x_angle,
 						em->end_y_angle, em->end_z_angle));
-			node->appendChild(makeKVNode_XYZ("Unknown Angle 2", em->uk2_x_angle,
-						em->uk2_y_angle, em->uk2_z_angle));
+			node->appendChild(makeKVNode_XYZ("End Angle Rand", em->end_x_angle_rand,
+						em->end_y_angle_rand, em->end_z_angle_rand));
 			if (version > 5)
-				node->appendChild(makeKVNode("Unknown Bool 3", em->uk_bool3));
+				node->appendChild(makeKVNode("Sync Rotation Rand", em->sync_rotation_rand));
 		}
 		node->appendChild(makeKVNode("Fade-In Frame", (int)em->fade_in_frame));
-		node->appendChild(makeKVNode("Fade-Out Frame", (int)em->fade_in_frame));
-		node->appendChild(makeKVNode("Draw Filter Type", (int)em->draw_filter_type));
-		node->appendChild(makeKVNode("Rand Base", (int)em->rand_base));
+		node->appendChild(makeKVNode("Fade-Out Frame", (int)em->fade_out_frame));
+		node->appendChild(makeKVNode("Draw Filter", (int)em->draw_filter));
+		node->appendChild(makeKVNode("Rand Seed", (int)em->rand_seed));
 		node->appendChild(makeKVNode_XYZ("End Pos", em->end_pos_x, em->end_pos_y,
 					em->end_pos_z));
 		node->appendChild(makeKVNode("End CG Name", cgname));
