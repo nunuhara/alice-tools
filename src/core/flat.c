@@ -615,7 +615,7 @@ static void write_libl_files(struct buffer *b, struct ex_table *libl, const stru
 	if (libl->nr_fields != 5)
 		ALICE_ERROR("Wrong number of columns in 'libl' table");
 	if (libl->fields[0].type != EX_STRING)
-		ALICE_ERROR("Wrong type for column 'unknown' in 'libl' table");
+		ALICE_ERROR("Wrong type for column 'name' in 'libl' table");
 	if (libl->fields[1].type != EX_INT)
 		ALICE_ERROR("Wrong type for column 'type' in 'libl' table");
 	if (libl->fields[2].type != EX_INT)
@@ -629,8 +629,17 @@ static void write_libl_files(struct buffer *b, struct ex_table *libl, const stru
 
 	for (unsigned i = 0; i < libl->nr_rows; i++) {
 		size_t off = b->index;
-		int type = libl->rows[i][1].i;
-		deserialize_binary(b, libl->rows[i][0].s);
+		const char *sjis_name = libl->rows[i][0].s->text;
+		size_t name_len = strlen(sjis_name);
+		buffer_write_int32(b, name_len);
+		if (elna) {
+			for (size_t k = 0; k < name_len; k++)
+				buffer_write_int8(b, sjis_name[k] ^ 0x55);
+		} else {
+			buffer_write_bytes(b, (const uint8_t*)sjis_name, name_len);
+		}
+		pad_align(b);
+		int32_t type = libl->rows[i][1].i;
 		buffer_write_int32(b, type);
 
 		struct string *path = get_path(dir, libl->rows[i][4].s->text);
@@ -937,12 +946,11 @@ void flat_extract(struct flat *flat, const char *output_file, bool png)
 
 	// LIBL section
 	fprintf(out, "table libl = {\n");
-	fprintf(out, "\t{ string unknown, int type, int has_front, int front, string path },\n");
+	fprintf(out, "\t{ string name, int type, int has_front, int front, string path },\n");
 	for (unsigned i = 0; i < flat->nr_libraries; i++) {
 		struct flat_library *lib = &flat->libraries[i];
 		const char *ext = (png && lib->type == FLAT_LIB_CG) ? "png" : libl_get_extension(flat, lib);
-		uint32_t name_size = LittleEndian_getDW(flat->data, lib->off);
-		char *name = serialize_bytes(flat->data + lib->off + 4, name_size);
+		char *name = escape_string(lib->name->text);
 		bool have_generate_mipmap = lib->type == FLAT_LIB_CG && flat->hdr.version > 0;
 		int32_t generate_mipmap = have_generate_mipmap ? lib->cg.generate_mipmap : 0;
 		fprintf(out, "\t{ \"%s\", %d, %d, %d, \"%s.libl.%d.%s\" },\n",
