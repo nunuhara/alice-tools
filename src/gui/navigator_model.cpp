@@ -352,7 +352,7 @@ NavigatorModel::Node *NavigatorModel::Node::fromFlatLibrary(struct flat_library 
 
 	if (lib->type == FLAT_LIB_CG) {
 		if (version > 0)
-			node->appendChild(makeKVNode("Unknown 1", lib->cg.uk_int));
+			node->appendChild(makeKVNode("Generate Mipmap", lib->cg.generate_mipmap));
 		struct string *name = string_conv_output(lib->name->text, lib->name->size);
 		node->appendChild(makeCGNode(name, lib->cg.data, lib->cg.size));
 	} else if (lib->type == FLAT_LIB_TIMELINE) {
