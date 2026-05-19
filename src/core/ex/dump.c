@@ -159,13 +159,13 @@ void ex_dump_table_row(struct port *port, struct ex_table *table, int row)
 
 static void _ex_dump_table(struct port *port, struct ex_table *table, int indent_level)
 {
-	bool toplevel = !!table->nr_fields;
+	bool toplevel = table->nr_fields && !table->borrowed_fields;
 	port_putc(port, '{');
 	if (toplevel)
 		port_putc(port, '\n');
 
 	indent_level++;
-	if (table->nr_fields) {
+	if (toplevel) {
 		ex_dump_fields(port, table, indent_level);
 	}
 	for (uint32_t i = 0; i < table->nr_rows; i++) {
