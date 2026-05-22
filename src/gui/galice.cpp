@@ -451,12 +451,12 @@ void GAlice::openBinary(const QString &name, uint8_t *bytes, size_t size, bool n
 
 	for (unsigned addr = 0; addr < size; addr += 16) {
 		// write address
-		b.index += sprintf((char*)b.buf+b.index, "%08x ", addr);
+		b.index += snprintf((char*)b.buf+b.index, hex_size - b.index, "%08x ", addr);
 
 		// write bytes (hex)
 		unsigned i;
 		for (i = addr; i < addr + 16 && i < size; i++) {
-			b.index += sprintf((char*)b.buf+b.index, "%02hhx ", bytes[i]);
+			b.index += snprintf((char*)b.buf+b.index, hex_size - b.index, "%02hhx ", bytes[i]);
 		}
 		if (i == size) {
 			unsigned remaining = 16 - (i - addr);
