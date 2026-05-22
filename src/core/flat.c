@@ -267,7 +267,7 @@ static const char *libl_get_extension(struct flat *flat, struct flat_library *li
 {
 	switch (lib->type) {
 	case FLAT_LIB_CG:
-		return cg_file_extension(cg_check_format(flat->data + lib->payload_off));
+		return cg_file_extension(cg_check_format((uint8_t*)lib->cg.data));
 	case FLAT_LIB_MEMORY:
 		return "mem";
 	case FLAT_LIB_TIMELINE:
@@ -363,16 +363,16 @@ void flat_extract(struct flat *flat, const char *output_file, bool png)
 		const char *ext = (png && lib->type == FLAT_LIB_CG) ? "png" : libl_get_extension(flat, lib);
 		uint32_t name_size = LittleEndian_getDW(flat->data, lib->off);
 		char *name = serialize_bytes(flat->data + lib->off + 4, name_size);
-		bool have_uk_int = lib->type == FLAT_LIB_CG && flat->hdr.version > 0;
-		int32_t uk_int = have_uk_int ? lib->cg.uk_int : 0;
+		bool have_generate_mipmap = lib->type == FLAT_LIB_CG && flat->hdr.version > 0;
+		int32_t generate_mipmap = have_generate_mipmap ? lib->cg.generate_mipmap : 0;
 		fprintf(out, "\t{ \"%s\", %d, %d, %d, \"%s.libl.%d.%s\" },\n",
-			name, lib->type, have_uk_int, uk_int, prefix, i, ext);
+			name, lib->type, have_generate_mipmap, generate_mipmap, prefix, i, ext);
 		free(name);
 
 		// write file
 		snprintf(path_buf, PATH_MAX-1, "%s.libl.%d.%s", output_file, i, ext);
 		if (lib->type == FLAT_LIB_CG) {
-			write_cg(path_buf, flat->data + lib->payload_off, lib->size, png);
+			write_cg(path_buf, (uint8_t*)lib->cg.data, lib->cg.size, png);
 		} else {
 			write_file(path_buf, flat->data + lib->payload_off, lib->size);
 		}

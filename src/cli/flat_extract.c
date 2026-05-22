@@ -31,7 +31,7 @@ static struct string *get_output_path(const char *output_file, const char *input
 {
 	if (output_file)
 		return make_string(output_file, strlen(output_file));
-	return replace_extension(output_file, "x");
+	return replace_extension(input_file, "x");
 }
 
 enum {
