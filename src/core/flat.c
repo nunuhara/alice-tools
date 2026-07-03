@@ -15,10 +15,12 @@
  */
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <limits.h>
+#include "cJSON.h"
 #include "system4.h"
 #include "system4/buffer.h"
 #include "system4/cg.h"
@@ -30,6 +32,501 @@
 #include "alice.h"
 #include "alice/ex.h"
 #include "alice/flat.h"
+#include "alice/json.h"
+
+static cJSON *string_to_json(const struct string *s)
+{
+	if (!s)
+		return cJSON_CreateNull();
+	struct string *u = string_conv_output(s->text, s->size);
+	cJSON *j = cJSON_CreateString(u->text);
+	free_string(u);
+	return j;
+}
+
+static struct string *string_from_json(const char *s)
+{
+	if (!s)
+		return NULL;
+	return string_conv_output(s, strlen(s));
+}
+
+// ---- FLAT header JSON ------------------------------------------------------
+
+static cJSON *flat_header_to_json(const struct flat_header *hdr)
+{
+	cJSON *o = cJSON_CreateObject();
+	switch (hdr->type) {
+	case FLAT_HDR_V1_32:
+		cJSON_AddStringToObject(o, "type", "v1_32");
+		break;
+	case FLAT_HDR_V2_64:
+		cJSON_AddStringToObject(o, "type", "v2_64");
+		break;
+	default:
+		ALICE_ERROR("flat header: unsupported type %d", hdr->type);
+	}
+	cJSON_AddNumberToObject(o, "version", hdr->version);
+	cJSON_AddNumberToObject(o, "fps", hdr->fps);
+	cJSON_AddNumberToObject(o, "game_view_width", hdr->game_view_width);
+	cJSON_AddNumberToObject(o, "game_view_height", hdr->game_view_height);
+	cJSON_AddNumberToObject(o, "camera_length", hdr->camera_length);
+	cJSON_AddNumberToObject(o, "meter", hdr->meter);
+	cJSON_AddNumberToObject(o, "width", hdr->width);
+	cJSON_AddNumberToObject(o, "height", hdr->height);
+	if (hdr->type == FLAT_HDR_V2_64)
+		cJSON_AddNumberToObject(o, "uk1", hdr->uk1);
+	return o;
+}
+
+static void flat_header_from_json(cJSON *j, struct flat_header *out)
+{
+	memset(out, 0, sizeof(*out));
+	out->present = true;
+	const char *type = json_get_string(j, "type");
+	if (!strcmp(type, "v1_32"))
+		out->type = FLAT_HDR_V1_32;
+	else if (!strcmp(type, "v2_64"))
+		out->type = FLAT_HDR_V2_64;
+	else
+		ALICE_ERROR("flat header JSON: unknown type '%s'", type);
+	out->version = json_get_int(j, "version");
+	out->fps = json_get_int(j, "fps");
+	out->game_view_width = json_get_int(j, "game_view_width");
+	out->game_view_height = json_get_int(j, "game_view_height");
+	out->camera_length = json_get_double(j, "camera_length");
+	out->meter = json_get_double(j, "meter");
+	out->width = json_get_int(j, "width");
+	out->height = json_get_int(j, "height");
+	if (out->type == FLAT_HDR_V2_64)
+		out->uk1 = json_get_int_or(j, "uk1", 0);
+}
+
+// ---- graphic key data ------------------------------------------------------
+
+static cJSON *graphic_key_to_json(const struct flat_key_data_graphic *k, int version)
+{
+	cJSON *o = cJSON_CreateObject();
+	cJSON_AddNumberToObject(o, "pos_x", k->pos_x);
+	cJSON_AddNumberToObject(o, "pos_y", k->pos_y);
+	cJSON_AddNumberToObject(o, "scale_x", k->scale_x);
+	cJSON_AddNumberToObject(o, "scale_y", k->scale_y);
+	cJSON_AddNumberToObject(o, "angle_x", k->angle_x);
+	cJSON_AddNumberToObject(o, "angle_y", k->angle_y);
+	cJSON_AddNumberToObject(o, "angle_z", k->angle_z);
+	cJSON_AddNumberToObject(o, "add_r", k->add_r);
+	cJSON_AddNumberToObject(o, "add_g", k->add_g);
+	cJSON_AddNumberToObject(o, "add_b", k->add_b);
+	cJSON_AddNumberToObject(o, "mul_r", k->mul_r);
+	cJSON_AddNumberToObject(o, "mul_g", k->mul_g);
+	cJSON_AddNumberToObject(o, "mul_b", k->mul_b);
+	cJSON_AddNumberToObject(o, "alpha", k->alpha);
+	cJSON_AddNumberToObject(o, "area_x", k->area_x);
+	cJSON_AddNumberToObject(o, "area_y", k->area_y);
+	cJSON_AddNumberToObject(o, "area_width", k->area_width);
+	cJSON_AddNumberToObject(o, "area_height", k->area_height);
+	cJSON_AddNumberToObject(o, "draw_filter", k->draw_filter);
+	if (version > 8)
+		cJSON_AddNumberToObject(o, "uk1", k->uk1);
+	cJSON_AddNumberToObject(o, "origin_x", k->origin_x);
+	cJSON_AddNumberToObject(o, "origin_y", k->origin_y);
+	if (version > 7)
+		cJSON_AddNumberToObject(o, "uk2", k->uk2);
+	cJSON_AddBoolToObject(o, "reverse_tb", k->reverse_tb);
+	cJSON_AddBoolToObject(o, "reverse_lr", k->reverse_lr);
+	return o;
+}
+
+static void graphic_key_from_json(cJSON *j, struct flat_key_data_graphic *k, int version)
+{
+	memset(k, 0, sizeof(*k));
+	k->pos_x = json_get_double(j, "pos_x");
+	k->pos_y = json_get_double(j, "pos_y");
+	k->scale_x = json_get_double(j, "scale_x");
+	k->scale_y = json_get_double(j, "scale_y");
+	k->angle_x = json_get_double(j, "angle_x");
+	k->angle_y = json_get_double(j, "angle_y");
+	k->angle_z = json_get_double(j, "angle_z");
+	k->add_r = json_get_int(j, "add_r");
+	k->add_g = json_get_int(j, "add_g");
+	k->add_b = json_get_int(j, "add_b");
+	k->mul_r = json_get_int(j, "mul_r");
+	k->mul_g = json_get_int(j, "mul_g");
+	k->mul_b = json_get_int(j, "mul_b");
+	k->alpha = json_get_int(j, "alpha");
+	k->area_x = json_get_int(j, "area_x");
+	k->area_y = json_get_int(j, "area_y");
+	k->area_width = json_get_int(j, "area_width");
+	k->area_height = json_get_int(j, "area_height");
+	k->draw_filter = json_get_int(j, "draw_filter");
+	if (version > 8)
+		k->uk1 = json_get_int_or(j, "uk1", 0);
+	k->origin_x = json_get_int(j, "origin_x");
+	k->origin_y = json_get_int(j, "origin_y");
+	if (version > 7)
+		k->uk2 = json_get_int_or(j, "uk2", 0);
+	k->reverse_tb = json_get_bool(j, "reverse_tb");
+	k->reverse_lr = json_get_bool(j, "reverse_lr");
+}
+
+// ---- timeline --------------------------------------------------------------
+
+static cJSON *timeline_to_json(const struct flat_timeline *tl, int version)
+{
+	cJSON *o = cJSON_CreateObject();
+	cJSON_AddItemToObject(o, "name", string_to_json(tl->name));
+	cJSON_AddItemToObject(o, "library_name", string_to_json(tl->library_name));
+	cJSON_AddNumberToObject(o, "begin_frame", tl->begin_frame);
+	cJSON_AddNumberToObject(o, "frame_count", tl->frame_count);
+
+	switch (tl->type) {
+	case FLAT_TIMELINE_GRAPHIC: {
+		cJSON_AddStringToObject(o, "type", "graphic");
+		if (version < 15) {
+			cJSON *a = cJSON_CreateArray();
+			for (uint32_t i = 0; i < tl->graphic.count; i++)
+				cJSON_AddItemToArray(a, graphic_key_to_json(&tl->graphic.keys[i], version));
+			cJSON_AddItemToObject(o, "keys", a);
+		} else {
+			cJSON *frames = cJSON_CreateArray();
+			for (int32_t f = 0; f < tl->frame_count; f++) {
+				cJSON *fo = cJSON_CreateObject();
+				cJSON *keys = cJSON_CreateArray();
+				for (uint32_t i = 0; i < tl->graphic.frames[f].count; i++)
+					cJSON_AddItemToArray(keys, graphic_key_to_json(&tl->graphic.frames[f].keys[i], version));
+				cJSON_AddItemToObject(fo, "keys", keys);
+				cJSON_AddItemToArray(frames, fo);
+			}
+			cJSON_AddItemToObject(o, "frames", frames);
+		}
+		break;
+	}
+	case FLAT_TIMELINE_SCRIPT: {
+		cJSON_AddStringToObject(o, "type", "script");
+		cJSON *a = cJSON_CreateArray();
+		for (uint32_t i = 0; i < tl->script.count; i++) {
+			const struct flat_script_key *k = &tl->script.keys[i];
+			cJSON *ko = cJSON_CreateObject();
+			cJSON_AddNumberToObject(ko, "frame_index", k->frame_index);
+			if (k->has_jump)
+				cJSON_AddNumberToObject(ko, "jump_frame", k->jump_frame);
+			if (k->is_stop)
+				cJSON_AddBoolToObject(ko, "is_stop", true);
+			if (k->text)
+				cJSON_AddItemToObject(ko, "text", string_to_json(k->text));
+			cJSON_AddItemToArray(a, ko);
+		}
+		cJSON_AddItemToObject(o, "keys", a);
+		break;
+	}
+	case FLAT_TIMELINE_SOUND:
+		cJSON_AddStringToObject(o, "type", "sound");
+		ALICE_ERROR("FLAT_TIMELINE_SOUND not implemented");
+	default:
+		ALICE_ERROR("Unknown timeline type %d", tl->type);
+	}
+	return o;
+}
+
+static void timeline_from_json(cJSON *j, struct flat_timeline *tl, int version)
+{
+	memset(tl, 0, sizeof(*tl));
+	tl->name = string_from_json(json_get_string(j, "name"));
+	tl->library_name = string_from_json(json_get_string(j, "library_name"));
+	tl->begin_frame = json_get_int(j, "begin_frame");
+	tl->frame_count = json_get_int(j, "frame_count");
+
+	const char *type = json_get_string(j, "type");
+	if (!strcmp(type, "graphic")) {
+		tl->type = FLAT_TIMELINE_GRAPHIC;
+		if (version < 15) {
+			cJSON *keys = json_get_array(j, "keys");
+			int n = cJSON_GetArraySize(keys);
+			tl->graphic.count = n;
+			tl->graphic.keys = xcalloc(n, sizeof(*tl->graphic.keys));
+			for (int i = 0; i < n; i++)
+				graphic_key_from_json(cJSON_GetArrayItem(keys, i),
+				                      &tl->graphic.keys[i], version);
+		} else {
+			cJSON *frames = json_get_array(j, "frames");
+			int nframes = cJSON_GetArraySize(frames);
+			if (nframes != tl->frame_count)
+				ALICE_ERROR("timeline: frames array length %d != frame_count %d",
+				            nframes, tl->frame_count);
+			tl->graphic.frames = xcalloc(nframes, sizeof(*tl->graphic.frames));
+			for (int f = 0; f < nframes; f++) {
+				cJSON *fo = cJSON_GetArrayItem(frames, f);
+				cJSON *keys = json_get_array(fo, "keys");
+				int nk = cJSON_GetArraySize(keys);
+				tl->graphic.frames[f].count = nk;
+				tl->graphic.frames[f].keys = xcalloc(nk, sizeof(struct flat_key_data_graphic));
+				for (int i = 0; i < nk; i++)
+					graphic_key_from_json(cJSON_GetArrayItem(keys, i),
+					                      &tl->graphic.frames[f].keys[i], version);
+			}
+		}
+	} else if (!strcmp(type, "script")) {
+		tl->type = FLAT_TIMELINE_SCRIPT;
+		cJSON *keys = json_get_array(j, "keys");
+		int n = cJSON_GetArraySize(keys);
+		tl->script.count = n;
+		tl->script.keys = xcalloc(n, sizeof(*tl->script.keys));
+		for (int i = 0; i < n; i++) {
+			cJSON *ko = cJSON_GetArrayItem(keys, i);
+			struct flat_script_key *k = &tl->script.keys[i];
+			k->frame_index = json_get_int(ko, "frame_index");
+			cJSON *jj = cJSON_GetObjectItem(ko, "jump_frame");
+			if (jj) {
+				k->has_jump = true;
+				k->jump_frame = jj->valueint;
+			}
+			k->is_stop = json_get_bool_or(ko, "is_stop", false);
+			const char *text = json_get_string_or_null(ko, "text");
+			if (text)
+				k->text = string_from_json(text);
+		}
+	} else {
+		ALICE_ERROR("Unknown timeline type '%s'", type);
+	}
+}
+
+// ---- MTLC ------------------------------------------------------------------
+
+static cJSON *flat_mtlc_to_json(const struct flat_timeline *tls, size_t n, int version)
+{
+	cJSON *root = cJSON_CreateObject();
+	cJSON *a = cJSON_CreateArray();
+	for (size_t i = 0; i < n; i++)
+		cJSON_AddItemToArray(a, timeline_to_json(&tls[i], version));
+	cJSON_AddItemToObject(root, "timelines", a);
+	return root;
+}
+
+static void flat_mtlc_from_json(cJSON *j, struct flat_timeline **out, size_t *nr_out, int version)
+{
+	cJSON *a = json_get_array(j, "timelines");
+	int n = cJSON_GetArraySize(a);
+	struct flat_timeline *tls = xcalloc(n, sizeof(*tls));
+	for (int i = 0; i < n; i++)
+		timeline_from_json(cJSON_GetArrayItem(a, i), &tls[i], version);
+	*out = tls;
+	*nr_out = n;
+}
+
+// ---- stop_motion -----------------------------------------------------------
+
+static cJSON *stop_motion_to_json(const struct flat_stop_motion *sm)
+{
+	cJSON *o = cJSON_CreateObject();
+	cJSON_AddStringToObject(o, "kind", "stop_motion");
+	cJSON_AddItemToObject(o, "library_name", string_to_json(sm->library_name));
+	cJSON_AddNumberToObject(o, "span", sm->span);
+	cJSON_AddNumberToObject(o, "loop_type", sm->loop_type);
+	return o;
+}
+
+static void stop_motion_from_json(cJSON *j, struct flat_stop_motion *sm)
+{
+	memset(sm, 0, sizeof(*sm));
+	sm->library_name = string_from_json(json_get_string(j, "library_name"));
+	sm->span = json_get_int(j, "span");
+	sm->loop_type = json_get_int(j, "loop_type");
+}
+
+// ---- emitter ---------------------------------------------------------------
+
+static cJSON *emitter_to_json(const struct flat_emitter *em)
+{
+	cJSON *o = cJSON_CreateObject();
+	cJSON_AddStringToObject(o, "kind", "emitter");
+	cJSON_AddItemToObject(o, "library_name", string_to_json(em->library_name));
+	cJSON_AddNumberToObject(o, "particle_align", em->particle_align);
+	cJSON_AddNumberToObject(o, "create_pos_type", em->create_pos_type);
+	cJSON_AddNumberToObject(o, "create_pos_length", em->create_pos_length);
+	cJSON_AddNumberToObject(o, "create_pos_length2", em->create_pos_length2);
+	cJSON_AddNumberToObject(o, "create_count", em->create_count);
+	cJSON_AddNumberToObject(o, "particle_lifetime", em->particle_lifetime);
+	cJSON_AddNumberToObject(o, "begin_scale", em->begin_scale);
+	cJSON_AddNumberToObject(o, "begin_scale_rand", em->begin_scale_rand);
+	cJSON_AddNumberToObject(o, "end_scale", em->end_scale);
+	cJSON_AddNumberToObject(o, "end_scale_rand", em->end_scale_rand);
+	cJSON_AddNumberToObject(o, "begin_x_scale", em->begin_x_scale);
+	cJSON_AddNumberToObject(o, "begin_x_scale_rand", em->begin_x_scale_rand);
+	cJSON_AddNumberToObject(o, "end_x_scale", em->end_x_scale);
+	cJSON_AddNumberToObject(o, "end_x_scale_rand", em->end_x_scale_rand);
+	cJSON_AddNumberToObject(o, "begin_y_scale", em->begin_y_scale);
+	cJSON_AddNumberToObject(o, "begin_y_scale_rand", em->begin_y_scale_rand);
+	cJSON_AddNumberToObject(o, "end_y_scale", em->end_y_scale);
+	cJSON_AddNumberToObject(o, "end_y_scale_rand", em->end_y_scale_rand);
+	cJSON_AddBoolToObject(o, "sync_scale_rand", em->sync_scale_rand);
+	cJSON_AddNumberToObject(o, "direction_type", em->direction_type);
+	cJSON_AddNumberToObject(o, "direction_x", em->direction_x);
+	cJSON_AddNumberToObject(o, "direction_y", em->direction_y);
+	cJSON_AddNumberToObject(o, "direction_z", em->direction_z);
+	cJSON_AddNumberToObject(o, "direction_angle", em->direction_angle);
+	cJSON_AddNumberToObject(o, "parent_key_mode", em->parent_key_mode);
+	cJSON_AddNumberToObject(o, "pos_track_mode", em->pos_track_mode);
+	cJSON_AddNumberToObject(o, "uk_int3", em->uk_int3);
+	cJSON_AddNumberToObject(o, "inherit_alpha", em->inherit_alpha);
+	cJSON_AddNumberToObject(o, "inherit_rotation", em->inherit_rotation);
+	cJSON_AddNumberToObject(o, "inherit_scale", em->inherit_scale);
+	cJSON_AddNumberToObject(o, "inherit_add_color", em->inherit_add_color);
+	cJSON_AddNumberToObject(o, "inherit_mul_color", em->inherit_mul_color);
+	cJSON_AddNumberToObject(o, "inherit_draw_filter", em->inherit_draw_filter);
+	cJSON_AddNumberToObject(o, "inherit_reverse_lr", em->inherit_reverse_lr);
+	cJSON_AddNumberToObject(o, "inherit_reverse_tb", em->inherit_reverse_tb);
+	cJSON_AddNumberToObject(o, "speed", em->speed);
+	cJSON_AddNumberToObject(o, "acceleration", em->acceleration);
+	cJSON_AddNumberToObject(o, "move_length", em->move_length);
+	cJSON_AddNumberToObject(o, "move_curve", em->move_curve);
+	cJSON_AddNumberToObject(o, "move_rand", em->move_rand);
+	cJSON_AddBoolToObject(o, "is_fall", em->is_fall);
+	cJSON_AddNumberToObject(o, "width", em->width);
+	cJSON_AddNumberToObject(o, "air_resistance", em->air_resistance);
+	cJSON_AddBoolToObject(o, "align_to_direction", em->align_to_direction);
+	cJSON_AddNumberToObject(o, "begin_x_angle", em->begin_x_angle);
+	cJSON_AddNumberToObject(o, "begin_x_angle_rand", em->begin_x_angle_rand);
+	cJSON_AddNumberToObject(o, "end_x_angle", em->end_x_angle);
+	cJSON_AddNumberToObject(o, "end_x_angle_rand", em->end_x_angle_rand);
+	cJSON_AddNumberToObject(o, "begin_y_angle", em->begin_y_angle);
+	cJSON_AddNumberToObject(o, "begin_y_angle_rand", em->begin_y_angle_rand);
+	cJSON_AddNumberToObject(o, "end_y_angle", em->end_y_angle);
+	cJSON_AddNumberToObject(o, "end_y_angle_rand", em->end_y_angle_rand);
+	cJSON_AddNumberToObject(o, "begin_z_angle", em->begin_z_angle);
+	cJSON_AddNumberToObject(o, "begin_z_angle_rand", em->begin_z_angle_rand);
+	cJSON_AddNumberToObject(o, "end_z_angle", em->end_z_angle);
+	cJSON_AddNumberToObject(o, "end_z_angle_rand", em->end_z_angle_rand);
+	cJSON_AddBoolToObject(o, "sync_rotation_rand", em->sync_rotation_rand);
+	cJSON_AddNumberToObject(o, "fade_in_frame", em->fade_in_frame);
+	cJSON_AddNumberToObject(o, "fade_out_frame", em->fade_out_frame);
+	cJSON_AddNumberToObject(o, "draw_filter", em->draw_filter);
+	cJSON_AddNumberToObject(o, "rand_seed", em->rand_seed);
+	cJSON_AddNumberToObject(o, "end_pos_type", em->end_pos_type);
+	cJSON_AddNumberToObject(o, "end_pos_x", em->end_pos_x);
+	cJSON_AddNumberToObject(o, "end_pos_y", em->end_pos_y);
+	cJSON_AddNumberToObject(o, "end_pos_z", em->end_pos_z);
+	cJSON_AddItemToObject(o, "end_cg_name", string_to_json(em->end_cg_name));
+	return o;
+}
+
+static void emitter_from_json(cJSON *j, struct flat_emitter *em)
+{
+	memset(em, 0, sizeof(*em));
+	em->library_name = string_from_json(json_get_string(j, "library_name"));
+	em->particle_align = json_get_int_or(j, "particle_align", 5);
+	em->create_pos_type = json_get_int(j, "create_pos_type");
+	em->create_pos_length = json_get_double(j, "create_pos_length");
+	em->create_pos_length2 = json_get_double(j, "create_pos_length2");
+	em->create_count = json_get_int(j, "create_count");
+	em->particle_lifetime = json_get_int(j, "particle_lifetime");
+	em->begin_scale = json_get_double(j, "begin_scale");
+	em->begin_scale_rand = json_get_double_or(j, "begin_scale_rand", 0);
+	em->end_scale = json_get_double(j, "end_scale");
+	em->end_scale_rand = json_get_double_or(j, "end_scale_rand", 0);
+	em->begin_x_scale = json_get_double(j, "begin_x_scale");
+	em->begin_x_scale_rand = json_get_double_or(j, "begin_x_scale_rand", 0);
+	em->end_x_scale = json_get_double(j, "end_x_scale");
+	em->end_x_scale_rand = json_get_double_or(j, "end_x_scale_rand", 0);
+	em->begin_y_scale = json_get_double(j, "begin_y_scale");
+	em->begin_y_scale_rand = json_get_double_or(j, "begin_y_scale_rand", 0);
+	em->end_y_scale = json_get_double(j, "end_y_scale");
+	em->end_y_scale_rand = json_get_double_or(j, "end_y_scale_rand", 0);
+	em->sync_scale_rand = json_get_bool_or(j, "sync_scale_rand", false);
+	em->direction_type = json_get_int(j, "direction_type");
+	em->direction_x = json_get_double(j, "direction_x");
+	em->direction_y = json_get_double(j, "direction_y");
+	em->direction_z = json_get_double(j, "direction_z");
+	em->direction_angle = json_get_double(j, "direction_angle");
+	em->parent_key_mode = json_get_int(j, "parent_key_mode");
+	em->pos_track_mode = json_get_int_or(j, "pos_track_mode", 2);
+	em->uk_int3 = json_get_int_or(j, "uk_int3", 0);
+	em->inherit_alpha = json_get_int_or(j, "inherit_alpha", 0);
+	em->inherit_rotation = json_get_int_or(j, "inherit_rotation", 0);
+	em->inherit_scale = json_get_int_or(j, "inherit_scale", 0);
+	em->inherit_add_color = json_get_int_or(j, "inherit_add_color", 0);
+	em->inherit_mul_color = json_get_int_or(j, "inherit_mul_color", 0);
+	em->inherit_draw_filter = json_get_int_or(j, "inherit_draw_filter", 0);
+	em->inherit_reverse_lr = json_get_int_or(j, "inherit_reverse_lr", 0);
+	em->inherit_reverse_tb = json_get_int_or(j, "inherit_reverse_tb", 0);
+	em->speed = json_get_double(j, "speed");
+	em->acceleration = json_get_double(j, "acceleration");
+	em->move_length = json_get_double(j, "move_length");
+	em->move_curve = json_get_double(j, "move_curve");
+	em->move_rand = json_get_double_or(j, "move_rand", 0);
+	em->is_fall = json_get_bool(j, "is_fall");
+	em->width = json_get_double(j, "width");
+	em->air_resistance = json_get_double(j, "air_resistance");
+	em->align_to_direction = json_get_bool_or(j, "align_to_direction", false);
+	em->begin_x_angle = json_get_double(j, "begin_x_angle");
+	em->begin_x_angle_rand = json_get_double_or(j, "begin_x_angle_rand", 0);
+	em->end_x_angle = json_get_double(j, "end_x_angle");
+	em->end_x_angle_rand = json_get_double_or(j, "end_x_angle_rand", 0);
+	em->begin_y_angle = json_get_double(j, "begin_y_angle");
+	em->begin_y_angle_rand = json_get_double_or(j, "begin_y_angle_rand", 0);
+	em->end_y_angle = json_get_double(j, "end_y_angle");
+	em->end_y_angle_rand = json_get_double_or(j, "end_y_angle_rand", 0);
+	em->begin_z_angle = json_get_double(j, "begin_z_angle");
+	em->begin_z_angle_rand = json_get_double_or(j, "begin_z_angle_rand", 0);
+	em->end_z_angle = json_get_double(j, "end_z_angle");
+	em->end_z_angle_rand = json_get_double_or(j, "end_z_angle_rand", 0);
+	em->sync_rotation_rand = json_get_bool_or(j, "sync_rotation_rand", false);
+	em->fade_in_frame = json_get_int(j, "fade_in_frame");
+	em->fade_out_frame = json_get_int(j, "fade_out_frame");
+	em->draw_filter = json_get_int(j, "draw_filter");
+	em->rand_seed = json_get_int(j, "rand_seed");
+	em->end_pos_type = json_get_int(j, "end_pos_type");
+	em->end_pos_x = json_get_double(j, "end_pos_x");
+	em->end_pos_y = json_get_double(j, "end_pos_y");
+	em->end_pos_z = json_get_double(j, "end_pos_z");
+	em->end_cg_name = string_from_json(json_get_string(j, "end_cg_name"));
+}
+
+// ---- LIBL JSON dispatch ----------------------------------------------------
+
+static cJSON *flat_library_to_json(const struct flat_library *lib, int version)
+{
+	switch (lib->type) {
+	case FLAT_LIB_TIMELINE: {
+		cJSON *o = cJSON_CreateObject();
+		cJSON_AddStringToObject(o, "kind", "timeline");
+		cJSON *a = cJSON_CreateArray();
+		for (size_t i = 0; i < lib->timeline.nr_timelines; i++)
+			cJSON_AddItemToArray(a, timeline_to_json(&lib->timeline.timelines[i], version));
+		cJSON_AddItemToObject(o, "timelines", a);
+		return o;
+	}
+	case FLAT_LIB_STOP_MOTION:
+		return stop_motion_to_json(&lib->stop_motion);
+	case FLAT_LIB_EMITTER:
+		return emitter_to_json(&lib->emitter);
+	default:
+		ALICE_ERROR("flat_library_to_json: unsupported type %d", lib->type);
+	}
+}
+
+static void flat_library_from_json(cJSON *j, struct flat_library *lib, int version)
+{
+	switch (lib->type) {
+	case FLAT_LIB_TIMELINE: {
+		cJSON *a = json_get_array(j, "timelines");
+		int n = cJSON_GetArraySize(a);
+		lib->timeline.nr_timelines = n;
+		lib->timeline.timelines = xcalloc(n, sizeof(struct flat_timeline));
+		for (int i = 0; i < n; i++)
+			timeline_from_json(cJSON_GetArrayItem(a, i),
+			                   &lib->timeline.timelines[i], version);
+		break;
+	}
+	case FLAT_LIB_STOP_MOTION:
+		stop_motion_from_json(j, &lib->stop_motion);
+		break;
+	case FLAT_LIB_EMITTER:
+		emitter_from_json(j, &lib->emitter);
+		break;
+	default:
+		ALICE_ERROR("flat_library_from_json: unsupported type %d", lib->type);
+	}
+}
 
 static void buffer_write_file(struct buffer *buf, const char *path)
 {
@@ -86,7 +583,15 @@ static void deserialize_binary(struct buffer *b, struct string *s)
 	}
 }
 
-static void write_libl_files(struct buffer *b, struct ex_table *libl, const struct string *dir)
+static bool libl_type_is_json(int type)
+{
+	return type == FLAT_LIB_TIMELINE
+	    || type == FLAT_LIB_STOP_MOTION
+	    || type == FLAT_LIB_EMITTER;
+}
+
+static void write_libl_files(struct buffer *b, struct ex_table *libl, const struct string *dir,
+                             bool elna, int version)
 {
 	// validate fields
 	if (libl->nr_fields != 5)
@@ -106,17 +611,41 @@ static void write_libl_files(struct buffer *b, struct ex_table *libl, const stru
 
 	for (unsigned i = 0; i < libl->nr_rows; i++) {
 		size_t off = b->index;
+		int type = libl->rows[i][1].i;
 		deserialize_binary(b, libl->rows[i][0].s);
-		buffer_write_int32(b, libl->rows[i][1].i);
+		buffer_write_int32(b, type);
 
 		struct string *path = get_path(dir, libl->rows[i][4].s->text);
-		if (libl->rows[i][2].i) {
-			buffer_write_int32(b, file_size(path->text) + 4);
-			buffer_write_int32(b, libl->rows[i][3].i);
+
+		if (libl_type_is_json(type)) {
+			cJSON *j = json_parse_file(path->text);
+			struct flat_library lib = {0};
+			lib.type = type;
+			flat_library_from_json(j, &lib, version);
+			cJSON_Delete(j);
+
+			struct buffer payload;
+			buffer_init(&payload, NULL, 0);
+			flat_write_library_payload(&payload, &lib, version);
+
+			if (elna && (type == FLAT_LIB_STOP_MOTION || type == FLAT_LIB_EMITTER)) {
+				for (size_t k = 0; k < payload.index; k++)
+					payload.buf[k] ^= 0x55;
+			}
+
+			buffer_write_int32(b, payload.index);
+			buffer_write_bytes(b, payload.buf, payload.index);
+			free(payload.buf);
 		} else {
-			buffer_write_int32(b, file_size(path->text));
+			// CG / MEMORY: raw file with optional generate_mipmap prefix
+			if (libl->rows[i][2].i) {
+				buffer_write_int32(b, file_size(path->text) + 4);
+				buffer_write_int32(b, libl->rows[i][3].i);
+			} else {
+				buffer_write_int32(b, file_size(path->text));
+			}
+			buffer_write_file(b, path->text);
 		}
-		buffer_write_file(b, path->text);
 		free_string(path);
 		unsigned size = b->index - off;
 		if (size & 3) {
@@ -175,7 +704,8 @@ static struct flat *build_flat(struct ex *ex, const struct string *dir)
 	struct flat *flat = xcalloc(1, sizeof(struct flat));
 	buffer_init(&b, NULL, 0);
 
-	if (ex_get_int(ex, "elna", 0)) {
+	bool elna = ex_get_int(ex, "elna", 0);
+	if (elna) {
 		flat->elna.present = true;
 		flat->elna.off = b.index;
 		flat->elna.size = 0;
@@ -183,15 +713,28 @@ static struct flat *build_flat(struct ex *ex, const struct string *dir)
 		buffer_write_int32(&b, 0);
 	}
 
+	// FLAT section
 	struct string *flat_path = ex_get_string(ex, "flat");
 	if (!flat_path)
 		ALICE_ERROR("'flat' path missing from .flat manifest");
+	struct string *flat_full = get_path(dir, flat_path->text);
+	cJSON *head_j = json_parse_file(flat_full->text);
+	free_string(flat_full);
+	free_string(flat_path);
+	struct flat_header hdr;
+	flat_header_from_json(head_j, &hdr);
+	cJSON_Delete(head_j);
+
 	flat->flat.present = true;
 	flat->flat.off = b.index;
-	buffer_write_file_relative(&b, dir, flat_path->text);
+	buffer_write_bytes(&b, (uint8_t*)"FLAT", 4);
+	buffer_write_int32(&b, 0);
+	flat_write_header(&b, &hdr);
 	flat->flat.size = b.index - flat->flat.off - 8;
-	free_string(flat_path);
+	buffer_write_int32_at(&b, flat->flat.off + 4, flat->flat.size);
+	int version = hdr.version;
 
+	// TMNL section (raw passthrough)
 	struct string *tmnl_path = ex_get_string(ex, "tmnl");
 	if (tmnl_path) {
 		flat->tmnl.present = true;
@@ -201,14 +744,26 @@ static struct flat *build_flat(struct ex *ex, const struct string *dir)
 		free_string(tmnl_path);
 	}
 
+	// MTLC section
 	struct string *mtlc_path = ex_get_string(ex, "mtlc");
 	if (!mtlc_path)
 		ALICE_ERROR("'mtlc' path missing from .flat manifest");
+	struct string *mtlc_full = get_path(dir, mtlc_path->text);
+	cJSON *mtlc_j = json_parse_file(mtlc_full->text);
+	free_string(mtlc_full);
+	free_string(mtlc_path);
+	struct flat_timeline *timelines;
+	size_t nr_timelines;
+	flat_mtlc_from_json(mtlc_j, &timelines, &nr_timelines, version);
+	cJSON_Delete(mtlc_j);
+
 	flat->mtlc.present = true;
 	flat->mtlc.off = b.index;
-	buffer_write_file_relative(&b, dir, mtlc_path->text);
+	buffer_write_bytes(&b, (uint8_t*)"MTLC", 4);
+	buffer_write_int32(&b, 0);
+	flat_write_timelines(&b, timelines, nr_timelines, version);
 	flat->mtlc.size = b.index - flat->mtlc.off - 8;
-	free_string(mtlc_path);
+	buffer_write_int32_at(&b, flat->mtlc.off + 4, flat->mtlc.size);
 
 	struct ex_table *libl = ex_get_table(ex, "libl");
 	if (!libl)
@@ -217,7 +772,7 @@ static struct flat *build_flat(struct ex *ex, const struct string *dir)
 	flat->libl.off = b.index;
 	buffer_write_bytes(&b, (uint8_t*)"LIBL", 4);
 	buffer_write_int32(&b, 0);
-	write_libl_files(&b, libl, dir);
+	write_libl_files(&b, libl, dir, elna, version);
 	// write the section size now that we know it
 	buffer_write_int32_at(&b, flat->libl.off + 4, b.index - flat->libl.off - 8);
 
@@ -271,11 +826,11 @@ static const char *libl_get_extension(struct flat *flat, struct flat_library *li
 	case FLAT_LIB_MEMORY:
 		return "mem";
 	case FLAT_LIB_TIMELINE:
-		return "tln";
+		return "tln.json";
 	case FLAT_LIB_STOP_MOTION:
-		return "smo";
+		return "smo.json";
 	case FLAT_LIB_EMITTER:
-		return "emi";
+		return "emi.json";
 	}
 	return "dat";
 }
@@ -334,26 +889,33 @@ void flat_extract(struct flat *flat, const char *output_file, bool png)
 	FILE *out = checked_fopen(output_file, "wb");
 	char *prefix = escape_string_noconv(path_basename(output_file));
 	char path_buf[PATH_MAX];
+	int version = flat->hdr.version;
 
 	// ELNA section
 	fprintf(out, "int elna = %d;\n\n", flat->elna.present ? 1 : 0);
 
-	// FLAT section
-	fprintf(out, "string flat = \"%s.head\";\n\n", prefix);
-	snprintf(path_buf, PATH_MAX-1, "%s.head", output_file);
-	write_section(path_buf, flat, &flat->flat);
+	// FLAT section -> JSON
+	fprintf(out, "string flat = \"%s.head.json\";\n\n", prefix);
+	snprintf(path_buf, PATH_MAX-1, "%s.head.json", output_file);
+	if (!flat->hdr.present)
+		ALICE_ERROR("FLAT header missing or unrecognized");
+	cJSON *head_j = flat_header_to_json(&flat->hdr);
+	json_write_file(path_buf, head_j);
+	cJSON_Delete(head_j);
 
-	// TMNL section
+	// TMNL section (raw passthrough)
 	if (flat->tmnl.present) {
 		fprintf(out, "string tmnl = \"%s.tmnl\";\n\n", prefix);
 		snprintf(path_buf, PATH_MAX-1, "%s.tmnl", output_file);
 		write_section(path_buf, flat, &flat->tmnl);
 	}
 
-	// MTLC section
-	fprintf(out, "string mtlc = \"%s.mtlc\";\n\n", prefix);
-	snprintf(path_buf, PATH_MAX-1, "%s.mtlc", output_file);
-	write_section(path_buf, flat, &flat->mtlc);
+	// MTLC section -> JSON
+	fprintf(out, "string mtlc = \"%s.mtlc.json\";\n\n", prefix);
+	snprintf(path_buf, PATH_MAX-1, "%s.mtlc.json", output_file);
+	cJSON *mtlc_j = flat_mtlc_to_json(flat->timelines, flat->nr_timelines, version);
+	json_write_file(path_buf, mtlc_j);
+	cJSON_Delete(mtlc_j);
 
 	// LIBL section
 	fprintf(out, "table libl = {\n");
@@ -369,11 +931,16 @@ void flat_extract(struct flat *flat, const char *output_file, bool png)
 			name, lib->type, have_generate_mipmap, generate_mipmap, prefix, i, ext);
 		free(name);
 
-		// write file
+		// write payload file
 		snprintf(path_buf, PATH_MAX-1, "%s.libl.%d.%s", output_file, i, ext);
 		if (lib->type == FLAT_LIB_CG) {
 			write_cg(path_buf, (uint8_t*)lib->cg.data, lib->cg.size, png);
+		} else if (libl_type_is_json(lib->type)) {
+			cJSON *lib_j = flat_library_to_json(lib, version);
+			json_write_file(path_buf, lib_j);
+			cJSON_Delete(lib_j);
 		} else {
+			// MEMORY / unknown -> raw passthrough
 			write_file(path_buf, flat->data + lib->payload_off, lib->size);
 		}
 
