@@ -23,20 +23,13 @@
 #include "system4/savefile.h"
 #include "system4/string.h"
 #include "alice.h"
+#include "alice/json.h"
 #include "cli.h"
 
 enum {
 	LOPT_DECODE = 256,
 	LOPT_OUTPUT,
 };
-
-static cJSON *to_json_string(const char *s)
-{
-	char *u = conv_output(s);
-	cJSON *json = cJSON_CreateString(u);
-	free(u);
-	return json;
-}
 
 static int cb_get_number(int i, void *data)
 {
@@ -50,7 +43,7 @@ static cJSON *int_array_to_json(int32_t *nums, int count)
 
 static cJSON *cb_get_string(int i, void *data)
 {
-	return to_json_string(((char **)data)[i]);
+	return json_create_string(((char **)data)[i]);
 }
 
 static cJSON *string_array_to_json(char **strs, int count)
@@ -94,7 +87,7 @@ static cJSON *value_to_json(int32_t value, enum ain_data_type type, struct gsave
 	case AIN_STRING:
 		if (value == GSAVE7_EMPTY_STRING)
 			return cJSON_CreateString("");
-		return to_json_string(save->strings[value]->text);
+		return json_create_string(save->strings[value]->text);
 	case AIN_LONG_INT:
 		return create_number_wrapper("lint", value);
 	case AIN_VOID:
@@ -115,7 +108,7 @@ static cJSON *value_to_json(int32_t value, enum ain_data_type type, struct gsave
 			if (save->version <= 5) {
 				if (r->type != GSAVE_RECORD_STRUCT)
 					ALICE_ERROR("unexpected type in records table: %d", r->type);
-				cJSON_AddItemToObjectCS(o, "@type", to_json_string(r->struct_name));
+				cJSON_AddItemToObjectCS(o, "@type", json_create_string(r->struct_name));
 				for (int i = 0; i < r->nr_indices; i++) {
 					struct gsave_keyval *kv = &save->keyvals[r->indices[i]];
 					char *key = conv_output(kv->name);
@@ -126,7 +119,7 @@ static cJSON *value_to_json(int32_t value, enum ain_data_type type, struct gsave
 				if (r->struct_index < 0)
 					ALICE_ERROR("unexpected type in records table: %d", r->type);
 				struct gsave_struct_def *sd = &save->struct_defs[r->struct_index];
-				cJSON_AddItemToObjectCS(o, "@type", to_json_string(sd->name));
+				cJSON_AddItemToObjectCS(o, "@type", json_create_string(sd->name));
 				if (r->nr_indices != sd->nr_fields)
 					ALICE_ERROR("record %d has %d fields, but struct %d has %d fields", value, r->nr_indices, r->struct_index, sd->nr_fields);
 				for (int i = 0; i < r->nr_indices; i++) {
@@ -164,20 +157,20 @@ static cJSON *gsave_to_json(struct gsave *save)
 {
 	cJSON *root = cJSON_CreateObject();
 	cJSON_AddStringToObject(root, "save_type", "global_save");
-	cJSON_AddItemToObjectCS(root, "key", to_json_string(save->key));
+	cJSON_AddItemToObjectCS(root, "key", json_create_string(save->key));
 	cJSON_AddNumberToObject(root, "uk1", save->uk1);
 	cJSON_AddNumberToObject(root, "version", save->version);
 	cJSON_AddNumberToObject(root, "uk2", save->uk2);
 	cJSON_AddNumberToObject(root, "num_ain_globals", save->nr_ain_globals);
 	if (save->version >= 5)
-		cJSON_AddItemToObjectCS(root, "group", to_json_string(save->group));
+		cJSON_AddItemToObjectCS(root, "group", json_create_string(save->group));
 
 	cJSON *globals = cJSON_CreateArray();
 	cJSON_AddItemToObjectCS(root, "globals", globals);
 	for (struct gsave_global *g = save->globals; g < save->globals + save->nr_globals; g++) {
 		cJSON *global = cJSON_CreateObject();
 		cJSON_AddItemToArray(globals, global);
-		cJSON_AddItemToObjectCS(global, "name", to_json_string(g->name));
+		cJSON_AddItemToObjectCS(global, "name", json_create_string(g->name));
 		cJSON_AddItemToObjectCS(global, "value", value_to_json(g->value, g->type, save));
 		if (save->version <= 5)
 			cJSON_AddNumberToObject(global, "unknown", g->unknown);
@@ -189,14 +182,14 @@ static cJSON *gsave_to_json(struct gsave *save)
 		for (struct gsave_struct_def *sd = save->struct_defs; sd < save->struct_defs + save->nr_struct_defs; sd++) {
 			cJSON *struct_def = cJSON_CreateObject();
 			cJSON_AddItemToArray(struct_defs, struct_def);
-			cJSON_AddItemToObjectCS(struct_def, "name", to_json_string(sd->name));
+			cJSON_AddItemToObjectCS(struct_def, "name", json_create_string(sd->name));
 			cJSON *fields = cJSON_CreateArray();
 			cJSON_AddItemToObjectCS(struct_def, "fields", fields);
 			for (struct gsave_field_def *fd = sd->fields; fd < sd->fields + sd->nr_fields; fd++) {
 				cJSON *field = cJSON_CreateObject();
 				cJSON_AddItemToArray(fields, field);
 				cJSON_AddNumberToObject(field, "type", fd->type);
-				cJSON_AddItemToObjectCS(field, "name", to_json_string(fd->name));
+				cJSON_AddItemToObjectCS(field, "name", json_create_string(fd->name));
 			}
 		}
 	}
@@ -207,7 +200,7 @@ static cJSON *gsave_to_json(struct gsave *save)
 static cJSON *rsave_symbol_to_json(struct rsave_symbol *sym)
 {
 	if (sym->name)
-		return to_json_string(sym->name);
+		return json_create_string(sym->name);
 	return cJSON_CreateNumber(sym->id);
 }
 
@@ -227,7 +220,7 @@ static cJSON *rsave_return_record_to_json(struct rsave_return_record *f)
 		return cJSON_CreateNull();
 	cJSON *o = cJSON_CreateObject();
 	cJSON_AddNumberToObject(o, "return_addr", f->return_addr);
-	cJSON_AddItemToObjectCS(o, "caller_func", to_json_string(f->caller_func));
+	cJSON_AddItemToObjectCS(o, "caller_func", json_create_string(f->caller_func));
 	cJSON_AddNumberToObject(o, "local_addr", f->local_addr);
 	cJSON_AddNumberToObject(o, "crc", f->crc);
 	return o;
@@ -262,7 +255,7 @@ static cJSON *rsave_string_to_json(int32_t version, struct rsave_heap_string *s)
 		cJSON_AddNumberToObject(o, "seq", s->seq);
 	cJSON_AddNumberToObject(o, "uk", s->uk);
 	if (strlen(s->text) + 1 == (size_t)s->len) {
-		cJSON_AddItemToObjectCS(o, "text", to_json_string(s->text));
+		cJSON_AddItemToObjectCS(o, "text", json_create_string(s->text));
 	} else {
 		// Serialize as a byte array.
 		cJSON *bytes = cJSON_CreateArray();
@@ -343,7 +336,7 @@ static cJSON *rsave_to_json(struct rsave *save)
 	cJSON *root = cJSON_CreateObject();
 	cJSON_AddStringToObject(root, "save_type", "resume_save");
 	cJSON_AddNumberToObject(root, "version", save->version);
-	cJSON_AddItemToObjectCS(root, "key", to_json_string(save->key));
+	cJSON_AddItemToObjectCS(root, "key", json_create_string(save->key));
 
 	if (save->version >= 7) {
 		cJSON_AddItemToObjectCS(root, "comments", string_array_to_json(save->comments, save->nr_comments));

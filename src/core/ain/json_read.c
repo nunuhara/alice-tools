@@ -24,62 +24,7 @@
 #include "system4/ain.h"
 #include "system4/file.h"
 #include "system4/string.h"
-
-static bool cJSON_GetObjectBool(const cJSON * const o, const char * const name, bool def)
-{
-	cJSON *v = cJSON_GetObjectItem(o, name);
-	if (v && !cJSON_IsBool(v))
-		ERROR("Expected a boolean for '%s'", name);
-	return v ? v->valueint : def;
-}
-
-static int cJSON_GetObjectInteger(const cJSON * const o, const char * const name, int def)
-{
-	cJSON *v = cJSON_GetObjectItem(o, name);
-	if (v && !cJSON_IsNumber(v))
-		ERROR("Expected a number for '%s'", name);
-	return v ? v->valueint : def;
-}
-
-static int cJSON_GetObjectInteger_NonNull(const cJSON * const o, const char * const name)
-{
-	cJSON *v = cJSON_GetObjectItem(o, name);
-	if (!v || !cJSON_IsNumber(v))
-		ERROR("Expected a number for '%s'", name);
-	return v->valueint;
-}
-
-static char *cJSON_GetObjectString(const cJSON * const o, const char * const name)
-{
-	cJSON *v = cJSON_GetObjectItem(o, name);
-	if (v && !cJSON_IsString(v))
-		ERROR("Expected string for '%s'", name);
-	return v ? strdup(v->valuestring) : NULL;
-}
-
-static char *cJSON_GetObjectString_NonNull(const cJSON * const o, const char * const name)
-{
-	cJSON *v = cJSON_GetObjectItem(o, name);
-	if (!v || !cJSON_IsString(v))
-		ERROR("Expected string for '%s'", name);
-	return strdup(v->valuestring);
-}
-
-static cJSON *cJSON_GetObjectArray(const cJSON * const o, const char * const name)
-{
-	cJSON *v = cJSON_GetObjectItem(o, name);
-	if (v && !cJSON_IsArray(v))
-		ERROR("Expected an array for '%s'", name);
-	return v;
-}
-
-static cJSON *cJSON_GetObjectArray_NonNull(const cJSON * const o, const char * const name)
-{
-	cJSON *v = cJSON_GetObjectItem(o, name);
-	if (!v || !cJSON_IsArray(v))
-		ERROR("Expected an array for '%s'", name);
-	return v;
-}
+#include "alice/json.h"
 
 static void _read_type_declaration(cJSON *decl, struct ain_type *dst)
 {
@@ -124,9 +69,9 @@ static void read_type_declaration_or_data_type(cJSON *decl, struct ain_type *dst
 
 static void read_variable_declaration(cJSON *decl, struct ain_variable *dst)
 {
-	dst->name = cJSON_GetObjectString_NonNull(decl, "name");
-	dst->name2 = cJSON_GetObjectString(decl, "name2");
-	read_type_declaration(cJSON_GetObjectArray_NonNull(decl, "type"), &dst->type);
+	dst->name = json_dup_string(decl, "name");
+	dst->name2 = json_dup_string_or_null(decl, "name2");
+	read_type_declaration(json_get_array(decl, "type"), &dst->type);
 
 	cJSON *v = cJSON_GetObjectItem(decl, "initval");
 	if (v) {
@@ -149,7 +94,7 @@ static void read_variable_declaration(cJSON *decl, struct ain_variable *dst)
 		}
 	}
 
-	dst->group_index = cJSON_GetObjectInteger(decl, "group-index", -1);
+	dst->group_index = json_get_int_or(decl, "group-index", -1);
 }
 
 static void read_function_declaration(cJSON *decl, struct ain_function *dst)
@@ -157,15 +102,15 @@ static void read_function_declaration(cJSON *decl, struct ain_function *dst)
 	int i;
 	cJSON *args, *vars, *v;
 
-	dst->address = cJSON_GetObjectInteger(decl, "address", 0);
-	dst->name = cJSON_GetObjectString_NonNull(decl, "name");
-	dst->is_label = cJSON_GetObjectBool(decl, "is-label", 0);
-	read_type_declaration(cJSON_GetObjectArray_NonNull(decl, "return-type"), &dst->return_type);
-	dst->is_lambda = cJSON_GetObjectInteger(decl, "unknown-bool", 0);
-	dst->crc = cJSON_GetObjectInteger(decl, "crc", 0);
+	dst->address = json_get_int_or(decl, "address", 0);
+	dst->name = json_dup_string(decl, "name");
+	dst->is_label = json_get_bool_or(decl, "is-label", 0);
+	read_type_declaration(json_get_array(decl, "return-type"), &dst->return_type);
+	dst->is_lambda = json_get_int_or(decl, "unknown-bool", 0);
+	dst->crc = json_get_int_or(decl, "crc", 0);
 
-	args = cJSON_GetObjectArray_NonNull(decl, "arguments");
-	vars = cJSON_GetObjectArray_NonNull(decl, "variables");
+	args = json_get_array(decl, "arguments");
+	vars = json_get_array(decl, "variables");
 	dst->nr_args = cJSON_GetArraySize(args);
 	dst->nr_vars = dst->nr_args + cJSON_GetArraySize(vars);
 
@@ -245,13 +190,13 @@ static struct ain_interface *read_interface_list(cJSON *decl, int32_t *n)
 static void read_structure_declaration(cJSON *decl, struct ain_struct *dst)
 {
 	cJSON *a;
-	dst->name = cJSON_GetObjectString_NonNull(decl, "name");
-	if ((a = cJSON_GetObjectArray(decl, "interfaces"))) {
+	dst->name = json_dup_string(decl, "name");
+	if ((a = json_get_array_or_null(decl, "interfaces"))) {
 		dst->interfaces = read_interface_list(a, &dst->nr_interfaces);
 	}
-	dst->constructor = cJSON_GetObjectInteger(decl, "constructor", -1);
-	dst->destructor = cJSON_GetObjectInteger(decl, "destructor", -1);
-	if ((a = cJSON_GetObjectArray(decl, "members"))) {
+	dst->constructor = json_get_int_or(decl, "constructor", -1);
+	dst->destructor = json_get_int_or(decl, "destructor", -1);
+	if ((a = json_get_array_or_null(decl, "members"))) {
 		dst->members = read_variable_declarations(a, &dst->nr_members);
 	}
 }
@@ -275,21 +220,21 @@ static void read_structure_declarations(cJSON *decl, struct ain *ain)
 
 static void read_library_declaration(cJSON *decl, struct ain_library *dst)
 {
-	dst->name = cJSON_GetObjectString_NonNull(decl, "name");
+	dst->name = json_dup_string(decl, "name");
 
 	int i;
-	cJSON *f, *jfuns = cJSON_GetObjectArray_NonNull(decl, "functions");
+	cJSON *f, *jfuns = json_get_array(decl, "functions");
 	struct ain_hll_function *funs = xcalloc(cJSON_GetArraySize(jfuns), sizeof(struct ain_hll_function));
 	cJSON_ArrayForEachIndex(i, f, jfuns) {
-		funs[i].name = cJSON_GetObjectString_NonNull(f, "name");
+		funs[i].name = json_dup_string(f, "name");
 		read_type_declaration_or_data_type(cJSON_GetObjectItem(f, "return-type"),
 				&funs[i].return_type);
 
 		int j;
-		cJSON *arg, *jargs = cJSON_GetObjectArray_NonNull(f, "arguments");
+		cJSON *arg, *jargs = json_get_array(f, "arguments");
 		struct ain_hll_argument *args = xcalloc(cJSON_GetArraySize(jargs), sizeof(struct ain_hll_argument));
 		cJSON_ArrayForEachIndex(j, arg, jargs) {
-			args[j].name = cJSON_GetObjectString_NonNull(arg, "name");
+			args[j].name = json_dup_string(arg, "name");
 			read_type_declaration_or_data_type(cJSON_GetObjectItem(arg, "type"),
 					&args[j].type);
 		}
@@ -319,17 +264,17 @@ static void read_library_declarations(cJSON *decl, struct ain *ain)
 
 static void read_switch_declaration(cJSON *decl, struct ain_switch *dst)
 {
-	dst->case_type = cJSON_GetObjectInteger_NonNull(decl, "case-type");
-	dst->default_address = cJSON_GetObjectInteger_NonNull(decl, "default-address");
+	dst->case_type = json_get_int(decl, "case-type");
+	dst->default_address = json_get_int(decl, "default-address");
 
 	int i;
-	cJSON *v, *a = cJSON_GetObjectArray_NonNull(decl, "cases");
+	cJSON *v, *a = json_get_array(decl, "cases");
 	struct ain_switch_case *cases = xcalloc(cJSON_GetArraySize(a), sizeof(struct ain_switch_case));
 	cJSON_ArrayForEachIndex(i, v, a) {
 		if (!cJSON_IsObject(v))
 			ERROR("Non-object in switch case list");
-		cases[i].value = cJSON_GetObjectInteger_NonNull(v, "value");
-		cases[i].address = cJSON_GetObjectInteger_NonNull(v, "address");
+		cases[i].value = json_get_int(v, "value");
+		cases[i].address = json_get_int(v, "address");
 	}
 	dst->cases = cases;
 	dst->nr_cases = i;
@@ -359,8 +304,8 @@ static void read_scenario_labels(cJSON *decl, struct ain *ain)
 	cJSON_ArrayForEachIndex(i, l, decl) {
 		if (!cJSON_IsObject(l))
 			ERROR("Non-object in scenario label list");
-		labels[i].name = cJSON_GetObjectString_NonNull(l, "name");
-		labels[i].address = cJSON_GetObjectInteger_NonNull(l, "address");
+		labels[i].name = json_dup_string(l, "name");
+		labels[i].address = json_get_int(l, "address");
 	}
 
 	ain_free_scenario_labels(ain);
@@ -390,13 +335,13 @@ static void read_filename_declarations(cJSON *decl, struct ain *ain)
 
 static void read_function_type_declaration(cJSON *decl, struct ain_function_type *dst)
 {
-	dst->name = cJSON_GetObjectString_NonNull(decl, "name");
-	read_type_declaration(cJSON_GetObjectArray_NonNull(decl, "return-type"), &dst->return_type);
+	dst->name = json_dup_string(decl, "name");
+	read_type_declaration(json_get_array(decl, "return-type"), &dst->return_type);
 
 	int i = 0;
 	cJSON *v;
-	cJSON *args = cJSON_GetObjectArray_NonNull(decl, "arguments");
-	cJSON *vars = cJSON_GetObjectArray_NonNull(decl, "variables");
+	cJSON *args = json_get_array(decl, "arguments");
+	cJSON *vars = json_get_array(decl, "variables");
 	dst->nr_arguments = cJSON_GetArraySize(args);
 	dst->nr_variables = cJSON_GetArraySize(vars) + dst->nr_arguments;
 	struct ain_variable *variables = xcalloc(dst->nr_variables, sizeof(struct ain_variable));
@@ -456,10 +401,10 @@ static void read_enum_declarations(cJSON *decl, struct ain *ain)
 	cJSON_ArrayForEachIndex(i, e, decl) {
 		if (!cJSON_IsObject(e))
 			ERROR("Non-object in enum list");
-		enums[i].name = cJSON_GetObjectString_NonNull(e, "name");
+		enums[i].name = json_dup_string(e, "name");
 
 		int j;
-		cJSON *s, *syms = cJSON_GetObjectArray_NonNull(e, "values");
+		cJSON *s, *syms = json_get_array(e, "values");
 		struct ain_enum_value *values = xcalloc(cJSON_GetArraySize(syms),
 				sizeof(struct ain_enum_value));
 		cJSON_ArrayForEachIndex(j, s, syms) {
@@ -495,79 +440,55 @@ static void read_json_declarations(cJSON *decl, struct ain *ain)
 	cJSON *v;
 
 	// VERS
-	ain->version = cJSON_GetObjectInteger(decl, "version", 0);
+	ain->version = json_get_int_or(decl, "version", 0);
 	// KEYC
-	ain->keycode = cJSON_GetObjectInteger(decl, "keycode", 0);
+	ain->keycode = json_get_int_or(decl, "keycode", 0);
 	// FUNC
-	if ((v = cJSON_GetObjectArray(decl, "functions")))
+	if ((v = json_get_array_or_null(decl, "functions")))
 		read_function_declarations(v, ain);
 	// GLOB
-	if ((v = cJSON_GetObjectArray(decl, "globals")))
+	if ((v = json_get_array_or_null(decl, "globals")))
 		read_global_declarations(v, ain);
 	// STRT
-	if ((v = cJSON_GetObjectArray(decl, "structures")))
+	if ((v = json_get_array_or_null(decl, "structures")))
 		read_structure_declarations(v, ain);
 	// MAIN
-	ain->main = cJSON_GetObjectInteger(decl, "main", 0);
+	ain->main = json_get_int_or(decl, "main", 0);
 	// MSGF
-	ain->msgf = cJSON_GetObjectInteger(decl, "msgf", 0);
+	ain->msgf = json_get_int_or(decl, "msgf", 0);
 	// HLL0
-	if ((v = cJSON_GetObjectArray(decl, "libraries")))
+	if ((v = json_get_array_or_null(decl, "libraries")))
 		read_library_declarations(v, ain);
 	// SWI0
-	if ((v = cJSON_GetObjectArray(decl, "switches")))
+	if ((v = json_get_array_or_null(decl, "switches")))
 		read_switch_declarations(v, ain);
 	// GVER
-	ain->game_version = cJSON_GetObjectInteger(decl, "game-version", 0);
+	ain->game_version = json_get_int_or(decl, "game-version", 0);
 	// SLBL
-	if ((v = cJSON_GetObjectArray(decl, "scenario-labels")))
+	if ((v = json_get_array_or_null(decl, "scenario-labels")))
 		read_scenario_labels(v, ain);
 	// FNAM
-	if ((v = cJSON_GetObjectArray(decl, "filenames")))
+	if ((v = json_get_array_or_null(decl, "filenames")))
 		read_filename_declarations(v, ain);
 	// OJMP
-	ain->ojmp = cJSON_GetObjectInteger(decl, "ojmp", 0);
+	ain->ojmp = json_get_int_or(decl, "ojmp", 0);
 	// FNCT
-	if ((v = cJSON_GetObjectArray(decl, "function-types")))
+	if ((v = json_get_array_or_null(decl, "function-types")))
 		read_function_type_declarations(v, ain);
 	// DELG
-	if ((v = cJSON_GetObjectArray(decl, "delegates")))
+	if ((v = json_get_array_or_null(decl, "delegates")))
 		read_delegate_declarations(v, ain);
 	// OBJG
-	if ((v = cJSON_GetObjectArray(decl, "global-groups")))
+	if ((v = json_get_array_or_null(decl, "global-groups")))
 		read_global_group_declarations(v, ain);
 	// ENUM
-	if ((v = cJSON_GetObjectArray(decl, "enums")))
+	if ((v = json_get_array_or_null(decl, "enums")))
 		read_enum_declarations(v, ain);
 }
 
 void ain_read_json(const char *filename, struct ain *ain)
 {
-	FILE *f;
-	long len;
-	char *buf;
-
-	if (!(f = file_open_utf8(filename, "rb")))
-		ERROR("Failed to open '%s': %s", filename, strerror(errno));
-
-	fseek(f, 0, SEEK_END);
-	len = ftell(f);
-	fseek(f, 0, SEEK_SET);
-
-	buf = xmalloc(len + 1);
-	if (fread(buf, len, 1, f) != 1)
-		ERROR("Failed to read '%s': %s", filename, strerror(errno));
-	buf[len] = '\0';
-
-	if (fclose(f))
-		ERROR("Failed to close '%s': %s", filename, strerror(errno));
-
-	cJSON *j = cJSON_Parse(buf);
-	if (!j)
-		ERROR("Failed to parse JSON file '%s'", filename);
-
+	cJSON *j = json_parse_file(filename);
 	read_json_declarations(j, ain);
-
 	cJSON_Delete(j);
-	free(buf);
 }
