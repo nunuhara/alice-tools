@@ -612,18 +612,16 @@ static void write_libl_files(struct buffer *b, struct ex_table *libl, const stru
                              bool elna, int version)
 {
 	// validate fields
-	if (libl->nr_fields != 5)
+	if (libl->nr_fields != 4)
 		ALICE_ERROR("Wrong number of columns in 'libl' table");
 	if (libl->fields[0].type != EX_STRING)
 		ALICE_ERROR("Wrong type for column 'name' in 'libl' table");
 	if (libl->fields[1].type != EX_INT)
 		ALICE_ERROR("Wrong type for column 'type' in 'libl' table");
 	if (libl->fields[2].type != EX_INT)
-		ALICE_ERROR("Wrong type for column 'has_front' in 'libl' table");
-	if (libl->fields[3].type != EX_INT)
-		ALICE_ERROR("Wrong type for column 'front' in 'libl' table");
-	if (libl->fields[4].type != EX_STRING)
-		ALICE_ERROR("Wrong type");
+		ALICE_ERROR("Wrong type for column 'generate_mipmap' in 'libl' table");
+	if (libl->fields[3].type != EX_STRING)
+		ALICE_ERROR("Wrong type for column 'path' in 'libl' table");
 
 	buffer_write_int32(b, libl->nr_rows);
 
@@ -642,7 +640,7 @@ static void write_libl_files(struct buffer *b, struct ex_table *libl, const stru
 		int32_t type = libl->rows[i][1].i;
 		buffer_write_int32(b, type);
 
-		struct string *path = get_path(dir, libl->rows[i][4].s->text);
+		struct string *path = get_path(dir, libl->rows[i][3].s->text);
 
 		if (libl_type_is_json(type)) {
 			cJSON *j = json_parse_file(path->text);
@@ -665,9 +663,9 @@ static void write_libl_files(struct buffer *b, struct ex_table *libl, const stru
 			free(payload.buf);
 		} else {
 			// CG / MEMORY: raw file with optional generate_mipmap prefix
-			if (libl->rows[i][2].i) {
+			if (type == FLAT_LIB_CG && version > 0) {
 				buffer_write_int32(b, file_size(path->text) + 4);
-				buffer_write_int32(b, libl->rows[i][3].i);
+				buffer_write_int32(b, libl->rows[i][2].i);
 			} else {
 				buffer_write_int32(b, file_size(path->text));
 			}
@@ -946,15 +944,15 @@ void flat_extract(struct flat *flat, const char *output_file, bool png)
 
 	// LIBL section
 	fprintf(out, "table libl = {\n");
-	fprintf(out, "\t{ string name, int type, int has_front, int front, string path },\n");
+	fprintf(out, "\t{ string name, int type, int generate_mipmap, string path },\n");
 	for (unsigned i = 0; i < flat->nr_libraries; i++) {
 		struct flat_library *lib = &flat->libraries[i];
 		const char *ext = (png && lib->type == FLAT_LIB_CG) ? "png" : libl_get_extension(flat, lib);
 		char *name = escape_string(lib->name->text);
 		bool have_generate_mipmap = lib->type == FLAT_LIB_CG && flat->hdr.version > 0;
 		int32_t generate_mipmap = have_generate_mipmap ? lib->cg.generate_mipmap : 0;
-		fprintf(out, "\t{ \"%s\", %d, %d, %d, \"%s.libl.%d.%s\" },\n",
-			name, lib->type, have_generate_mipmap, generate_mipmap, prefix, i, ext);
+		fprintf(out, "\t{ \"%s\", %d, %d, \"%s.libl.%d.%s\" },\n",
+			name, lib->type, generate_mipmap, prefix, i, ext);
 		free(name);
 
 		// write payload file
