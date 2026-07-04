@@ -104,69 +104,74 @@ static void flat_header_from_json(cJSON *j, struct flat_header *out)
 
 // ---- graphic key data ------------------------------------------------------
 
-static cJSON *graphic_key_to_json(const struct flat_key_data_graphic *k, int version)
+// Keyframes are stored delta-compressed: a property is omitted from the JSON
+// when it is equal to the corresponding property of the previous key. On the
+// build side, a missing property inherits its value from the previous key (or
+// the base default if prev == NULL).
+
+static cJSON *graphic_key_to_json(const struct flat_key_data_graphic *k, int version,
+                                  const struct flat_key_data_graphic *prev)
 {
 	cJSON *o = cJSON_CreateObject();
-	cJSON_AddNumberToObject(o, "pos_x", k->pos_x);
-	cJSON_AddNumberToObject(o, "pos_y", k->pos_y);
-	cJSON_AddNumberToObject(o, "scale_x", k->scale_x);
-	cJSON_AddNumberToObject(o, "scale_y", k->scale_y);
-	cJSON_AddNumberToObject(o, "angle_x", k->angle_x);
-	cJSON_AddNumberToObject(o, "angle_y", k->angle_y);
-	cJSON_AddNumberToObject(o, "angle_z", k->angle_z);
-	cJSON_AddNumberToObject(o, "add_r", k->add_r);
-	cJSON_AddNumberToObject(o, "add_g", k->add_g);
-	cJSON_AddNumberToObject(o, "add_b", k->add_b);
-	cJSON_AddNumberToObject(o, "mul_r", k->mul_r);
-	cJSON_AddNumberToObject(o, "mul_g", k->mul_g);
-	cJSON_AddNumberToObject(o, "mul_b", k->mul_b);
-	cJSON_AddNumberToObject(o, "alpha", k->alpha);
-	cJSON_AddNumberToObject(o, "area_x", k->area_x);
-	cJSON_AddNumberToObject(o, "area_y", k->area_y);
-	cJSON_AddNumberToObject(o, "area_width", k->area_width);
-	cJSON_AddNumberToObject(o, "area_height", k->area_height);
-	cJSON_AddNumberToObject(o, "draw_filter", k->draw_filter);
-	if (version > 8)
-		cJSON_AddNumberToObject(o, "uk1", k->uk1);
-	cJSON_AddNumberToObject(o, "origin_x", k->origin_x);
-	cJSON_AddNumberToObject(o, "origin_y", k->origin_y);
-	if (version > 7)
-		cJSON_AddNumberToObject(o, "uk2", k->uk2);
-	cJSON_AddBoolToObject(o, "reverse_tb", k->reverse_tb);
-	cJSON_AddBoolToObject(o, "reverse_lr", k->reverse_lr);
+	if (!prev || k->pos_x != prev->pos_x) cJSON_AddNumberToObject(o, "pos_x", k->pos_x);
+	if (!prev || k->pos_y != prev->pos_y) cJSON_AddNumberToObject(o, "pos_y", k->pos_y);
+	if (!prev || k->scale_x != prev->scale_x) cJSON_AddNumberToObject(o, "scale_x", k->scale_x);
+	if (!prev || k->scale_y != prev->scale_y) cJSON_AddNumberToObject(o, "scale_y", k->scale_y);
+	if (!prev || k->angle_x != prev->angle_x) cJSON_AddNumberToObject(o, "angle_x", k->angle_x);
+	if (!prev || k->angle_y != prev->angle_y) cJSON_AddNumberToObject(o, "angle_y", k->angle_y);
+	if (!prev || k->angle_z != prev->angle_z) cJSON_AddNumberToObject(o, "angle_z", k->angle_z);
+	if (!prev || k->add_r != prev->add_r) cJSON_AddNumberToObject(o, "add_r", k->add_r);
+	if (!prev || k->add_g != prev->add_g) cJSON_AddNumberToObject(o, "add_g", k->add_g);
+	if (!prev || k->add_b != prev->add_b) cJSON_AddNumberToObject(o, "add_b", k->add_b);
+	if (!prev || k->mul_r != prev->mul_r) cJSON_AddNumberToObject(o, "mul_r", k->mul_r);
+	if (!prev || k->mul_g != prev->mul_g) cJSON_AddNumberToObject(o, "mul_g", k->mul_g);
+	if (!prev || k->mul_b != prev->mul_b) cJSON_AddNumberToObject(o, "mul_b", k->mul_b);
+	if (!prev || k->alpha != prev->alpha) cJSON_AddNumberToObject(o, "alpha", k->alpha);
+	if (!prev || k->area_x != prev->area_x) cJSON_AddNumberToObject(o, "area_x", k->area_x);
+	if (!prev || k->area_y != prev->area_y) cJSON_AddNumberToObject(o, "area_y", k->area_y);
+	if (!prev || k->area_width != prev->area_width) cJSON_AddNumberToObject(o, "area_width", k->area_width);
+	if (!prev || k->area_height != prev->area_height) cJSON_AddNumberToObject(o, "area_height", k->area_height);
+	if (!prev || k->draw_filter != prev->draw_filter) cJSON_AddNumberToObject(o, "draw_filter", k->draw_filter);
+	if (version > 8 && (!prev || k->uk1 != prev->uk1)) cJSON_AddNumberToObject(o, "uk1", k->uk1);
+	if (!prev || k->origin_x != prev->origin_x) cJSON_AddNumberToObject(o, "origin_x", k->origin_x);
+	if (!prev || k->origin_y != prev->origin_y) cJSON_AddNumberToObject(o, "origin_y", k->origin_y);
+	if (version > 7 && (!prev || k->uk2 != prev->uk2)) cJSON_AddNumberToObject(o, "uk2", k->uk2);
+	if (!prev || k->reverse_tb != prev->reverse_tb) cJSON_AddBoolToObject(o, "reverse_tb", k->reverse_tb);
+	if (!prev || k->reverse_lr != prev->reverse_lr) cJSON_AddBoolToObject(o, "reverse_lr", k->reverse_lr);
 	return o;
 }
 
-static void graphic_key_from_json(cJSON *j, struct flat_key_data_graphic *k, int version)
+static void graphic_key_from_json(cJSON *j, struct flat_key_data_graphic *k, int version,
+                                  const struct flat_key_data_graphic *prev)
 {
 	memset(k, 0, sizeof(*k));
-	k->pos_x = json_get_double(j, "pos_x");
-	k->pos_y = json_get_double(j, "pos_y");
-	k->scale_x = json_get_double(j, "scale_x");
-	k->scale_y = json_get_double(j, "scale_y");
-	k->angle_x = json_get_double(j, "angle_x");
-	k->angle_y = json_get_double(j, "angle_y");
-	k->angle_z = json_get_double(j, "angle_z");
-	k->add_r = json_get_int(j, "add_r");
-	k->add_g = json_get_int(j, "add_g");
-	k->add_b = json_get_int(j, "add_b");
-	k->mul_r = json_get_int(j, "mul_r");
-	k->mul_g = json_get_int(j, "mul_g");
-	k->mul_b = json_get_int(j, "mul_b");
-	k->alpha = json_get_int(j, "alpha");
-	k->area_x = json_get_int(j, "area_x");
-	k->area_y = json_get_int(j, "area_y");
-	k->area_width = json_get_int(j, "area_width");
-	k->area_height = json_get_int(j, "area_height");
-	k->draw_filter = json_get_int(j, "draw_filter");
+	k->pos_x = json_get_double_or(j, "pos_x", prev ? prev->pos_x : 0);
+	k->pos_y = json_get_double_or(j, "pos_y", prev ? prev->pos_y : 0);
+	k->scale_x = json_get_double_or(j, "scale_x", prev ? prev->scale_x : 1);
+	k->scale_y = json_get_double_or(j, "scale_y", prev ? prev->scale_y : 1);
+	k->angle_x = json_get_double_or(j, "angle_x", prev ? prev->angle_x : 0);
+	k->angle_y = json_get_double_or(j, "angle_y", prev ? prev->angle_y : 0);
+	k->angle_z = json_get_double_or(j, "angle_z", prev ? prev->angle_z : 0);
+	k->add_r = json_get_int_or(j, "add_r", prev ? prev->add_r : 0);
+	k->add_g = json_get_int_or(j, "add_g", prev ? prev->add_g : 0);
+	k->add_b = json_get_int_or(j, "add_b", prev ? prev->add_b : 0);
+	k->mul_r = json_get_int_or(j, "mul_r", prev ? prev->mul_r : 0);
+	k->mul_g = json_get_int_or(j, "mul_g", prev ? prev->mul_g : 0);
+	k->mul_b = json_get_int_or(j, "mul_b", prev ? prev->mul_b : 0);
+	k->alpha = json_get_int_or(j, "alpha", prev ? prev->alpha : 255);
+	k->area_x = json_get_int_or(j, "area_x", prev ? prev->area_x : 0);
+	k->area_y = json_get_int_or(j, "area_y", prev ? prev->area_y : 0);
+	k->area_width = json_get_int_or(j, "area_width", prev ? prev->area_width : 0);
+	k->area_height = json_get_int_or(j, "area_height", prev ? prev->area_height : 0);
+	k->draw_filter = json_get_int_or(j, "draw_filter", prev ? prev->draw_filter : 0);
 	if (version > 8)
-		k->uk1 = json_get_int_or(j, "uk1", 0);
-	k->origin_x = json_get_int(j, "origin_x");
-	k->origin_y = json_get_int(j, "origin_y");
+		k->uk1 = json_get_int_or(j, "uk1", prev ? prev->uk1 : 0);
+	k->origin_x = json_get_int_or(j, "origin_x", prev ? prev->origin_x : 0);
+	k->origin_y = json_get_int_or(j, "origin_y", prev ? prev->origin_y : 0);
 	if (version > 7)
-		k->uk2 = json_get_int_or(j, "uk2", 0);
-	k->reverse_tb = json_get_bool(j, "reverse_tb");
-	k->reverse_lr = json_get_bool(j, "reverse_lr");
+		k->uk2 = json_get_int_or(j, "uk2", prev ? prev->uk2 : 0);
+	k->reverse_tb = json_get_bool_or(j, "reverse_tb", prev ? prev->reverse_tb : false);
+	k->reverse_lr = json_get_bool_or(j, "reverse_lr", prev ? prev->reverse_lr : false);
 }
 
 // ---- timeline --------------------------------------------------------------
@@ -184,16 +189,23 @@ static cJSON *timeline_to_json(const struct flat_timeline *tl, int version)
 		cJSON_AddStringToObject(o, "type", "graphic");
 		if (version < 15) {
 			cJSON *a = cJSON_CreateArray();
-			for (uint32_t i = 0; i < tl->graphic.count; i++)
-				cJSON_AddItemToArray(a, graphic_key_to_json(&tl->graphic.keys[i], version));
+			for (uint32_t i = 0; i < tl->graphic.count; i++) {
+				const struct flat_key_data_graphic *prev = i > 0 ? &tl->graphic.keys[i-1] : NULL;
+				cJSON_AddItemToArray(a, graphic_key_to_json(&tl->graphic.keys[i], version, prev));
+			}
 			cJSON_AddItemToObject(o, "keys", a);
 		} else {
 			cJSON *frames = cJSON_CreateArray();
 			for (int32_t f = 0; f < tl->frame_count; f++) {
 				cJSON *fo = cJSON_CreateObject();
 				cJSON *keys = cJSON_CreateArray();
-				for (uint32_t i = 0; i < tl->graphic.frames[f].count; i++)
-					cJSON_AddItemToArray(keys, graphic_key_to_json(&tl->graphic.frames[f].keys[i], version));
+				// Delta against the same key index in the previous frame.
+				for (uint32_t i = 0; i < tl->graphic.frames[f].count; i++) {
+					const struct flat_key_data_graphic *prev = NULL;
+					if (f > 0 && i < tl->graphic.frames[f-1].count)
+						prev = &tl->graphic.frames[f-1].keys[i];
+					cJSON_AddItemToArray(keys, graphic_key_to_json(&tl->graphic.frames[f].keys[i], version, prev));
+				}
 				cJSON_AddItemToObject(fo, "keys", keys);
 				cJSON_AddItemToArray(frames, fo);
 			}
@@ -244,9 +256,11 @@ static void timeline_from_json(cJSON *j, struct flat_timeline *tl, int version)
 			int n = cJSON_GetArraySize(keys);
 			tl->graphic.count = n;
 			tl->graphic.keys = xcalloc(n, sizeof(*tl->graphic.keys));
-			for (int i = 0; i < n; i++)
+			for (int i = 0; i < n; i++) {
+				const struct flat_key_data_graphic *prev = i > 0 ? &tl->graphic.keys[i-1] : NULL;
 				graphic_key_from_json(cJSON_GetArrayItem(keys, i),
-				                      &tl->graphic.keys[i], version);
+				                      &tl->graphic.keys[i], version, prev);
+			}
 		} else {
 			cJSON *frames = json_get_array(j, "frames");
 			int nframes = cJSON_GetArraySize(frames);
@@ -260,9 +274,13 @@ static void timeline_from_json(cJSON *j, struct flat_timeline *tl, int version)
 				int nk = cJSON_GetArraySize(keys);
 				tl->graphic.frames[f].count = nk;
 				tl->graphic.frames[f].keys = xcalloc(nk, sizeof(struct flat_key_data_graphic));
-				for (int i = 0; i < nk; i++)
+				for (int i = 0; i < nk; i++) {
+					const struct flat_key_data_graphic *prev = NULL;
+					if (f > 0 && (uint32_t)i < tl->graphic.frames[f-1].count)
+						prev = &tl->graphic.frames[f-1].keys[i];
 					graphic_key_from_json(cJSON_GetArrayItem(keys, i),
-					                      &tl->graphic.frames[f].keys[i], version);
+					                      &tl->graphic.frames[f].keys[i], version, prev);
+				}
 			}
 		}
 	} else if (!strcmp(type, "script")) {
