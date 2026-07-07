@@ -661,6 +661,7 @@ static void write_libl_files(struct buffer *b, struct ex_table *libl, const stru
 			buffer_write_int32(b, payload.index);
 			buffer_write_bytes(b, payload.buf, payload.index);
 			free(payload.buf);
+			flat_free_library(&lib);
 		} else {
 			// CG / MEMORY: raw file with optional generate_mipmap prefix
 			if (type == FLAT_LIB_CG && version > 0) {
@@ -781,6 +782,8 @@ static struct flat *build_flat(struct ex *ex, const struct string *dir)
 	size_t nr_timelines;
 	flat_mtlc_from_json(mtlc_j, &timelines, &nr_timelines, version);
 	cJSON_Delete(mtlc_j);
+	flat->timelines = timelines;
+	flat->nr_timelines = nr_timelines;
 
 	flat->mtlc.present = true;
 	flat->mtlc.off = b.index;
