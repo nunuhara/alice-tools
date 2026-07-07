@@ -23,6 +23,7 @@
 #include "system4/savefile.h"
 #include "system4/string.h"
 #include "alice.h"
+#include "alice/json.h"
 #include "cli.h"
 
 enum {
@@ -30,28 +31,10 @@ enum {
 	LOPT_OUTPUT,
 };
 
-static int json_get_int(cJSON *o, const char *key)
+// Like json_get_string(), but returns a copy in the output encoding.
+static char *json_get_string_conv(cJSON *o, const char *key)
 {
-	cJSON *v = cJSON_GetObjectItem(o, key);
-	if (!cJSON_IsNumber(v))
-		ALICE_ERROR("Expected a number for '%s'", key);
-	return v->valueint;
-}
-
-static char *json_get_string(cJSON *o, const char *key)
-{
-	cJSON *v = cJSON_GetObjectItem(o, key);
-	if (!cJSON_IsString(v))
-		ALICE_ERROR("Expected a string for '%s'", key);
-	return conv_output(v->valuestring);
-}
-
-static cJSON *json_get_array(cJSON *o, const char *key)
-{
-	cJSON *v = cJSON_GetObjectItem(o, key);
-	if (!cJSON_IsArray(v))
-		ALICE_ERROR("Expected an array for '%s'", key);
-	return v;
+	return conv_output(json_get_string(o, key));
 }
 
 struct typed_value {
@@ -173,13 +156,13 @@ static struct typed_value add_value_to_gsave(cJSON *v, struct gsave *save)
 static struct gsave *json_to_gsave(cJSON *root)
 {
 	struct gsave *save = xcalloc(1, sizeof(struct gsave));
-	save->key = json_get_string(root, "key");
+	save->key = json_get_string_conv(root, "key");
 	save->uk1 = json_get_int(root, "uk1");
 	save->version = json_get_int(root, "version");
 	save->uk2 = json_get_int(root, "uk2");
 	save->nr_ain_globals = json_get_int(root, "num_ain_globals");
 	if (save->version >= 5)
-		save->group = json_get_string(root, "group");
+		save->group = json_get_string_conv(root, "group");
 
 	if (save->version >= 7) {
 		cJSON *struct_defs = json_get_array(root, "struct_defs");
@@ -189,7 +172,7 @@ static struct gsave *json_to_gsave(cJSON *root)
 		cJSON *o;
 		cJSON_ArrayForEachIndex(i, o, struct_defs) {
 			struct gsave_struct_def *sd = &save->struct_defs[i];
-			sd->name = json_get_string(o, "name");
+			sd->name = json_get_string_conv(o, "name");
 			cJSON *fields = json_get_array(o, "fields");
 			sd->nr_fields = cJSON_GetArraySize(fields);
 			sd->fields = xcalloc(sd->nr_fields, sizeof(struct gsave_field_def));
@@ -197,7 +180,7 @@ static struct gsave *json_to_gsave(cJSON *root)
 			cJSON *f;
 			cJSON_ArrayForEachIndex(j, f, fields) {
 				sd->fields[j].type = json_get_int(f, "type");
-				sd->fields[j].name = json_get_string(f, "name");
+				sd->fields[j].name = json_get_string_conv(f, "name");
 			}
 		}
 	}
@@ -208,7 +191,7 @@ static struct gsave *json_to_gsave(cJSON *root)
 	int i;
 	cJSON *o;
 	cJSON_ArrayForEachIndex(i, o, globals) {
-		save->globals[i].name = json_get_string(o, "name");
+		save->globals[i].name = json_get_string_conv(o, "name");
 		cJSON *v = cJSON_GetObjectItem(o, "value");
 		struct typed_value tv = add_value_to_gsave(v, save);
 		save->globals[i].type = tv.type;
@@ -274,7 +257,7 @@ static void json_to_rsave_return_record(cJSON *f, struct rsave_return_record *de
 		return;
 	}
 	dest->return_addr = json_get_int(f, "return_addr");
-	dest->caller_func = json_get_string(f, "caller_func");
+	dest->caller_func = json_get_string_conv(f, "caller_func");
 	dest->local_addr = json_get_int(f, "local_addr");
 	dest->crc = json_get_int(f, "crc");
 }
@@ -411,7 +394,7 @@ static struct rsave *json_to_rsave(cJSON *root)
 	cJSON *item;
 	struct rsave *save = xcalloc(1, sizeof(struct rsave));
 	save->version = json_get_int(root, "version");
-	save->key = json_get_string(root, "key");
+	save->key = json_get_string_conv(root, "key");
 	if (save->version >= 7) {
 		cJSON *comments = json_get_array(root, "comments");
 		save->comments = json_to_string_array(comments, &save->nr_comments);
