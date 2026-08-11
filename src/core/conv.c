@@ -24,32 +24,49 @@
 #include "alice.h"
 
 #ifdef USE_LIBICONV
-/*
- * Work around round-trip encoding bug in libiconv.
- * Roman numerals have two encodings in CP932, starting at 87-54 and FA-4A respectively.
- * libiconv encodes them using the FA-4A codes, which breaks string comparisons.
- */
-static void fix_encoding(char *_str, size_t size, const char *encoding)
+// Work around round-trip conversion bugs in libiconv.
+static void fix_encoding(char *_str, size_t size, const char *out_enc, const char *in_enc)
 {
-	if (strcmp(encoding, "CP932"))
-		return;
-
 	uint8_t *str = (uint8_t*)_str;
-	for (int i = 0; i < size; i += SJIS_2BYTE(str[i]) ? 2 : 1) {
-		if (str[i] != 0xfa || !str[i+1])
-			continue;
-		int n = (int)str[i+1] - 0x4a;
-		if (n < 0 || n > 9)
-			continue;
-		str[i] = 0x87;
-		str[i+1] = 0x54 + n;
+
+	if (!strcmp(out_enc, "CP932")) {
+		/*
+		 * Roman numerals have two encodings in CP932, starting at 87-54 and FA-4A
+		 * respectively. libiconv encodes them using the FA-4A codes, which breaks
+		 * string comparisons.
+		 */
+		for (size_t i = 0; i < size; i += SJIS_2BYTE(str[i]) ? 2 : 1) {
+			if (str[i] != 0xfa || !str[i+1])
+				continue;
+			int n = (int)str[i+1] - 0x4a;
+			if (n < 0 || n > 9)
+				continue;
+			str[i] = 0x87;
+			str[i+1] = 0x54 + n;
+		}
+	} else if (!strcmp(in_enc, "CP932") && !strcmp(out_enc, "UTF-8")) {
+		/*
+		 * libiconv decodes CP932 81-60 to U+301C (WAVE DASH), following
+		 * SHIFTJIS.TXT rather than CP932.TXT (which maps it to U+FF5E, FULLWIDTH
+		 * TILDE). Since U+301C has no CP932 encoding, this breaks the round trip.
+		 * Rewrite it to U+FF5E, as glibc iconv does.
+		 */
+		for (size_t i = 0; i + 2 < size; i++) {
+			if (str[i] == 0xe3 && str[i+1] == 0x80 && str[i+2] == 0x9c) {
+				str[i]   = 0xef;
+				str[i+1] = 0xbd;
+				str[i+2] = 0x9e;
+				i += 2;
+			}
+		}
 	}
 }
 #else
-#define fix_encoding(str, size, encoding)
+#define fix_encoding(str, size, out_enc, in_enc)
 #endif
 
-static struct string *string_conv(iconv_t cd, const char *str, size_t len, const char *encoding)
+static struct string *string_conv(iconv_t cd, const char *str, size_t len,
+		const char *out_enc, const char *in_enc)
 {
 	size_t inbytesleft = len > 0 ? len : strlen(str);
 	char *inbuf = (char*)str;
@@ -81,11 +98,12 @@ static struct string *string_conv(iconv_t cd, const char *str, size_t len, const
 	*outptr = '\0';
 	out->size = outptr - out->text;
 
-	fix_encoding(out->text, out->size, encoding);
+	fix_encoding(out->text, out->size, out_enc, in_enc);
 	return out;
 }
 
-static char *convert_text(iconv_t cd, const char *str, size_t len, const char *encoding)
+static char *convert_text(iconv_t cd, const char *str, size_t len,
+		const char *out_enc, const char *in_enc)
 {
 	size_t inbytesleft = len;
 	char *inbuf = (char*)str;
@@ -113,7 +131,7 @@ static char *convert_text(iconv_t cd, const char *str, size_t len, const char *e
 	}
 	*outptr = '\0';
 
-	fix_encoding(outbuf, outptr - outbuf, encoding);
+	fix_encoding(outbuf, outptr - outbuf, out_enc, in_enc);
 	return outbuf;
 }
 
@@ -173,13 +191,13 @@ static iconv_t check_conv(iconv_t *conv, const char *out_enc, const char *in_enc
 char *conv_output_len(const char *str, size_t len)
 {
 	return convert_text(check_conv(&output_conv, output_encoding, input_encoding), str, len,
-			output_encoding);
+			output_encoding, input_encoding);
 }
 
 struct string *string_conv_output(const char *str, size_t len)
 {
 	return string_conv(check_conv(&output_conv, output_encoding, input_encoding), str, len,
-			output_encoding);
+			output_encoding, input_encoding);
 }
 
 char *conv_output(const char *str)
@@ -190,13 +208,13 @@ char *conv_output(const char *str)
 char *conv_input_len(const char *str, size_t len)
 {
 	return convert_text(check_conv(&input_conv, input_encoding, output_encoding), str, len,
-			input_encoding);
+			input_encoding, output_encoding);
 }
 
 struct string *string_conv_input(const char *str, size_t len)
 {
 	return string_conv(check_conv(&input_conv, input_encoding, output_encoding), str, len,
-			input_encoding);
+			input_encoding, output_encoding);
 }
 
 char *conv_input(const char *str)
@@ -206,12 +224,14 @@ char *conv_input(const char *str)
 
 char *conv_utf8_len(const char *str, size_t len)
 {
-	return convert_text(check_conv(&utf8_conv, "UTF-8", input_encoding), str, len, "UTF-8");
+	return convert_text(check_conv(&utf8_conv, "UTF-8", input_encoding), str, len, "UTF-8",
+			input_encoding);
 }
 
 struct string *string_conv_utf8(const char *str, size_t len)
 {
-	return string_conv(check_conv(&utf8_conv, "UTF-8", input_encoding), str, len, "UTF-8");
+	return string_conv(check_conv(&utf8_conv, "UTF-8", input_encoding), str, len, "UTF-8",
+			input_encoding);
 }
 
 char *conv_utf8(const char *str)
@@ -222,13 +242,13 @@ char *conv_utf8(const char *str)
 char *conv_output_utf8_len(const char *str, size_t len)
 {
 	return convert_text(check_conv(&output_utf8_conv, "UTF-8", output_encoding), str, len,
-			"UTF-8");
+			"UTF-8", output_encoding);
 }
 
 struct string *string_conv_output_utf8(const char *str, size_t len)
 {
 	return string_conv(check_conv(&output_utf8_conv, "UTF-8", output_encoding), str, len,
-			"UTF-8");
+			"UTF-8", output_encoding);
 }
 
 char *conv_output_utf8(const char *str)
@@ -240,13 +260,13 @@ char *conv_output_utf8(const char *str)
 char *conv_utf8_input_len(const char *str, size_t len)
 {
 	return convert_text(check_conv(&utf8_input_conv, input_encoding, "UTF-8"), str, len,
-			input_encoding);
+			input_encoding, "UTF-8");
 }
 
 struct string *string_conv_utf8_input(const char *str, size_t len)
 {
 	return string_conv(check_conv(&utf8_input_conv, input_encoding, "UTF-8"), str, len,
-			input_encoding);
+			input_encoding, "UTF-8");
 }
 
 char *conv_utf8_input(const char *str)
