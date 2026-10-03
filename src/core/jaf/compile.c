@@ -1062,8 +1062,10 @@ static bool _compile_cast(struct compiler_state *state, struct jaf_expression *e
 
 	if (src_type == dst_type)
 		return true;
-	if (src_type == AIN_INT) {
-		if (dst_type == AIN_FLOAT) {
+	if (src_type == AIN_INT || src_type == AIN_LONG_INT) {
+		if (dst_type == AIN_INT) {
+			// nothing
+		} else if (dst_type == AIN_FLOAT) {
 			write_instruction0(state, ITOF);
 		} else if (dst_type == AIN_STRING) {
 			write_instruction0(state, I_STRING);
