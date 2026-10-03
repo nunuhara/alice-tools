@@ -135,7 +135,7 @@ static cJSON *graphic_key_to_json(const struct flat_key_data_graphic *k, int ver
 	if (version > 8 && (!prev || k->uk1 != prev->uk1)) cJSON_AddNumberToObject(o, "uk1", k->uk1);
 	if (!prev || k->origin_x != prev->origin_x) cJSON_AddNumberToObject(o, "origin_x", k->origin_x);
 	if (!prev || k->origin_y != prev->origin_y) cJSON_AddNumberToObject(o, "origin_y", k->origin_y);
-	if (version > 7 && (!prev || k->uk2 != prev->uk2)) cJSON_AddNumberToObject(o, "uk2", k->uk2);
+	if (version > 7 && (!prev || k->align != prev->align)) cJSON_AddNumberToObject(o, "align", k->align);
 	if (!prev || k->reverse_tb != prev->reverse_tb) cJSON_AddBoolToObject(o, "reverse_tb", k->reverse_tb);
 	if (!prev || k->reverse_lr != prev->reverse_lr) cJSON_AddBoolToObject(o, "reverse_lr", k->reverse_lr);
 	return o;
@@ -169,7 +169,7 @@ static void graphic_key_from_json(cJSON *j, struct flat_key_data_graphic *k, int
 	k->origin_x = json_get_int_or(j, "origin_x", prev ? prev->origin_x : 0);
 	k->origin_y = json_get_int_or(j, "origin_y", prev ? prev->origin_y : 0);
 	if (version > 7)
-		k->uk2 = json_get_int_or(j, "uk2", prev ? prev->uk2 : 0);
+		k->align = json_get_int_or(j, "align", prev ? prev->align : 0);
 	k->reverse_tb = json_get_bool_or(j, "reverse_tb", prev ? prev->reverse_tb : false);
 	k->reverse_lr = json_get_bool_or(j, "reverse_lr", prev ? prev->reverse_lr : false);
 }
@@ -695,7 +695,7 @@ static void write_talt_files(struct buffer *b, struct ex_table *talt, const stru
 	if (talt->fields[1].subfields[0].type != EX_STRING)
 		ALICE_ERROR("Wrong type for column 'uk1' in 'talt.meta' table");
 	if (talt->fields[1].subfields[1].type != EX_INT)
-		ALICE_ERROR("Wrong type for column 'uk2' in 'talt.meta' table");
+		ALICE_ERROR("Wrong type for column 'align' in 'talt.meta' table");
 	if (talt->fields[1].subfields[2].type != EX_INT)
 		ALICE_ERROR("Wrong type for column 'uk3' in 'talt.meta' table");
 	if (talt->fields[1].subfields[3].type != EX_INT)

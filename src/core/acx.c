@@ -35,17 +35,6 @@ void acx_write(FILE *out, struct acx *acx)
 	if (fwrite("ACX\0\0\0\0", 8, 1, out) != 1)
 		ERROR("fwrite: %s", strerror(errno));
 
-	unsigned long size = 8 + acx->nr_columns*4;
-	for (int line = 0; line < acx->nr_lines; line++) {
-		for (int col = 0; col < acx->nr_columns; col++) {
-			if (acx->column_types[col] == ACX_STRING) {
-				size += acx->lines[line*acx->nr_columns + col].s->size + 1;
-			} else {
-				size += 4;
-			}
-		}
-	}
-
 	// serialize
 	struct buffer buf;
 	buffer_init(&buf, NULL, 0);

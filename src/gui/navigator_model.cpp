@@ -254,7 +254,7 @@ void NavigatorModel::Node::appendFlatKeyDataGraphic(struct flat_key_data_graphic
 		appendChild(makeKVNode("Unknown 1", (int)key->uk1));
 	appendChild(makeKVNode_XY("Origin", (float)key->origin_x, (float)key->origin_y));
 	if (version > 7)
-		appendChild(makeKVNode("Unknown 2", (int)key->uk2));
+		appendChild(makeKVNode("Align", (int)key->align));
 	appendChild(makeKVNode("Reverse TB", key->reverse_tb));
 	appendChild(makeKVNode("Reverse LR", key->reverse_lr));
 }
